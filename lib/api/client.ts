@@ -1,3 +1,5 @@
+import { trackRequest } from "@/lib/loading/store";
+
 /**
  * Thin fetch wrapper. Every UI call goes through here, so swapping the mock
  * route handlers for a real backend only touches this layer.
@@ -9,8 +11,6 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
-
-import { trackRequest } from "@/lib/loading/store";
 
 export function request<T>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {
   return trackRequest(doRequest<T>(url, init));

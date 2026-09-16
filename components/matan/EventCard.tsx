@@ -46,7 +46,7 @@ export function EventCard({ event, onClick, className }: { event: RingEvent; onC
 }
 
 /** List row (Events page). Selectable, keyboard focusable. */
-export function EventRow({ event, selected, onSelect, className }: { event: RingEvent; selected?: boolean; onSelect: (e: RingEvent) => void; className?: string }) {
+export function EventRow({ event, selected, onSelect, className, ...rest }: { event: RingEvent; selected?: boolean; onSelect: (e: RingEvent) => void; className?: string } & Record<`data-${string}`, unknown>) {
   const tone = eventTypeTone[event.type];
   const t = toneStyles[tone];
   return (
@@ -55,6 +55,7 @@ export function EventRow({ event, selected, onSelect, className }: { event: Ring
       onClick={() => onSelect(event)}
       aria-pressed={selected}
       aria-label={`${event.title} at ${event.location}, ${relativeDayTime(event.timestamp)}, ${event.priority}`}
+      {...rest}
       className={cn(
         "card group flex w-full items-center gap-4 p-3 text-left transition-[border-color,box-shadow,background-color] duration-150 hover:border-border-strong hover:bg-surface-2/60",
         selected && "border-primary/60 glow-strong bg-surface-2/70",

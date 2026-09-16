@@ -16,6 +16,7 @@ import { useClock } from "@/hooks/useClock";
 import { timeAgo } from "@/lib/utils/format";
 import { toneStyles } from "@/lib/utils/tones";
 import { useAppData } from "./AppDataProvider";
+import { RefreshIndicator } from "./RefreshIndicator";
 
 const weatherIcons = { sun: Sun, "cloud-sun": CloudSun, cloud: Cloud, rain: CloudRain };
 
@@ -210,6 +211,7 @@ export function Topbar({ title, subtitle, search, actions, status, showClock = t
           <WeatherChip />
         </div>
         <div className="hidden lg:flex items-center gap-2">
+          <RefreshIndicator />
           <NotificationsButton />
           <ProfileMenu />
         </div>

@@ -30,6 +30,8 @@ export const ringApi = {
   refresh: () => request<{ devices: RingDiscoveredDevice[]; connected: ConnectedRingDevice[]; session: RingSessionInfo }>("/api/ring/refresh", { method: "POST" }),
   status: (id: string) => request<{ device: ConnectedRingDevice; status: { online: boolean | null; reportedAt?: string } }>(`/api/ring/devices/${id}/status`),
   events: (id: string) => request<{ events: RingHistoryEvent[] }>(`/api/ring/devices/${id}/events`),
+  startStream: (id: string, sdpOffer: string) => request<{ sdpAnswer: string; sessionUrl: string | null }>(`/api/ring/devices/${id}/stream`, { method: "POST", json: { sdpOffer } }),
+  stopStream: (id: string, sessionUrl: string) => request<{ ended: boolean }>(`/api/ring/devices/${id}/stream`, { method: "DELETE", json: { sessionUrl } }),
 };
 
 /** Extract the normalized Ring error payload from a failed request, if present. */

@@ -20,11 +20,11 @@ const statusTone = { online: "success", offline: "danger", unknown: "neutral" } 
  * Card for a device connected through the Ring Playground. Every fact shown
  * comes from the Ring API or the user's local metadata - nothing is invented.
  */
-export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpen, menu, className }: { device: ConnectedRingDevice; view?: "grid" | "list"; onEvents: () => void; onOpen: () => void; menu?: React.ReactNode; className?: string }) {
+export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpen, menu, className, liveEnabled = true }: { device: ConnectedRingDevice; view?: "grid" | "list"; onEvents: () => void; onOpen: () => void; menu?: React.ReactNode; className?: string; liveEnabled?: boolean }) {
   const Icon = ringKindIcon[device.deviceType];
-  const canLive = device.details.video && device.status === "online";
+  const canLive = device.details.video !== false && liveEnabled;
   const liveButton = (
-    <Button variant="secondary" size="sm" className="flex-1" leftIcon={<Video className="size-4" />} disabled>
+    <Button variant={canLive ? "primary" : "secondary"} size="sm" className="flex-1" leftIcon={<Video className="size-4" />} href={canLive ? `/live?camera=ring:${device.id}` : undefined} disabled={!canLive}>
       Live View
     </Button>
   );
@@ -77,7 +77,7 @@ export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpe
 
   const actions = (
     <div className="flex items-center gap-2">
-      {canLive ? <Tooltip content="Live view for Ring devices arrives in the next milestone">{liveButton}</Tooltip> : liveButton}
+      {canLive ? liveButton : <Tooltip content={liveEnabled ? "This device doesn't report video" : "Reconnect the Ring session to stream"}>{liveButton}</Tooltip>}
       <Button variant="secondary" size="sm" className="flex-1" leftIcon={<ListOrdered className="size-4" />} onClick={onEvents}>
         Events
       </Button>

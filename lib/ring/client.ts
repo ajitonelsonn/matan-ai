@@ -97,3 +97,61 @@ export async function getRingUser(token: string) {
   const a = (Array.isArray(doc.data) ? doc.data[0] : doc.data)?.attributes ?? {};
   return { firstName: typeof a.first_name === "string" ? a.first_name : undefined, email: typeof a.email === "string" ? a.email : undefined };
 }
+
+/* ---- Live view (WebRTC / WHEP) ------------------------------------------- */
+
+export interface WhepSession {
+  sdpAnswer: string;
+  /** Session URL returned in the Location header; DELETE it to end the stream. */
+  sessionUrl: string | null;
+}
+
+/**
+ * Start a WHEP live-view session: forward the browser's SDP offer to Ring and
+ * return Ring's SDP answer. The token stays on the server.
+ * POST /v1/devices/{id}/media/streaming/whep/sessions  (Content-Type: application/sdp)
+ */
+export async function startWhepSession(token: string, deviceId: string, sdpOffer: string): Promise<WhepSession> {
+  const path = `/v1/devices/${encodeURIComponent(deviceId)}/media/streaming/whep/sessions`;
+  let res: Response;
+  try {
+    res = await fetch(`${RING_API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/sdp", Accept: "application/sdp" },
+      body: sdpOffer,
+      cache: "no-store",
+      signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    console.error({ event: "ring_whep_failed", reason: e instanceof Error ? e.name : "unknown" });
+    throw new RingApiError("RING_NETWORK", 502);
+  }
+  if (!res.ok) {
+    let body: JsonApiErrorDocument | null = null;
+    try {
+      body = (await res.json()) as JsonApiErrorDocument;
+    } catch {
+      body = null;
+    }
+    const err = fromResponse(res.status, body, res.headers.get("Retry-After"));
+    console.error({ event: "ring_whep_error", status: res.status, code: err.code });
+    throw err;
+  }
+  const sdpAnswer = await res.text();
+  if (!/^v=0/m.test(sdpAnswer)) throw new RingApiError("RING_UNKNOWN", 502, "Ring returned an unexpected live-view response.");
+  console.log({ event: "ring_whep_started", success: true });
+  return { sdpAnswer, sessionUrl: res.headers.get("Location") };
+}
+
+/** End a WHEP session. Only Ring session URLs are accepted (no open proxying). */
+export async function stopWhepSession(token: string, sessionUrl: string): Promise<void> {
+  if (!sessionUrl.startsWith(`${RING_API_BASE_URL}/v1/devices/`) || !sessionUrl.includes("/media/streaming/whep/sessions/")) {
+    throw new RingApiError("RING_BAD_REQUEST", 400, "Not a Ring live-view session URL.");
+  }
+  try {
+    await fetch(sessionUrl, { method: "DELETE", headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS) });
+    console.log({ event: "ring_whep_stopped" });
+  } catch {
+    /* best effort - the session times out on Ring's side anyway */
+  }
+}

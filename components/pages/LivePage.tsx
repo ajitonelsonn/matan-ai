@@ -61,6 +61,12 @@ import { formatTime, formatDuration } from "@/lib/utils/format";
 import { priorityTone, toneStyles } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { Device, RingEvent } from "@/lib/types";
+import { ringApi } from "@/lib/api/ring";
+import { RingLivePlayer } from "@/components/devices/ring-live-player";
+import { RingLiveSidePanel } from "@/components/devices/ring-live-side-panel";
+import { AddRingDeviceModal } from "@/components/devices/add-ring-device-modal";
+import { useRingCountdown } from "@/components/devices/use-ring-session";
+import { RingBadge as RingSourceBadge } from "@/components/matan/Brand";
 
 const quickReplies = ["We'll be right there.", "Please leave the package at the door.", "We can't come to the door right now.", "Thanks! Have a great day."];
 
@@ -118,6 +124,16 @@ export function LivePage() {
   const devicesQ = useApi(() => devicesApi.list(), []);
   const cameras = React.useMemo(() => (devicesQ.data?.items ?? []).filter((d) => d.kind === "camera" || d.kind === "doorbell"), [devicesQ.data]);
   const [camId, setCamId] = React.useState<string>(params.get("camera") ?? "cam-front");
+
+  // Real Ring devices connected through the Playground join the camera list.
+  const ringQ = useApi(() => ringApi.devices(), []);
+  const ringDevices = React.useMemo(() => (ringQ.data?.connected ?? []).filter((d) => d.details.video !== false), [ringQ.data]);
+  const ringSession = ringQ.data?.session ?? null;
+  const ringCountdown = useRingCountdown(ringSession);
+  const ringLive = ringCountdown.status === "valid" || ringCountdown.status === "expiring";
+  const ringCam = camId.startsWith("ring:") ? ringDevices.find((d) => `ring:${d.id}` === camId) : undefined;
+  const [reconnectOpen, setReconnectOpen] = React.useState(false);
+
   const cam = cameras.find((c) => c.id === camId) ?? cameras[0];
 
   const eventsQ = useApi(() => eventsApi.list({ range: "today", pageSize: 100 }), []);
@@ -139,8 +155,9 @@ export function LivePage() {
   const reply = usePopover();
 
   React.useEffect(() => {
-    if (cam) window.history.replaceState(null, "", `/live?camera=${cam.id}`);
-  }, [cam]);
+    if (ringCam) window.history.replaceState(null, "", `/live?camera=ring:${ringCam.id}`);
+    else if (cam) window.history.replaceState(null, "", `/live?camera=${cam.id}`);
+  }, [cam, ringCam]);
 
   const fullscreen = () => {
     if (frameRef.current && document.fullscreenEnabled) void frameRef.current.requestFullscreen().catch(() => toast.info("Fullscreen isn't available here"));
@@ -187,7 +204,9 @@ export function LivePage() {
         <div className="grid gap-5 xl:grid-cols-12">
           {/* Left */}
           <div className="space-y-5 xl:col-span-8">
-            {loading ? (
+            {ringCam ? (
+              <RingLivePlayer key={ringCam.id} device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} autoStart={params.get("autoplay") === "1"} />
+            ) : loading ? (
               <div className="relative">
                 <Skeleton className="aspect-video w-full rounded-hero" />
                 <LoadingOverlay label="Connecting to camera" />
@@ -241,9 +260,16 @@ export function LivePage() {
                 icon={<Video />}
                 title={<span id="cam-selector">Camera Selector</span>}
                 action={
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-success">
-                    <span className="size-1.5 rounded-full bg-success" aria-hidden />
-                    {online}/{cameras.length} online
+                  <span className="inline-flex items-center gap-2 text-[13px] font-medium">
+                    {ringDevices.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-primary">
+                        <RingSourceBadge size="xs" /> {ringDevices.length} Ring
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 text-success">
+                      <span className="size-1.5 rounded-full bg-success" aria-hidden />
+                      {online}/{cameras.length} demo online
+                    </span>
                   </span>
                 }
               />
@@ -252,6 +278,12 @@ export function LivePage() {
                   <ChevronLeft />
                 </IconButton>
                 <div ref={stripRef} className="flex flex-1 gap-3 overflow-x-auto scrollbar-none pb-1 snap-x">
+                  {ringDevices.map((d) => (
+                    <div key={`ring:${d.id}`} className="relative w-[150px] shrink-0 snap-start">
+                      <CameraTile name={d.displayName} imageUrl={d.imageUrl} online={d.status === "online"} selected={`ring:${d.id}` === camId} onClick={() => setCamId(`ring:${d.id}`)} showLive={false} />
+                      <span className="pointer-events-none absolute right-2 top-2"><RingSourceBadge size="xs" /></span>
+                    </div>
+                  ))}
                   {loading
                     ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[92px] w-[150px] shrink-0 rounded-2xl" />)
                     : cameras.map((c) => (
@@ -315,6 +347,9 @@ export function LivePage() {
           {/* Right */}
           <div className="space-y-5 xl:col-span-4">
             {/* AI analysis */}
+            {ringCam ? (
+              <RingLiveSidePanel device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} />
+            ) : (
             <section className="card-hero p-5" aria-labelledby="ai-title">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -391,11 +426,12 @@ export function LivePage() {
                 </>
               )}
             </section>
+            )}
 
             {/* Live controls */}
             <section className="card p-5" aria-labelledby="controls-title">
-              <SectionHeader icon={<Video />} title={<span id="controls-title">Live Controls</span>} />
-              <div className="grid grid-cols-5 gap-2">
+              <SectionHeader icon={<Video />} title={<span id="controls-title">Live Controls</span>} subtitle={ringCam ? "Device controls for Ring devices need verified Ring endpoints - next milestone." : undefined} />
+              <div className={cn("grid grid-cols-5 gap-2", ringCam && "opacity-50 pointer-events-none")} aria-disabled={Boolean(ringCam)}>
                 {[
                   { label: "Siren", icon: <Siren />, tone: "danger", onClick: () => void siren(), active: false },
                   { label: "Lights", icon: <Lightbulb />, tone: "warning", onClick: () => { setLights((l) => !l); toast.success(lights ? "Lights turned off" : "Lights turned on", "Smart lights near the front door"); }, active: lights },
@@ -466,6 +502,8 @@ export function LivePage() {
           </div>
         </div>
       )}
+
+      <AddRingDeviceModal open={reconnectOpen} onClose={() => setReconnectOpen(false)} existingSession={ringSession} alreadyConnectedIds={(ringQ.data?.connected ?? []).map((d) => d.ringDeviceId)} onConnected={(connected, session) => ringQ.setData({ connected, session })} />
     </>
   );
 }

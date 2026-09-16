@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, RefreshCw, LayoutGrid, List, BellRing, Camera, Speaker, WifiOff, Radio, Activity, Pencil, Trash2, Star, StarOff, Clock, MapPin, ExternalLink, BookOpen, CircleHelp, ListOrdered, FlaskConical, ChevronRight } from "lucide-react";
+import { Plus, RefreshCw, LayoutGrid, List, BellRing, Camera, Speaker, WifiOff, Radio, Activity, Pencil, Trash2, Star, StarOff, Clock, MapPin, ExternalLink, BookOpen, CircleHelp, ListOrdered, FlaskConical, ChevronRight, Video } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -296,7 +296,7 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((d, i) => (
                   <div key={d.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
-                    <RingConnectedDeviceCard device={d} onOpen={() => setDetailId(d.id)} onEvents={() => setEventsOpenFor(d.id)} menu={menuFor(d)} />
+                    <RingConnectedDeviceCard device={d} liveEnabled={live} onOpen={() => setDetailId(d.id)} onEvents={() => setEventsOpenFor(d.id)} menu={menuFor(d)} />
                   </div>
                 ))}
                 <button type="button" onClick={() => setAddOpen(true)} className="flex min-h-[320px] flex-col items-center justify-center rounded-card border-2 border-dashed border-primary/30 bg-primary/[0.04] p-6 text-center transition-[border-color,background-color] hover:border-primary/60 hover:bg-primary/[0.08]">
@@ -310,7 +310,7 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
             ) : (
               <div className="space-y-3">
                 {filtered.map((d) => (
-                  <RingConnectedDeviceCard key={d.id} device={d} view="list" onOpen={() => setDetailId(d.id)} onEvents={() => setEventsOpenFor(d.id)} menu={menuFor(d)} />
+                  <RingConnectedDeviceCard key={d.id} device={d} view="list" liveEnabled={live} onOpen={() => setDetailId(d.id)} onEvents={() => setEventsOpenFor(d.id)} menu={menuFor(d)} />
                 ))}
               </div>
             )}
@@ -473,6 +473,9 @@ function RingDeviceDetail({ device, live, onEdit, onRemove, onRefreshStatus, onE
         <span>{device.aiEnabled ? "Matan AI analysis on" : "Matan AI analysis off"}</span>
       </div>
       <div className="flex flex-wrap gap-2">
+        <Button size="sm" leftIcon={<Video className="size-4" />} href={`/live?camera=ring:${device.id}`} disabled={!live || device.details.video === false}>
+          Live view
+        </Button>
         <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="size-4" />} onClick={onRefreshStatus} disabled={!live}>
           Refresh status
         </Button>

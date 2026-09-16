@@ -6,9 +6,12 @@ import { trackRequest } from "@/lib/loading/store";
  */
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Parsed JSON body of the failed response, when available. */
+  payload?: unknown;
+  constructor(message: string, status: number, payload?: unknown) {
     super(message);
     this.status = status;
+    this.payload = payload;
   }
 }
 
@@ -26,13 +29,16 @@ async function doRequest<T>(url: string, init?: RequestInit & { json?: unknown }
   });
   if (!res.ok) {
     let message = res.statusText || "Request failed";
+    let payload: unknown;
     try {
-      const data = (await res.json()) as { error?: string };
-      if (data.error) message = data.error;
+      const data = (await res.json()) as { error?: string | { message?: string } };
+      payload = data;
+      if (typeof data.error === "string") message = data.error;
+      else if (data.error?.message) message = data.error.message;
     } catch {
       /* ignore */
     }
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, payload);
   }
   return (await res.json()) as T;
 }

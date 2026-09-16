@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "images.pexels.com" },
+      // Ring product images returned by the Ring Partner API (device attributes.image_url)
+      { protocol: "https", hostname: "app-content.ring.com" },
+      { protocol: "https", hostname: "**.ring.com" },
     ],
   },
 };

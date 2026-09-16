@@ -6,3 +6,4 @@ next-env.d.ts
 .DS_Store
 .env*.local
 MATAN_AI_UI_UX_BUILD_SPEC.md
+MATAN_AI_RING_ADD_DEVICE_INTEGRATION.md

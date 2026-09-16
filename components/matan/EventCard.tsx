@@ -23,11 +23,11 @@ export function EventCard({ event, onClick, className }: { event: RingEvent; onC
       onClick={onClick ? () => onClick(event) : undefined}
       className={cn("card hover-lift flex flex-col p-3.5 text-left transition-[border-color]", priorityAccent(event.priority), onClick && "hover:border-border-strong", className)}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-border">
           <SafeImage src={event.imageUrl} alt={event.title} sizes="120px" grayscale={event.priority === "important"} />
         </div>
-        <RiskBadge priority={event.priority} label={event.badgeLabel} size="xs" />
+        <RiskBadge priority={event.priority} label={event.badgeLabel} size="xs" pending={event.analysis === "pending"} />
       </div>
       <h3 className="mt-3 text-[15px] font-semibold text-text leading-tight">{event.title}</h3>
       <dl className="mt-2 space-y-1 text-[12.5px] text-text-2">
@@ -40,7 +40,7 @@ export function EventCard({ event, onClick, className }: { event: RingEvent; onC
           <dd>{event.location}</dd>
         </div>
       </dl>
-      <p className={cn("mt-2.5 text-[12.5px] leading-relaxed", event.priority === "normal" ? "text-text-3" : "text-text-2")}>{event.summary}</p>
+      <p className={cn("mt-2.5 text-[12.5px] leading-relaxed", event.priority === "normal" ? "text-text-3" : "text-text-2")}>{event.analysis === "pending" ? `${event.summary} Awaiting Matan AI analysis.` : event.summary}</p>
     </Tag>
   );
 }
@@ -84,7 +84,7 @@ export function EventRow({ event, selected, onSelect, className, ...rest }: { ev
         <p className="hidden sm:block text-[13.5px] leading-snug text-text-2 line-clamp-2">{event.summary}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <RiskBadge priority={event.priority} label={event.badgeLabel} />
+        <RiskBadge priority={event.priority} label={event.badgeLabel} pending={event.analysis === "pending"} />
         <ChevronRight className={cn("size-4 text-text-3 transition-transform group-hover:translate-x-0.5", selected && "text-primary")} aria-hidden />
       </div>
     </button>
@@ -92,7 +92,7 @@ export function EventRow({ event, selected, onSelect, className, ...rest }: { ev
 }
 
 /** Minimal line used in lists (Business recent events, assistant references). */
-export function EventLine({ event, onClick, className, showDay }: { event: Pick<RingEvent, "id" | "title" | "location" | "timestamp" | "type" | "priority">; onClick?: () => void; className?: string; showDay?: boolean }) {
+export function EventLine({ event, onClick, className, showDay }: { event: Pick<RingEvent, "id" | "title" | "location" | "timestamp" | "type" | "priority"> & { analysis?: RingEvent["analysis"] }; onClick?: () => void; className?: string; showDay?: boolean }) {
   const t = toneStyles[eventTypeTone[event.type]];
   const Tag = onClick ? "button" : "div";
   return (
@@ -107,7 +107,7 @@ export function EventLine({ event, onClick, className, showDay }: { event: Pick<
         <span className={cn("block truncate text-sm", event.priority === "important" ? "font-semibold text-text" : "text-text")}>{event.title}</span>
         <span className="block truncate text-xs text-text-3">{event.location}</span>
       </span>
-      <RiskBadge priority={event.priority} size="xs" variant="soft" />
+      <RiskBadge priority={event.priority} size="xs" variant="soft" pending={event.analysis === "pending"} />
     </Tag>
   );
 }

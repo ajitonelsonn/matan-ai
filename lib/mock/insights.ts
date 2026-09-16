@@ -61,7 +61,7 @@ const cameraNames: Record<string, string> = {
   "cam-indoor": "Living Room",
 };
 
-export function buildInsights(allEvents: RingEvent[], range: InsightRange): InsightsData {
+export function buildInsights(allEvents: RingEvent[], range: InsightRange, cameraNameOverride?: Record<string, string>): InsightsData {
   const days = rangeDays(range);
   const current = eventsInRange(allEvents, range);
   const previous = eventsInRange(allEvents, range, days);
@@ -107,7 +107,7 @@ export function buildInsights(allEvents: RingEvent[], range: InsightRange): Insi
   const byCamera: CameraActivity[] = [...camCounts.entries()]
     .map(([cameraId, count]) => ({
       cameraId,
-      name: cameraNames[cameraId] ?? "Others",
+      name: cameraNameOverride?.[cameraId] ?? cameraNames[cameraId] ?? "Others",
       count,
       pct: counts.total ? Math.round((count / counts.total) * 100) : 0,
     }))

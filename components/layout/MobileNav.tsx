@@ -8,6 +8,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { IconButton } from "@/components/ui/IconButton";
 import { BrandMark, SidebarContent } from "./Sidebar";
 import { NotificationsButton, ProfileMenu } from "./Topbar";
+import { ExperienceModeSwitch } from "@/components/experience/experience-mode-switch";
 
 /** Sticky header for < lg screens. Opens the sidebar as a slide-over drawer. */
 export function MobileNav() {
@@ -29,6 +30,7 @@ export function MobileNav() {
           </Link>
         </div>
         <div className="flex items-center gap-1.5">
+          <ExperienceModeSwitch compact />
           <NotificationsButton />
           <ProfileMenu compact />
         </div>

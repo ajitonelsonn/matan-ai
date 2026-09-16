@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, LayoutGrid, List, Cctv, BellRing, Lock, Speaker, WifiOff, Link2, Wrench, CircleHelp, BookOpen, LifeBuoy, ChevronRight, Activity, Pencil, Trash2, RotateCw, Power, Video, ListOrdered, MapPin } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAppData } from "@/components/layout/AppDataProvider";
+import { SourceBadge, DemoMarker } from "@/components/experience/source-badge";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
@@ -219,12 +220,8 @@ export function DemoDevicesView({ initialDeviceId, onAddRing, sourceSwitch }: De
   return (
     <>
       <Topbar
-        title="Devices"
-        subtitle={
-          <>
-            Sample devices for exploring Matan AI. <Badge tone="neutral" size="xs" className="ml-1 border-dashed align-middle">Demo data</Badge>
-          </>
-        }
+        title={<span className="flex flex-wrap items-center gap-3">Demo Devices <SourceBadge source="demo" short /></span>}
+        subtitle="Explore Matan AI using simulated devices."
         search={{ value: search, onChange: setSearch, placeholder: "Search devices…" }}
         actions={
           <Button leftIcon={<Plus className="size-4" />} onClick={onAddRing}>

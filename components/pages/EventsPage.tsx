@@ -19,7 +19,9 @@ import { LoadingOverlay } from "@/components/matan/MatanLoader";
 import { useApi } from "@/hooks/useApi";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { eventsApi } from "@/lib/api/events";
+import { useDataSource } from "@/lib/data/get-data-source";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { useExperience } from "@/components/experience/experience-provider";
 import type { EventPriority, InsightRange, RingEvent } from "@/lib/types";
 import { lastDaysLabel } from "@/lib/mock/clock";
 import { priorityLabel, priorityTone } from "@/lib/utils/tones";
@@ -46,6 +48,9 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const ds = useDataSource();
+  const { openConnect, ring } = useExperience();
+  const isRing = ds.mode === "ring";
 
   const [search, setSearch] = React.useState(params.get("search") ?? "");
   const debounced = useDebounce(search, 250);
@@ -61,15 +66,21 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
 
   React.useEffect(() => setPage(1), [debounced, category, range, priorities, sort]);
 
-  const q = useApi(() => eventsApi.list({ search: debounced, category, range, priority: priorities, sort, page, pageSize: PAGE }), [debounced, category, range, priorities.join(","), sort, page]);
+  const q = useApi(() => ds.getEvents({ search: debounced, category, range, priority: priorities, sort, page, pageSize: PAGE }), [debounced, category, range, priorities.join(","), sort, page, ds.mode]);
 
   React.useEffect(() => {
     if (!q.data) return;
     setItems((prev) => (page === 1 ? q.data!.items : [...prev, ...q.data!.items]));
   }, [q.data, page]);
+  // Never mix sources: clear the list + selection when the mode changes.
+  React.useEffect(() => {
+    setItems([]);
+    setSelectedId(null);
+    setPage(1);
+  }, [ds.mode]);
 
   // Keep a valid selection: the deep-linked event, else the first item.
-  const detailQ = useApi(() => (selectedId ? eventsApi.get(selectedId) : Promise.resolve(null)), [selectedId]);
+  const detailQ = useApi(() => (selectedId ? ds.getEvent(selectedId) : Promise.resolve(null)), [selectedId, ds.mode]);
   React.useEffect(() => {
     if (!selectedId && items.length) setSelectedId(items[0].id);
   }, [items, selectedId]);
@@ -122,8 +133,8 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
   return (
     <>
       <Topbar
-        title="Events"
-        subtitle="Intelligent events, not just motion. Matan AI understands the full story."
+        title={<span className="flex flex-wrap items-center gap-3">Events <SourceBadge source={isRing ? (ring.state === "connected" || ring.state === "expiring" ? "ring" : "ring-expired") : "demo"} short /></span>}
+        subtitle={isRing ? "Events recorded by the Ring Developer Playground. Matan AI analysis runs with the Bedrock milestone." : "Intelligent events, not just motion. Matan AI understands the full story."}
         search={{ value: search, onChange: setSearch, placeholder: "Search events…" }}
         actions={
           <>
@@ -184,8 +195,8 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
             <div className="card">
               <EmptyState
                 icon={<Inbox />}
-                title="No events match these filters"
-                description="Try a wider date range, another category, or clear the priority filter."
+                title={isRing && !debounced && category === "all" && !priorities.length ? "No Ring events recorded yet" : "No events match these filters"}
+                description={isRing && !debounced && category === "all" && !priorities.length ? "Trigger a Package, Vehicle or Motion simulation in the Ring Playground, then refresh. Ring event history appears here as it is recorded." : "Try a wider date range, another category, or clear the priority filter."}
                 action={
                   <Button
                     variant="secondary"

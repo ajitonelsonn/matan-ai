@@ -25,6 +25,9 @@ import { settingsApi } from "@/lib/api/settings";
 import { images } from "@/lib/mock/images";
 import { cn } from "@/lib/utils/cn";
 import type { SettingsData } from "@/lib/types";
+import { ExperienceSettingsCard } from "@/components/experience/experience-settings-card";
+import { useTheme } from "@/components/experience/theme-provider";
+import { ThemeToggle } from "@/components/experience/theme-toggle";
 
 type Tab = "general" | "notifications" | "privacy" | "ai" | "appearance" | "region" | "about";
 const tabs: { value: Tab; label: string; icon: React.ReactNode }[] = [
@@ -66,6 +69,7 @@ export function SettingsPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { refresh } = useAppData();
+  const { theme } = useTheme();
   const q = useApi(() => settingsApi.get(), []);
   const [tab, setTab] = React.useState<Tab>((params.get("tab") as Tab) ?? "general");
   const [search, setSearch] = React.useState("");
@@ -80,6 +84,13 @@ export function SettingsPage() {
   React.useEffect(() => {
     window.history.replaceState(null, "", tab === "general" ? "/settings" : `/settings?tab=${tab}`);
   }, [tab]);
+
+  // Mirror the global theme into the saved preference so it survives as a setting too.
+  const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
+  React.useEffect(() => {
+    if (q.data && q.data.settings.appearance.theme !== themeLabel) void settingsApi.update({ appearance: { theme: themeLabel } }).then((r) => q.setData(r)).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeLabel, q.data?.settings.appearance.theme]);
 
   type Patch = Parameters<typeof settingsApi.update>[0];
   const update = async (patch: Patch, msg = "Settings saved") => {
@@ -216,7 +227,19 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="app">
       <CardHeader icon={<Monitor />} title={<span id="app">Appearance</span>} subtitle="Make the app look and feel right for you." />
       <div className="space-y-1">
-        {match("theme") && <Row icon={<Moon />} title="Theme" hint="Light / Dark / Auto" tone="purple" control={<Select size="sm" value={s.appearance.theme} onChange={(v) => { void update({ appearance: { theme: v } }); if (v !== "Dark") toast.info("Dark mode only in this preview", "Your preference is saved for the next phase."); }} options={["Dark", "Light", "Auto"].map((v) => ({ value: v as SettingsData["appearance"]["theme"], label: v }))} align="end" label="Theme" />} />}
+        {match("theme") && (
+          <Row
+            icon={<Moon />}
+            title="Theme"
+            hint={`Dark / Light / System · currently ${theme}`}
+            tone="purple"
+            control={
+              <ThemeToggle
+                size="sm"
+              />
+            }
+          />
+        )}
         {match("accent") && (
           <Row
             icon={<Palette />}
@@ -320,6 +343,11 @@ export function SettingsPage() {
       ) : (
         <div className="grid gap-5 xl:grid-cols-12">
           <div className={cn("grid gap-5 xl:col-span-8", tab === "general" ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
+            {(tab === "general" || tab === "about") && (
+              <div className={tab === "general" ? "lg:col-span-2" : undefined}>
+                <ExperienceSettingsCard />
+              </div>
+            )}
             {show("general") && generalCard}
             {show("notifications") && notificationsCard}
             {show("privacy") && privacyCard}

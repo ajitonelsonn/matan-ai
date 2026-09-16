@@ -143,7 +143,12 @@ export interface RingErrorPayload {
 /** Recent history events for a device (GET /v1/history/devices/{id}/events). */
 export interface RingHistoryEvent {
   id: string;
+  /** motion | ding | on_demand | … */
   kind: string;
   createdAt?: string;
+  endedAt?: string;
+  deviceId?: string;
+  /** Computer-vision detection labels when Ring includes them (person, package, vehicle, …). */
+  detections: string[];
   attributes: Record<string, unknown>;
 }

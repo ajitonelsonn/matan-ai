@@ -4,10 +4,12 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Toggle } from "@/components/ui/Toggle";
-import { useToast } from "@/components/ui/Toast";
+import { useTheme } from "@/components/experience/theme-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { useExperience } from "@/components/experience/experience-provider";
 import { useAppData } from "./AppDataProvider";
 import { navItems, isActivePath } from "./nav";
 import { TimorIdentityCard } from "./TimorIdentity";
@@ -21,8 +23,10 @@ export function BrandMark({ size = 96, className }: { size?: number; className?:
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data } = useAppData();
-  const toast = useToast();
+  const { resolved, setTheme } = useTheme();
+  const { mode, ring } = useExperience();
   const eventsBadge = data ? data.todayCounts.attention + data.todayCounts.important : 0;
+  const source = (mode ?? "demo") === "demo" ? "demo" : ring.state === "connected" ? "ring" : ring.state === "expiring" ? "ring-expiring" : "ring-expired";
 
   return (
     <div className="flex h-full flex-col">
@@ -30,6 +34,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <BrandMark size={92} />
         <span className="mt-2 text-[22px] font-extrabold tracking-[0.06em] text-text leading-none">MATAN AI</span>
         <span className="mt-1.5 text-[12.5px] text-text-3">Your intelligent eye at home.</span>
+        <SourceBadge source={source} size="xs" short className="mt-2.5" />
       </Link>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-2">
@@ -74,10 +79,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <TimorIdentityCard />
         <div className="flex items-center justify-between rounded-2xl px-3 py-2">
           <span className="flex items-center gap-2.5 text-sm text-text-2">
-            <Moon className="size-4 text-text-3" aria-hidden />
-            Dark Mode
+            {resolved === "dark" ? <Moon className="size-4 text-text-3" aria-hidden /> : <Sun className="size-4 text-warning" aria-hidden />}
+            {resolved === "dark" ? "Dark Mode" : "Light Mode"}
           </span>
-          <Toggle checked label="Dark mode" size="sm" onChange={() => toast.info("Matan AI is dark mode only in this preview", "A light theme is planned for a later phase.")} />
+          <Toggle checked={resolved === "dark"} label="Dark mode" size="sm" onChange={(v) => setTheme(v ? "dark" : "light")} />
         </div>
       </div>
     </div>

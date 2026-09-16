@@ -45,6 +45,12 @@ export interface RingEvent {
   recommendedActions?: RecommendedAction[];
   starred?: boolean;
   reviewed?: boolean;
+  /** Where this event came from. Undefined = demo dataset. */
+  source?: "demo" | "ring";
+  /** Ring-derived events are "pending" until the Matan AI (Bedrock) pipeline has actually run. */
+  analysis?: "pending" | "done";
+  /** Raw Ring event type (motion | ding | on_demand) for Ring-derived events. */
+  ringEventType?: string;
 }
 
 export type DeviceKind = "camera" | "doorbell" | "lock" | "chime";

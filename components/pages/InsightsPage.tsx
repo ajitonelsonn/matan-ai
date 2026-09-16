@@ -21,7 +21,10 @@ import { LoadingOverlay } from "@/components/matan/MatanLoader";
 import { HBarList } from "@/components/charts/HBarList";
 import { TimeOfDayHeatmap } from "@/components/charts/Heatmap";
 import { useApi } from "@/hooks/useApi";
-import { insightsApi } from "@/lib/api/insights";
+import { useDataSource } from "@/lib/data/get-data-source";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useExperience } from "@/components/experience/experience-provider";
 import { chartColors } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { InsightRange } from "@/lib/types";
@@ -50,8 +53,12 @@ export function InsightsPage() {
   const [generating, setGenerating] = React.useState(false);
   const [regenerated, setRegenerated] = React.useState(false);
 
-  const q = useApi(() => insightsApi.get(range), [range]);
+  const ds = useDataSource();
+  const { ring } = useExperience();
+  const isRing = ds.mode === "ring";
+  const q = useApi(() => ds.getInsights(range), [range, ds.mode]);
   const d = q.data;
+  const thinHistory = isRing && d && (d.totalHistory ?? d.counts.total) < 10;
 
   React.useEffect(() => {
     window.history.replaceState(null, "", range === "7d" ? "/insights" : `/insights?range=${range}`);
@@ -87,8 +94,8 @@ export function InsightsPage() {
   return (
     <>
       <Topbar
-        title="AI Insights"
-        subtitle="From Ring events to meaningful insights."
+        title={<span className="flex flex-wrap items-center gap-3">AI Insights <SourceBadge source={isRing ? (ring.state === "connected" || ring.state === "expiring" ? "ring" : "ring-expired") : "demo"} short /></span>}
+        subtitle={isRing ? "Trends from your accumulated Ring Simulator events." : "From Ring events to meaningful insights."}
         search={{ value: search, onChange: setSearch, placeholder: "Search insights…" }}
         actions={
           <Button variant="secondary" leftIcon={<CalendarDays className="size-4" />} onClick={() => setCustomOpen(true)} className="font-medium">
@@ -106,6 +113,25 @@ export function InsightsPage() {
 
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
+      ) : thinHistory ? (
+        <div className="card-hero relative overflow-hidden">
+          <div className="absolute inset-0 bg-grid opacity-40" aria-hidden />
+          <EmptyState
+            icon={<Sparkles />}
+            title="Building your insights"
+            description="Matan AI needs more Ring events to create meaningful trends. Trigger simulations in the Ring Playground and come back - real analytics are never filled with fake numbers."
+            action={
+              <div className="flex flex-col items-center gap-3">
+                <span className="text-[28px] font-bold tabular-nums text-text">{d?.totalHistory ?? d?.counts.total ?? 0} <span className="text-[14px] font-medium text-text-3">events currently recorded</span></span>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => void q.refetch()}>Refresh</Button>
+                  <Button href="/events">View Ring events</Button>
+                </div>
+              </div>
+            }
+            className="relative py-16"
+          />
+        </div>
       ) : (
         <div className="relative">
           {/* Metrics */}

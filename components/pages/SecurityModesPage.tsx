@@ -27,12 +27,15 @@ import { formatTime, relativeDay, formatDate } from "@/lib/utils/format";
 import { toneStyles, type Tone } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { SecurityMode, SecurityModeId } from "@/lib/types";
+import { useAppMode } from "@/components/experience/experience-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
 
 export function SecurityModesPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { refresh: refreshShell, data: shell } = useAppData();
   const q = useApi(() => securityModesApi.get(), []);
+  const appMode = useAppMode();
   const [viewId, setViewId] = React.useState<SecurityModeId | null>(null);
   const [activating, setActivating] = React.useState<SecurityModeId | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -104,7 +107,7 @@ export function SecurityModesPage() {
 
   return (
     <>
-      <Topbar title="Security Modes" subtitle="Choose the right mode for your lifestyle. Matan AI automatically adapts your monitoring and alerts." status={<ProtectionPill modeName={d?.status.activeModeName ?? shell?.activeModeName} level={level} className="hidden md:inline-flex" />} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">Security Modes <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>} subtitle={appMode === "ring" ? "Matan-level policies applied to Ring-derived events. Choose the right mode for your lifestyle." : "Matan-level policies applied to simulated events. Choose the right mode for your lifestyle."} status={<ProtectionPill modeName={d?.status.activeModeName ?? shell?.activeModeName} level={level} className="hidden md:inline-flex" />} />
 
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />

@@ -7,6 +7,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Button } from "@/components/ui/Button";
 import { RingBadge } from "./Brand";
+import { DemoMarker } from "@/components/experience/source-badge";
 import type { Device, DeviceKind } from "@/lib/types";
 
 export const deviceKindIcon: Record<DeviceKind, React.ComponentType<{ className?: string }>> = {
@@ -96,7 +97,7 @@ export function DeviceCard({
             <p className={cn("text-[13px] font-medium", online ? "text-success" : "text-danger")}>{online ? "Online" : "Offline"}</p>
           </div>
         </div>
-        {device.isRing && <RingBadge />}
+        <span className="flex items-center gap-1.5"><DemoMarker />{device.isRing && <RingBadge />}</span>
       </div>
       <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-border">
         <SafeImage src={device.previewUrl} alt={`${device.name} preview`} sizes="(max-width: 768px) 100vw, 33vw" grayscale={!online} fallbackIcon={<Icon className="size-7" />} fallbackLabel={hasFeed ? undefined : deviceKindLabel[device.kind]} />
@@ -113,7 +114,7 @@ export function DeviceCard({
         </span>
         <div className="min-w-0 flex-1">
           <h4 className="text-[15px] font-semibold text-text truncate">{device.name}</h4>
-          <p className="text-[13px] text-text-2 truncate">{device.model}</p>
+          <p className="text-[13px] text-text-2 truncate">{device.model} <span className="text-text-3">· Simulated</span></p>
           <p className="mt-0.5 flex items-center gap-1 text-[12.5px] text-text-3">
             <MapPin className="size-3.5" aria-hidden />
             {device.location}

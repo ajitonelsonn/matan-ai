@@ -21,7 +21,8 @@ import { SectionHeader } from "@/components/matan/SectionHeader";
 import { LoadingOverlay } from "@/components/matan/MatanLoader";
 import { useApi } from "@/hooks/useApi";
 import { assistantApi } from "@/lib/api/assistant";
-import { eventsApi } from "@/lib/api/events";
+import { useDataSource } from "@/lib/data/get-data-source";
+import { SourceBadge } from "@/components/experience/source-badge";
 import { automationsApi } from "@/lib/api/automations";
 import { images } from "@/lib/mock/images";
 import { MOCK_NOW } from "@/lib/mock/clock";
@@ -39,6 +40,15 @@ const quickAsk = [
   { q: "Create a weekly report", icon: FileText },
 ];
 
+const ringQuickAsk = [
+  { q: "What happened today?", icon: Search },
+  { q: "What happened while I was away?", icon: Activity },
+  { q: "Show unusual activity.", icon: Shield },
+  { q: "Which devices are online?", icon: Video },
+  { q: "How many deliveries happened?", icon: Package },
+  { q: "Why did I receive an alert?", icon: FileText },
+];
+
 const greeting = (name: string): AssistantMessage => ({
   id: "greeting",
   role: "assistant",
@@ -54,9 +64,11 @@ export function AssistantPage() {
   const confirm = useConfirm();
   const { data: shell } = useAppData();
   const firstName = shell?.user.firstName ?? "Ajito";
+  const ds = useDataSource();
+  const isRing = ds.mode === "ring";
 
-  const convQ = useApi(() => assistantApi.conversations(), []);
-  const eventsQ = useApi(() => eventsApi.list({ range: "30d", pageSize: 400 }), []);
+  const convQ = useApi(() => assistantApi.conversations(ds.mode), [ds.mode]);
+  const eventsQ = useApi(() => ds.getEvents({ range: "30d", pageSize: 400 }), [ds.mode]);
   const autoQ = useApi(() => automationsApi.list(), []);
   const eventMap = React.useMemo(() => Object.fromEntries((eventsQ.data?.items ?? []).map((e) => [e.id, e])) as Record<string, RingEvent>, [eventsQ.data]);
 
@@ -73,7 +85,13 @@ export function AssistantPage() {
   React.useEffect(() => {
     if (!convQ.data) return;
     setConversations(convQ.data.conversations);
-    if (!activeId && !draft && convQ.data.conversations[0] && !params.get("q")) setActiveId(convQ.data.conversations[0].id);
+    if (convQ.data.conversations[0] && !params.get("q")) {
+      setActiveId(convQ.data.conversations[0].id);
+      setDraft(null);
+    } else if (!convQ.data.conversations.length) {
+      setActiveId(null);
+      setDraft([greeting(firstName)]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convQ.data]);
 
@@ -101,7 +119,7 @@ export function AssistantPage() {
       if (draft || !activeId) setDraft((d) => [...(d ?? [greeting(firstName)]), optimistic]);
       else setConversations((list) => list.map((c) => (c.id === activeId ? { ...c, messages: [...c.messages, optimistic] } : c)));
       try {
-        const { conversation } = await assistantApi.send(message, activeId ?? undefined);
+        const { conversation } = await assistantApi.send(message, activeId ?? undefined, ds.mode);
         setConversations((list) => {
           const exists = list.some((c) => c.id === conversation.id);
           const next = exists ? list.map((c) => (c.id === conversation.id ? conversation : c)) : [conversation, ...list];
@@ -115,7 +133,7 @@ export function AssistantPage() {
         setSending(false);
       }
     },
-    [activeId, draft, firstName, sending, toast],
+    [activeId, draft, firstName, sending, toast, ds.mode],
   );
 
   // Deep link: /assistant?q=... starts a new chat and sends the question.
@@ -179,7 +197,7 @@ export function AssistantPage() {
 
   return (
     <>
-      <Topbar title="AI Assistant" subtitle="Ask anything about your home, business, or Ring devices." search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">AI Assistant <SourceBadge source={isRing ? "ring" : "demo"} short /></span>} subtitle={isRing ? "Ask about your connected Ring Simulator devices and their event history." : "Ask anything about your home, business, or Ring devices."} search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
 
       <div className="grid gap-5 xl:grid-cols-12 xl:items-start">
         {/* Recent chats */}
@@ -241,7 +259,10 @@ export function AssistantPage() {
 
         {/* Conversation */}
         <section className="card relative flex flex-col p-4 sm:p-5 xl:col-span-6 min-h-[560px] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]" aria-label="Conversation">
-          <div className="absolute right-4 top-4 z-10">
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+            <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-semibold ${isRing ? "border-primary/30 bg-primary/10 text-primary" : "border-purple/30 bg-purple/10 text-purple"}`}>
+              {isRing ? <><span className="size-2 rounded-full bg-current" /> Ring Simulator</> : <>✨ Demo AI</>}
+            </span>
             <NovaBadge />
           </div>
           <div className="flex-1 overflow-y-auto pr-1 pt-14 space-y-5">
@@ -322,7 +343,7 @@ export function AssistantPage() {
           <section className="card p-4" aria-labelledby="quick-ask">
             <SectionHeader icon={<Zap />} title={<span id="quick-ask">Quick Ask</span>} subtitle="Try these common questions" iconTone="warning" />
             <ul className="space-y-2">
-              {quickAsk.map(({ q, icon: I }) => (
+              {(isRing ? ringQuickAsk : quickAsk).map(({ q, icon: I }) => (
                 <li key={q}>
                   <button type="button" onClick={() => void send(q)} disabled={sending} className="card-inset flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13.5px] font-medium text-text transition-[border-color,background-color] hover:border-border-strong hover:bg-surface-2/70 disabled:opacity-60">
                     <I className="size-4 shrink-0 text-primary" aria-hidden />

@@ -34,6 +34,7 @@ import { RingConnectionStatus } from "./ring-connection-status";
 import { RingConnectedDeviceCard } from "./ring-connected-device-card";
 import { ringKindIcon, ringKindLabel } from "./ring-device-card";
 import { useRingCountdown } from "./use-ring-session";
+import { SourceBadge } from "@/components/experience/source-badge";
 
 type Tab = "all" | RingDeviceKind | "offline";
 type SortKey = "name" | "status" | "type" | "recent";
@@ -210,11 +211,11 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
   return (
     <>
       <Topbar
-        title="Devices"
+        title={<span className="flex flex-wrap items-center gap-3">Ring Devices <SourceBadge source={live ? "ring" : session ? "ring-expired" : "ring"} short /></span>}
         subtitle={
           connected.length ? (
             <>
-              {connected.length} Ring {connected.length === 1 ? "device" : "devices"} connected through the Ring Developer Playground.
+              Devices discovered from the Ring Developer Playground · {counts.online} Online · {counts.offline + counts.unknown} {live ? "Offline" : "Connection expired"}
             </>
           ) : (
             "Connect your Ring devices. Matan AI uses Ring events and media to understand what is happening around your home or business."

@@ -3,30 +3,34 @@ import { answer, titleFor } from "@/lib/mock/assistant";
 import { ok, badRequest, readJson, notFound } from "@/lib/api/http";
 import type { AssistantConversation, AssistantMessage } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/mock/clock";
+import { answerRing } from "@/lib/ring/assistant";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   await delay(200);
+  const mode = new URL(req.url).searchParams.get("mode") === "ring" ? "ring" : "demo";
   const s = getStore();
-  return ok({ conversations: s.conversations });
+  // Conversations are kept per mode so Demo and Ring answers are never mixed.
+  return ok({ conversations: s.conversations.filter((c) => ((c as { mode?: string }).mode ?? "demo") === mode) });
 }
 
 export async function POST(req: Request) {
-  const body = await readJson<{ conversationId?: string; message: string }>(req);
+  const body = await readJson<{ conversationId?: string; message: string; mode?: "demo" | "ring" }>(req);
   if (!body.message?.trim()) return badRequest("Message is required");
   const s = getStore();
-  const now = MOCK_NOW;
+  const mode = body.mode === "ring" ? "ring" : "demo";
+  const now = mode === "ring" ? new Date().toISOString() : MOCK_NOW;
   let convo = body.conversationId ? s.conversations.find((c) => c.id === body.conversationId) : undefined;
   if (!convo) {
-    convo = { id: nextId("chat"), title: titleFor(body.message), updatedAt: now, messages: [] };
+    convo = { id: nextId("chat"), title: titleFor(body.message), updatedAt: now, messages: [], ...({ mode } as object) } as AssistantConversation;
     s.conversations.unshift(convo);
   }
   const userMsg: AssistantMessage = { id: nextId("m"), role: "user", content: body.message.trim(), timestamp: now };
   convo.messages.push(userMsg);
   // Simulated "thinking" latency.
-  await delay(700 + Math.min(600, body.message.length * 8));
-  const reply: AssistantMessage = { id: nextId("m"), role: "assistant", ...answer(body.message, s, now) };
+  await delay(mode === "ring" ? 300 : 700 + Math.min(600, body.message.length * 8));
+  const reply: AssistantMessage = { id: nextId("m"), role: "assistant", ...(mode === "ring" ? await answerRing(body.message, now) : answer(body.message, s, now)) };
   convo.messages.push(reply);
   convo.updatedAt = now;
   if (convo.messages.filter((m) => m.role === "user").length === 1) convo.title = titleFor(body.message);

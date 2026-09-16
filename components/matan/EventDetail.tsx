@@ -39,6 +39,7 @@ import { eventsApi } from "@/lib/api/events";
 import { eventTypeTone, toneStyles } from "@/lib/utils/tones";
 import { formatDate, formatDuration, formatTime, formatTimeWithSeconds, relativeDay } from "@/lib/utils/format";
 import type { RingEvent } from "@/lib/types";
+import { SourceBadge } from "@/components/experience/source-badge";
 
 function useMockPlayer(duration = 15) {
   const [playing, setPlaying] = React.useState(false);
@@ -143,6 +144,92 @@ export function EventDetail({
 
   const timeline = event.timeline ?? [];
   const actions = event.recommendedActions ?? [];
+  const isRing = event.source === "ring";
+  const pending = event.analysis === "pending";
+
+  if (isRing) {
+    return (
+      <div className={cn("flex flex-col gap-4", className)}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-xl border", t.bg, t.border, t.text)}>
+              <Icon name={eventTypeIcon[event.type]} className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="truncate text-[20px] font-bold leading-tight text-text">{event.title}</h2>
+              <p className="text-[13px] text-text-2">
+                {relativeDay(event.timestamp)}, {formatDate(event.timestamp)} · {formatTimeWithSeconds(event.timestamp)}
+              </p>
+            </div>
+          </div>
+          <RiskBadge priority={event.priority} pending={pending} size="md" />
+        </div>
+
+        <dl className="grid gap-2.5 sm:grid-cols-2">
+          {[
+            ["Source", <SourceBadge key="s" source="ring" size="xs" short />],
+            ["Event", `${event.title}${event.ringEventType ? ` (${event.ringEventType.replace(/_/g, " ")})` : ""}`],
+            ["Device", event.location],
+            ["Duration", event.clipDuration !== undefined ? formatDuration(event.clipDuration) : "Not available"],
+          ].map(([k, v]) => (
+            <div key={String(k)} className="card-inset p-3">
+              <dt className="text-[11px] uppercase tracking-wide text-text-3">{k}</dt>
+              <dd className="mt-1 text-[14px] font-semibold text-text">{v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <section className="card-inset p-4">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-3/60 text-text-3">
+              <Sparkles className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-wide text-text-3">Matan AI</p>
+              <p className="text-[15px] font-semibold text-text">Awaiting analysis</p>
+              <p className="mt-1 text-[13.5px] leading-relaxed text-text-2">
+                This event was recorded by the Ring Simulator. Priority, confidence and recommended actions will appear once the Matan AI (Amazon Bedrock) pipeline has actually processed it - Matan never claims an analysis that hasn&apos;t run.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {event.tags.map((tag) => (
+                  <Badge key={tag} tone={tag === "Ring Simulator" ? "primary" : "neutral"} size="md">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {timeline.length > 0 && (
+          <section className="card-inset p-4">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold text-text">
+              <Clock className="size-4 text-primary" aria-hidden /> Ring timeline
+            </h3>
+            <ol className="mt-3 space-y-2">
+              {timeline.map((step, i) => (
+                <li key={i} className="flex items-center gap-3 text-[13.5px]">
+                  <span className="size-1.5 shrink-0 rounded-full bg-text-3" aria-hidden />
+                  <span className="w-[70px] shrink-0 tabular-nums text-text-3">{formatTimeWithSeconds(step.time).replace(/ (AM|PM)$/, "")}</span>
+                  <span className="text-text-2">{step.label}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button href={`/live?camera=ring:${event.cameraId}`} leftIcon={<Play className="size-4 fill-current" />} className="flex-1 min-w-[140px]">
+            Ring live view
+          </Button>
+          <Button variant="secondary" leftIcon={<Video className="size-4" />} onClick={() => router.push(`/devices/${event.cameraId}`)} className="flex-1 min-w-[140px]">
+            Device details
+          </Button>
+        </div>
+        <p className="text-[12px] text-text-3">Clip download, sharing and edits are not available for Ring history events in this preview.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>

@@ -17,6 +17,8 @@ import { timeAgo } from "@/lib/utils/format";
 import { toneStyles } from "@/lib/utils/tones";
 import { useAppData } from "./AppDataProvider";
 import { RefreshIndicator } from "./RefreshIndicator";
+import { ExperienceModeSwitch } from "@/components/experience/experience-mode-switch";
+import { ExperienceBanner } from "@/components/experience/experience-banner";
 
 const weatherIcons = { sun: Sun, "cloud-sun": CloudSun, cloud: Cloud, rain: CloudRain };
 
@@ -189,15 +191,18 @@ export interface TopbarProps {
   status?: React.ReactNode;
   showClock?: boolean;
   className?: string;
+  /** Source banner under the header: compact (default), full (Home) or none. */
+  banner?: "compact" | "full" | "none";
 }
 
 /**
  * Shared page header: title/subtitle on the left, the standard control cluster
  * (search · weather · clock · notifications · profile) on the right.
  */
-export function Topbar({ title, subtitle, search, actions, status, showClock = true, className }: TopbarProps) {
+export function Topbar({ title, subtitle, search, actions, status, showClock = true, className, banner = "compact" }: TopbarProps) {
   return (
-    <header className={cn("mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between", className)}>
+    <>
+    <header className={cn("mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between", className)}>
       <div className="min-w-0 xl:flex-1 xl:min-w-[340px]">
         <h1 className="text-[28px] sm:text-[34px] font-bold tracking-tight text-text leading-[1.1]">{title}</h1>
         {subtitle && <p className="mt-1.5 text-[15px] sm:text-[16px] text-text-2 leading-relaxed">{subtitle}</p>}
@@ -211,11 +216,14 @@ export function Topbar({ title, subtitle, search, actions, status, showClock = t
           <WeatherChip />
         </div>
         <div className="hidden lg:flex items-center gap-2">
+          <ExperienceModeSwitch className="mr-1" />
           <RefreshIndicator />
           <NotificationsButton />
           <ProfileMenu />
         </div>
       </div>
     </header>
+    {banner !== "none" && <ExperienceBanner compact={banner === "compact"} className="mb-5" />}
+    </>
   );
 }

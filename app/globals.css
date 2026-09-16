@@ -26,7 +26,56 @@
   --matan-glow: 0 0 0 1px rgba(18, 168, 255, 0.22), 0 10px 40px rgba(0, 118, 255, 0.08);
   --matan-glow-strong: 0 0 0 1px rgba(18, 168, 255, 0.55), 0 0 0 4px rgba(18, 168, 255, 0.12), 0 14px 44px rgba(0, 118, 255, 0.22);
   --matan-glow-danger: 0 0 0 1px rgba(255, 77, 94, 0.55), 0 10px 40px rgba(255, 77, 94, 0.16);
+  /* surfaces used by utilities (tokenized so light theme can override) */
+  --matan-card-from: rgba(13, 42, 75, 0.55);
+  --matan-card-to: rgba(7, 28, 52, 0.9);
+  --matan-card-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 12px 36px rgba(0, 0, 0, 0.22);
+  --matan-hero-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 18px 60px rgba(0, 0, 0, 0.3);
+  --matan-inset-bg: rgba(3, 19, 38, 0.55);
+  --matan-skeleton-a: rgba(13, 42, 75, 0.6);
+  --matan-skeleton-b: rgba(20, 56, 96, 0.75);
+  --matan-grid-line: rgba(53, 154, 255, 0.06);
+  --matan-body-glow-1: rgba(18, 168, 255, 0.08);
+  --matan-body-glow-2: rgba(38, 198, 255, 0.06);
+  --matan-scroll-thumb: rgba(53, 154, 255, 0.22);
   color-scheme: dark;
+}
+
+/* Light theme - same semantic tokens, cool white/gray surfaces. Applied via <html data-theme="light">. */
+:root[data-theme="light"] {
+  --matan-bg: #f3f6fb;
+  --matan-bg-2: #eaf0f8;
+  --matan-surface: #ffffff;
+  --matan-surface-2: #f4f7fc;
+  --matan-surface-3: #e7edf6;
+  --matan-border: rgba(18, 88, 160, 0.14);
+  --matan-border-strong: rgba(18, 88, 160, 0.34);
+  --matan-text: #0b1b33;
+  --matan-text-2: #34506f;
+  --matan-text-3: #6b82a0;
+  --matan-primary: #0a7fe6;
+  --matan-primary-2: #1a9dff;
+  --matan-cyan: #0098b8;
+  --matan-success: #0f9f6e;
+  --matan-warning: #b26a00;
+  --matan-danger: #d62839;
+  --matan-purple: #6d4de6;
+  --matan-shadow: 0 18px 60px rgba(15, 40, 80, 0.12);
+  --matan-glow: 0 0 0 1px rgba(10, 127, 230, 0.18), 0 10px 40px rgba(10, 127, 230, 0.08);
+  --matan-glow-strong: 0 0 0 1px rgba(10, 127, 230, 0.5), 0 0 0 4px rgba(10, 127, 230, 0.1), 0 14px 44px rgba(10, 127, 230, 0.18);
+  --matan-glow-danger: 0 0 0 1px rgba(214, 40, 57, 0.5), 0 10px 40px rgba(214, 40, 57, 0.12);
+  --matan-card-from: rgba(255, 255, 255, 0.95);
+  --matan-card-to: rgba(247, 249, 253, 1);
+  --matan-card-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 28px rgba(15, 40, 80, 0.08);
+  --matan-hero-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 16px 48px rgba(15, 40, 80, 0.12);
+  --matan-inset-bg: rgba(234, 240, 248, 0.7);
+  --matan-skeleton-a: rgba(226, 233, 243, 0.9);
+  --matan-skeleton-b: rgba(240, 244, 250, 1);
+  --matan-grid-line: rgba(18, 88, 160, 0.06);
+  --matan-body-glow-1: rgba(10, 127, 230, 0.08);
+  --matan-body-glow-2: rgba(109, 77, 230, 0.06);
+  --matan-scroll-thumb: rgba(18, 88, 160, 0.22);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -101,9 +150,10 @@
   }
   body {
     background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(18, 168, 255, 0.08), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(38, 198, 255, 0.06), transparent 55%),
+      radial-gradient(1200px 600px at 10% -10%, var(--matan-body-glow-1), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, var(--matan-body-glow-2), transparent 55%),
       var(--matan-bg);
+    transition: background-color 200ms ease, color 200ms ease;
     color: var(--matan-text);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -126,8 +176,8 @@
     cursor: not-allowed;
   }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: rgba(53, 154, 255, 0.22); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(53, 154, 255, 0.38); background-clip: padding-box; border: 2px solid transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--matan-scroll-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--matan-border-strong); background-clip: padding-box; border: 2px solid transparent; }
   ::-webkit-scrollbar-track { background: transparent; }
 }
 
@@ -135,19 +185,19 @@
    Utilities shared across components
 --------------------------------------------------------------------------- */
 @utility card {
-  background: linear-gradient(180deg, rgba(13, 42, 75, 0.55), rgba(7, 28, 52, 0.9));
+  background: linear-gradient(180deg, var(--matan-card-from), var(--matan-card-to));
   border: 1px solid var(--matan-border);
   border-radius: var(--radius-card);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 12px 36px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--matan-card-shadow);
 }
 @utility card-hero {
-  background: linear-gradient(180deg, rgba(13, 42, 75, 0.6), rgba(7, 28, 52, 0.95));
+  background: linear-gradient(180deg, var(--matan-card-from), var(--matan-card-to));
   border: 1px solid var(--matan-border);
   border-radius: var(--radius-hero);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 18px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--matan-hero-shadow);
 }
 @utility card-inset {
-  background: rgba(3, 19, 38, 0.55);
+  background: var(--matan-inset-bg);
   border: 1px solid var(--matan-border);
   border-radius: 14px;
 }
@@ -175,15 +225,15 @@
   &::-webkit-scrollbar { display: none; }
 }
 @utility skeleton {
-  background: linear-gradient(90deg, rgba(13, 42, 75, 0.6) 25%, rgba(20, 56, 96, 0.75) 50%, rgba(13, 42, 75, 0.6) 75%);
+  background: linear-gradient(90deg, var(--matan-skeleton-a) 25%, var(--matan-skeleton-b) 50%, var(--matan-skeleton-a) 75%);
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
   border-radius: 10px;
 }
 @utility bg-grid {
   background-image:
-    linear-gradient(rgba(53, 154, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(53, 154, 255, 0.06) 1px, transparent 1px);
+    linear-gradient(var(--matan-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--matan-grid-line) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
@@ -197,7 +247,7 @@
 }
 
 /* Recharts polish */
-.recharts-tooltip-cursor { fill: rgba(18, 168, 255, 0.06); }
-.recharts-cartesian-grid line { stroke: rgba(53, 154, 255, 0.12); }
+.recharts-tooltip-cursor { fill: var(--matan-body-glow-1); }
+.recharts-cartesian-grid line { stroke: var(--matan-border); }
 .recharts-text { fill: var(--matan-text-3); font-size: 12px; }
 .recharts-surface:focus { outline: none; }

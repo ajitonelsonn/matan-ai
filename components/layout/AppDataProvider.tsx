@@ -3,9 +3,13 @@
 import * as React from "react";
 import { dashboardApi } from "@/lib/api/dashboard";
 import type { DashboardData } from "@/lib/types";
+import { useAppMode } from "@/components/experience/experience-provider";
+import { getDataSource } from "@/lib/data/get-data-source";
+import type { RingSessionInfo } from "@/lib/ring/types";
 
 interface AppDataContextValue {
-  data: DashboardData | null;
+  data: (DashboardData & { stale?: boolean; ringSession?: RingSessionInfo | null }) | null;
+  mode: "demo" | "ring";
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -20,23 +24,30 @@ const AppDataContext = React.createContext<AppDataContextValue | null>(null);
  * Pages call `refresh()` after mutations so badges and status stay consistent.
  */
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = React.useState<DashboardData | null>(null);
+  const mode = useAppMode();
+  const [data, setData] = React.useState<AppDataContextValue["data"]>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const seq = React.useRef(0);
 
   const refresh = React.useCallback(async () => {
+    const id = ++seq.current;
     try {
-      const d = await dashboardApi.get();
+      const d = await getDataSource(mode).getDashboard();
+      if (id !== seq.current) return;
       setData(d);
       setError(null);
     } catch (e) {
+      if (id !== seq.current) return;
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
-      setLoading(false);
+      if (id === seq.current) setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
+  // (Re)load whenever the experience mode changes - the two sources never mix.
   React.useEffect(() => {
+    setLoading(true);
     void refresh();
   }, [refresh]);
 
@@ -54,7 +65,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     await dashboardApi.markRead(id);
   }, []);
 
-  const value = React.useMemo(() => ({ data, loading, error, refresh, markAllRead, markRead }), [data, loading, error, refresh, markAllRead, markRead]);
+  const value = React.useMemo(() => ({ data, mode, loading, error, refresh, markAllRead, markRead }), [data, mode, loading, error, refresh, markAllRead, markRead]);
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }
 

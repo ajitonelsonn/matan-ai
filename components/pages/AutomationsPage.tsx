@@ -29,6 +29,8 @@ import { formatTime, relativeDay } from "@/lib/utils/format";
 import { toneStyles, type Tone } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { Automation, AutomationCategory, SuggestedAutomation } from "@/lib/types";
+import { useAppMode } from "@/components/experience/experience-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
 
 type Cat = "all" | AutomationCategory;
 
@@ -57,6 +59,7 @@ export function AutomationsPage({ initialAutomationId }: { initialAutomationId?:
   const toast = useToast();
   const confirm = useConfirm();
   const q = useApi(() => automationsApi.list(), []);
+  const appMode = useAppMode();
   const [cat, setCat] = React.useState<Cat>("all");
   const [search, setSearch] = React.useState("");
   const debounced = useDebounce(search, 200);
@@ -198,8 +201,8 @@ export function AutomationsPage({ initialAutomationId }: { initialAutomationId?:
   return (
     <>
       <Topbar
-        title="Automations"
-        subtitle="Turn Ring events into intelligent actions. Let Matan AI handle the routine, so you can focus on what matters."
+        title={<span className="flex flex-wrap items-center gap-3">Automations <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>}
+        subtitle={appMode === "ring" ? "Ring Simulator automations run on Ring-derived events. Turn Ring events into intelligent actions." : "Demo automations run on simulated events. Turn Ring events into intelligent actions."}
         search={{ value: search, onChange: setSearch, placeholder: "Search automations…" }}
         actions={
           <Button

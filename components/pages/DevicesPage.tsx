@@ -7,6 +7,7 @@ import { DeviceSourceSwitch, type DeviceSource } from "@/components/devices/devi
 import { AddRingDeviceModal } from "@/components/devices/add-ring-device-modal";
 import { ringApi } from "@/lib/api/ring";
 import { useApi } from "@/hooks/useApi";
+import { useAppMode } from "@/components/experience/experience-provider";
 
 const STORAGE_KEY = "matan.devices.source";
 
@@ -17,7 +18,16 @@ const STORAGE_KEY = "matan.devices.source";
  */
 export function DevicesPage({ initialDeviceId }: { initialDeviceId?: string }) {
   const ringQ = useApi(() => ringApi.devices(), []);
+  const appMode = useAppMode();
   const [source, setSource] = React.useState<DeviceSource | null>(null);
+  // Follow the global mode by default (Real -> Ring view, Demo -> Demo view); the local toggle can still override.
+  const lastMode = React.useRef(appMode);
+  React.useEffect(() => {
+    if (lastMode.current !== appMode) {
+      lastMode.current = appMode;
+      setSource(appMode === "ring" ? "ring" : "demo");
+    }
+  }, [appMode]);
   const [addOpen, setAddOpen] = React.useState(false);
   const [ringCount, setRingCount] = React.useState<number | undefined>(undefined);
 
@@ -34,8 +44,8 @@ export function DevicesPage({ initialDeviceId }: { initialDeviceId?: string }) {
     } catch {
       /* ignore */
     }
-    setSource(isRingId ? "ring" : isDemoId ? "demo" : connected.length > 0 ? "ring" : stored === "demo" ? "demo" : "ring");
-  }, [ringQ.loading, ringQ.data, initialDeviceId, source]);
+    setSource(isRingId ? "ring" : isDemoId ? "demo" : appMode === "ring" ? "ring" : connected.length > 0 && stored !== "demo" ? "ring" : stored === "ring" ? "ring" : "demo");
+  }, [ringQ.loading, ringQ.data, initialDeviceId, source, appMode]);
 
   const choose = (s: DeviceSource) => {
     setSource(s);

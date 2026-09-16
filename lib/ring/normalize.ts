@@ -133,12 +133,28 @@ export function capabilityLabels(c: RingDiscoveredDevice["capabilities"]): strin
 
 export function normalizeHistory(doc: JsonApiDocument): RingHistoryEvent[] {
   const list = Array.isArray(doc.data) ? doc.data : doc.data ? [doc.data] : [];
+  const lookup = indexIncluded(doc.included);
   return list.map((r) => {
     const a = (r.attributes ?? {}) as Attrs;
+    const start = num(a.start);
+    const end = num(a.end);
+    const src = r.relationships?.source?.data;
+    const cv = r.relationships?.cv_detections?.data;
+    const cvList = Array.isArray(cv) ? cv : cv ? [cv] : [];
+    const detections = cvList
+      .map((d) => {
+        const inc = lookup(d);
+        const t = inc?.attributes as Attrs | undefined;
+        return str(t?.detection_type) ?? str(t?.type) ?? str(t?.label) ?? str(t?.sub_type) ?? d.type;
+      })
+      .filter((x): x is string => Boolean(x));
     return {
       id: r.id,
       kind: str(a.event_type) ?? str(a.kind) ?? str(a.type) ?? r.type,
-      createdAt: str(a.created_at) ?? str(a.timestamp) ?? str(a.occurred_at),
+      createdAt: start !== undefined ? new Date(start).toISOString() : str(a.created_at) ?? str(a.timestamp) ?? str(a.occurred_at),
+      endedAt: end !== undefined ? new Date(end).toISOString() : undefined,
+      deviceId: src && !Array.isArray(src) ? src.id : undefined,
+      detections,
       attributes: a,
     };
   });

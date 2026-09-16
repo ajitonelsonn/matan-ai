@@ -61,6 +61,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     </>
   );
   if (href && !disabled) {
+    // External links open in a new tab so the user keeps their Matan session (e.g. Ring Playground).
+    if (/^https?:\/\//i.test(href)) {
+      return (
+        <a href={href} target="_blank" rel="noreferrer noopener" className={classes} aria-busy={loading || undefined}>
+          {content}
+        </a>
+      );
+    }
     return (
       <Link href={href} className={classes} aria-busy={loading || undefined}>
         {content}

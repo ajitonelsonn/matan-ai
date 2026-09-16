@@ -67,6 +67,8 @@ import { RingLiveSidePanel } from "@/components/devices/ring-live-side-panel";
 import { AddRingDeviceModal } from "@/components/devices/add-ring-device-modal";
 import { useRingCountdown } from "@/components/devices/use-ring-session";
 import { RingBadge as RingSourceBadge } from "@/components/matan/Brand";
+import { useExperience } from "@/components/experience/experience-provider";
+import { DemoMarker, SourceBadge } from "@/components/experience/source-badge";
 
 const quickReplies = ["We'll be right there.", "Please leave the package at the door.", "We can't come to the door right now.", "Thanks! Have a great day."];
 
@@ -133,6 +135,13 @@ export function LivePage() {
   const ringLive = ringCountdown.status === "valid" || ringCountdown.status === "expiring";
   const ringCam = camId.startsWith("ring:") ? ringDevices.find((d) => `ring:${d.id}` === camId) : undefined;
   const [reconnectOpen, setReconnectOpen] = React.useState(false);
+  const { mode } = useExperience();
+  const isRingMode = mode === "ring";
+  // Real Mode defaults to the first connected Ring device when no camera was requested.
+  React.useEffect(() => {
+    if (isRingMode && !params.get("camera") && ringDevices[0] && !camId.startsWith("ring:")) setCamId(`ring:${ringDevices[0].id}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRingMode, ringDevices.length]);
 
   const cam = cameras.find((c) => c.id === camId) ?? cameras[0];
 
@@ -196,7 +205,7 @@ export function LivePage() {
 
   return (
     <>
-      <Topbar title="Live View" subtitle="Watch your Ring cameras in real time, with AI-powered understanding." status={<ProtectionPill modeName={shell?.activeModeName} level={important ? "review" : "protected"} className="hidden md:inline-flex" />} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">Live View {ringCam ? <SourceBadge source={ringLive ? "ring" : "ring-expired"} short /> : <SourceBadge source="demo" short title="Simulated camera" />}</span>} subtitle={ringCam ? "Real WebRTC stream from the Ring Developer Playground simulator." : isRingMode ? "Demo cameras are simulated. Select a Ring device for the real simulator stream." : "Simulated live experience. Mock controls stay active in Demo Mode."} status={<ProtectionPill modeName={shell?.activeModeName} level={important ? "review" : "protected"} className="hidden md:inline-flex" />} />
 
       {devicesQ.error ? (
         <ErrorState onRetry={() => void devicesQ.refetch()} message={devicesQ.error} />
@@ -213,7 +222,7 @@ export function LivePage() {
               </div>
             ) : (
               <div ref={frameRef} className="rounded-hero">
-                <LiveCameraFrame device={cam} imageUrl={sceneImage[cam.id] ?? cam.previewUrl} timestamp={`${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: TIME_ZONE }).format(new Date(MOCK_NOW))}  ${formatTime(MOCK_NOW)}`} topRight={<RingBadge />} priority>
+                <LiveCameraFrame device={cam} imageUrl={sceneImage[cam.id] ?? cam.previewUrl} timestamp={`${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: TIME_ZONE }).format(new Date(MOCK_NOW))}  ${formatTime(MOCK_NOW)}`} topRight={<span className="inline-flex items-center gap-1.5 rounded-full border border-purple/40 bg-bg/60 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-purple backdrop-blur">✨ Demo camera</span>} priority>
                   {/* Side controls */}
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex flex-col gap-2 sm:left-4">
                     <IconButton label={muted ? "Unmute" : "Mute"} variant="glass" size="lg" className="rounded-full" onClick={() => setMuted((m) => !m)}>
@@ -287,8 +296,9 @@ export function LivePage() {
                   {loading
                     ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[92px] w-[150px] shrink-0 rounded-2xl" />)
                     : cameras.map((c) => (
-                        <div key={c.id} className="w-[150px] shrink-0 snap-start">
-                          <CameraTile name={c.name} imageUrl={c.id === "cam-front" ? images.delivery : c.previewUrl} online={c.status === "online"} selected={c.id === cam?.id} onClick={() => setCamId(c.id)} showLive={false} />
+                        <div key={c.id} className="relative w-[150px] shrink-0 snap-start">
+                          <CameraTile name={c.name} imageUrl={c.id === "cam-front" ? images.delivery : c.previewUrl} online={c.status === "online"} selected={!ringCam && c.id === cam?.id} onClick={() => setCamId(c.id)} showLive={false} />
+                          <span className="pointer-events-none absolute right-2 top-2"><DemoMarker /></span>
                         </div>
                       ))}
                 </div>

@@ -32,11 +32,15 @@ import { formatTime, relativeDay, relativeDayTime } from "@/lib/utils/format";
 import { toneStyles } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { FamilyMember, FamilyPresence } from "@/lib/types";
+import { useAppMode } from "@/components/experience/experience-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { RealModeCare } from "@/components/experience/real-mode-care";
 
 export function CarePage() {
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
+  const appMode = useAppMode();
   const q = useApi(() => familyApi.get(), []);
   const [search, setSearch] = React.useState("");
   const [addOpen, setAddOpen] = React.useState(false);
@@ -126,9 +130,12 @@ export function CarePage() {
 
   return (
     <>
-      <Topbar title="Care & Family" subtitle="Keep your loved ones safe and informed. Matan AI helps you care, even when you're not there." search={{ value: search, onChange: setSearch, placeholder: "Search family, devices, events…" }} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">Care & Family <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short title={appMode === "demo" ? "Demo care data" : undefined} /></span>} subtitle={appMode === "ring" ? "Real Mode shows only Ring detections and the family associations you explicitly configure." : "Keep your loved ones safe and informed. Matan AI helps you care, even when you're not there."} search={{ value: search, onChange: setSearch, placeholder: "Search family, devices, events…" }} />
 
-      {q.error ? (
+      {appMode === "ring" ? (
+        <RealModeCare />
+      ) : q.error ? (
+
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : (
         <>

@@ -37,6 +37,9 @@ import { formatDate, relativeDayTime, timeAgo } from "@/lib/utils/format";
 import { chartColors } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { BusinessLocation, TeamMember } from "@/lib/types";
+import { useAppMode } from "@/components/experience/experience-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { RealModeBusiness } from "@/components/experience/real-mode-business";
 
 const BusinessTrendChart = dynamic(() => import("@/components/charts/LineTrendChart").then((m) => m.BusinessTrendChart), { ssr: false, loading: () => <Skeleton className="h-[260px]" /> });
 const DonutChart = dynamic(() => import("@/components/charts/DonutChart").then((m) => m.DonutChart), { ssr: false, loading: () => <Skeleton className="size-40 rounded-full" /> });
@@ -59,6 +62,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
   const toast = useToast();
   const confirm = useConfirm();
   const q = useApi(() => businessApi.get(), []);
+  const appMode = useAppMode();
   const [tab, setTab] = React.useState<Tab>(initialLocationSlug ? "locations" : "overview");
   const [search, setSearch] = React.useState("");
   const [trendRange, setTrendRange] = React.useState<"7d" | "30d">("7d");
@@ -230,8 +234,12 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
 
   return (
     <>
-      <Topbar title="Business" subtitle="Smarter security for your business. Matan AI helps you protect, manage, and grow your business." search={{ value: search, onChange: setSearch, placeholder: "Search business, locations…" }} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">Business <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>} subtitle={appMode === "ring" ? "Connected Ring Simulator devices and event history, plus Matan business rules." : "Smarter security for your business. Matan AI helps you protect, manage, and grow your business."} search={{ value: search, onChange: setSearch, placeholder: "Search business, locations…" }} />
 
+      {appMode === "ring" ? (
+        <RealModeBusiness />
+      ) : (
+      <>
       <Tabs items={tabs} value={tab} onChange={setTab} aria-label="Business sections" className="mb-5" />
 
       {q.error ? (
@@ -520,6 +528,9 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
             </div>
           )}
         </>
+      )}
+
+      </>
       )}
 
       {/* Location drawer */}

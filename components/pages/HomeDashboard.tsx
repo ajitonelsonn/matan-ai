@@ -41,7 +41,7 @@ import { ErrorState } from "@/components/ui/EmptyState";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/components/ui/Toast";
 import { LiveCameraFrame } from "@/components/matan/CameraCard";
-import { RingBadge, MatanBot, DemoBadge } from "@/components/matan/Brand";
+import { RingBadge, MatanBot } from "@/components/matan/Brand";
 import { StatTile, TrendDelta } from "@/components/matan/MetricCard";
 import { EventCard } from "@/components/matan/EventCard";
 import { SectionHeader } from "@/components/matan/SectionHeader";
@@ -52,6 +52,10 @@ import { images } from "@/lib/mock/images";
 import { chartColors } from "@/lib/utils/tones";
 import { greetingFor, useClock } from "@/hooks/useClock";
 import { TIME_ZONE } from "@/lib/mock/clock";
+import { useExperience } from "@/components/experience/experience-provider";
+import { SourceBadge } from "@/components/experience/source-badge";
+import { RingLivePlayer } from "@/components/devices/ring-live-player";
+import { Radio, Clock as ClockIcon, Cpu } from "lucide-react";
 
 const quickIcons = [Search, MessageSquare, Package, Bell, Shield, Activity];
 
@@ -67,7 +71,11 @@ function useLiveClock() {
 }
 
 export function HomeDashboard() {
-  const { data, loading, error, refresh } = useAppData();
+  const { data, loading, error, refresh, mode } = useAppData();
+  const { ring, openConnect } = useExperience();
+  const isRing = mode === "ring";
+  const ringLive = ring.state === "connected" || ring.state === "expiring";
+  const featuredRing = isRing ? ring.connected.find((d) => d.id === data?.featuredCameraId) ?? ring.connected[0] : undefined;
   const { hour } = useClock();
   const router = useRouter();
   const toast = useToast();
@@ -111,7 +119,8 @@ export function HomeDashboard() {
             {greetingFor(hour)}, {firstName}! <span aria-hidden>👋</span>
           </>
         }
-        subtitle="Your home is protected. Matan AI is watching and thinking for you."
+        subtitle={isRing ? "Matan AI is connected to your Ring Simulator." : "Here's your Matan AI demo environment. Matan AI is watching and thinking for you."}
+        banner="full"
         search={{
           value: search,
           onChange: setSearch,
@@ -133,7 +142,16 @@ export function HomeDashboard() {
           <div className="grid gap-5 xl:grid-cols-12">
             {/* Left column */}
             <div className="space-y-5 xl:col-span-7">
-              {loading || !data ? (
+              {isRing && featuredRing ? (
+                <RingLivePlayer key={featuredRing.id} device={featuredRing} sessionLive={ringLive} onReconnect={() => openConnect()} />
+              ) : isRing && !loading ? (
+                <div className="card-hero relative flex aspect-video flex-col items-center justify-center p-8 text-center">
+                  <span className="inline-flex size-16 items-center justify-center rounded-2xl bg-primary/12 text-primary"><Radio className="size-8" /></span>
+                  <h2 className="mt-4 text-[20px] font-bold text-text">No Ring devices connected yet</h2>
+                  <p className="mt-1 max-w-md text-[14px] text-text-2">Connect the Ring Developer Playground to stream the simulator device here.</p>
+                  <Button className="mt-5" leftIcon={<Plus className="size-4" />} onClick={() => openConnect()}>Connect Ring</Button>
+                </div>
+              ) : loading || !data ? (
                 <Skeleton className="aspect-video w-full rounded-hero" />
               ) : (
                 (() => {
@@ -184,6 +202,11 @@ export function HomeDashboard() {
                       <SkeletonCard key={i} lines={2} />
                     ))}
                   </div>
+                ) : data.latestEvents.length === 0 ? (
+                  <div className="card-inset p-6 text-center">
+                    <p className="text-[15px] font-semibold text-text">No Ring events recorded yet</p>
+                    <p className="mt-1 text-[13px] text-text-3">Trigger a Package, Vehicle or Motion simulation in the Ring Playground, then refresh.</p>
+                  </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {data.latestEvents.map((e) => (
@@ -207,23 +230,47 @@ export function HomeDashboard() {
                       </span>
                       <div>
                         <h2 id="status-title" className="text-[22px] font-bold leading-tight text-text">
-                          {data.todayCounts.important > 0 ? "Everything looks normal" : "Everything is normal"}
+                          {isRing ? (ring.connected.length ? "Ring Simulator connected" : "Waiting for Ring devices") : data.todayCounts.important > 0 ? "Everything looks normal" : "Everything is normal"}
                         </h2>
                         <p className="mt-0.5 text-[14px] text-text-2">
-                          Matan AI has analyzed your home activity.
-                          {data.todayCounts.important > 0 && <span className="text-warning"> {data.todayCounts.important} event is worth a review.</span>}
+                          {isRing ? (
+                            <>{data.latestEvents.length} Ring {data.latestEvents.length === 1 ? "event" : "events"} on record. Matan AI analysis of Ring events starts with the Bedrock milestone.</>
+                          ) : (
+                            <>
+                              Matan AI has analyzed your home activity.
+                              {data.todayCounts.important > 0 && <span className="text-warning"> {data.todayCounts.important} event is worth a review.</span>}
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
-                    <Badge tone="success" size="md" className="h-9 px-3.5 text-[13px] shrink-0" icon={<ShieldCheck className="size-4" />}>
-                      Protected
-                    </Badge>
+                    {isRing ? (
+                      <SourceBadge source={ring.state === "connected" ? "ring" : ring.state === "expiring" ? "ring-expiring" : "ring-expired"} size="md" className="shrink-0" />
+                    ) : (
+                      <span className="flex shrink-0 flex-col items-end gap-1.5">
+                        <Badge tone="success" size="md" className="h-9 px-3.5 text-[13px]" icon={<ShieldCheck className="size-4" />}>
+                          Protected
+                        </Badge>
+                        <SourceBadge source="demo" size="xs" />
+                      </span>
+                    )}
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr]">
-                    <StatTile icon={<CalendarDays />} value={data.todayCounts.total} label="Events analyzed" tone="primary" onClick={() => router.push("/events?range=today")} />
-                    <StatTile icon={<CircleCheck />} value={data.todayCounts.normal} label="Normal" tone="success" onClick={() => router.push("/events?range=today&priority=normal")} />
-                    <StatTile icon={<CircleAlert />} value={data.todayCounts.attention} label="Attention" tone="warning" onClick={() => router.push("/events?range=today&priority=attention")} />
-                    <StatTile icon={<TriangleAlert />} value={data.todayCounts.important} label="Important" tone="danger" onClick={() => router.push("/events?range=today&priority=important")} />
+                    {isRing ? (
+                      <>
+                        <StatTile icon={<CalendarDays />} value={data.todayCounts.total} label="Events today" tone="primary" onClick={() => router.push("/events?range=today")} />
+                        <StatTile icon={<Cpu />} value={`${data.devices.filter((d) => d.status === "online").length}/${data.devices.length}`} label="Devices online" tone="success" onClick={() => router.push("/devices")} />
+                        <StatTile icon={<ClockIcon />} value={data.latestEvents.filter((e) => e.analysis === "pending").length} label="Awaiting AI" tone="neutral" onClick={() => router.push("/events")} />
+                        <StatTile icon={<Radio />} value={ring.state === "connected" || ring.state === "expiring" ? ring.countdownLabel : "—"} label={ring.state === "connected" || ring.state === "expiring" ? "Session left" : "Session expired"} tone={ring.state === "connected" ? "primary" : ring.state === "expiring" ? "warning" : "danger"} onClick={() => openConnect()} />
+                      </>
+                    ) : (
+                      <>
+                        <StatTile icon={<CalendarDays />} value={data.todayCounts.total} label="Events analyzed" tone="primary" onClick={() => router.push("/events?range=today")} />
+                        <StatTile icon={<CircleCheck />} value={data.todayCounts.normal} label="Normal" tone="success" onClick={() => router.push("/events?range=today&priority=normal")} />
+                        <StatTile icon={<CircleAlert />} value={data.todayCounts.attention} label="Attention" tone="warning" onClick={() => router.push("/events?range=today&priority=attention")} />
+                        <StatTile icon={<TriangleAlert />} value={data.todayCounts.important} label="Important" tone="danger" onClick={() => router.push("/events?range=today&priority=important")} />
+                      </>
+                    )}
                   </div>
                   <div className="relative mt-3 overflow-hidden rounded-2xl border border-border min-h-[104px]">
                     <SafeImage src={images.coastline} alt="" sizes="480px" />
@@ -304,6 +351,8 @@ export function HomeDashboard() {
                     <Skeleton key={i} className="h-[118px]" />
                   ))}
                 </div>
+              ) : data.devices.length === 0 ? (
+                <div className="card-inset p-5 text-center text-[13px] text-text-3">No Ring devices connected. <button type="button" onClick={() => openConnect()} className="font-semibold text-primary hover:text-primary-2">Connect Ring →</button></div>
               ) : (
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
                   {data.devices.slice(0, 5).map((d) => (
@@ -322,7 +371,7 @@ export function HomeDashboard() {
                 <QuickAction icon={<Plus />} label="Add Automation" href="/automations?create=1" />
               </div>
               <div className="mt-3 flex justify-end">
-                <DemoBadge />
+                <SourceBadge source={isRing ? "ring" : "demo"} size="xs" short />
               </div>
             </section>
 
@@ -342,6 +391,9 @@ export function HomeDashboard() {
                     { name: "Vehicles", value: c.vehicle, color: chartColors.vehicles },
                     { name: "Others", value: c.animal + c.doorbell + c.other + c.unusual, color: chartColors.others },
                   ];
+                  if (isRing && data.todayCounts.total === 0) {
+                    return <p className="text-[13.5px] text-text-3">No Ring events today yet. Counts here come from Ring event history only.</p>;
+                  }
                   return (
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>

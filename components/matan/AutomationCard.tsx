@@ -82,8 +82,8 @@ export function AutomationCard({
           </div>
         </div>
       </div>
-      <div className="hidden lg:flex items-stretch gap-3">
-        <div className="relative w-[110px] shrink-0 overflow-hidden rounded-xl border border-border">
+      <div className="hidden lg:flex items-start gap-3">
+        <div className="relative h-[84px] w-[110px] shrink-0 overflow-hidden rounded-xl border border-border">
           <SafeImage src={automation.imageUrl} alt="" sizes="120px" />
         </div>
         <div className="min-w-0 flex-1 py-1">

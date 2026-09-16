@@ -1,7 +1,7 @@
 import type { AssistantMessage, RingEvent } from "@/lib/types";
 import type { MockState } from "./store";
 import { countEvents, eventsInRange } from "./insights";
-import { formatTime, relativeDay } from "@/lib/utils/format";
+import { formatTime, relativeDay, formatWeekdayDate } from "@/lib/utils/format";
 
 /**
  * Deterministic, keyword-driven assistant. Answers are computed from the
@@ -25,7 +25,7 @@ export function answer(question: string, state: MockState, now: string): Omit<As
     return {
       ...base,
       content: `Done - I generated a ${q.includes("daily") ? "daily" : "weekly"} report covering ${wc.total} events and emailed it to ${"ajito@example.com"}. It includes deliveries, visitors, unusual activity and device health.`,
-      banner: { tone: "primary", title: "Report generated", subtitle: `${q.includes("daily") ? "Daily" : "Weekly"} Summary - Sep 2026` },
+      banner: { tone: "primary", title: "Report generated", subtitle: `${q.includes("daily") ? "Daily" : "Weekly"} Summary` },
       highlights: [
         `${wc.byType.package} deliveries this week`,
         `${wc.important} important and ${wc.attention} attention events`,
@@ -167,7 +167,7 @@ export function answer(question: string, state: MockState, now: string): Omit<As
   // Default: today's summary
   return {
     ...base,
-    content: `Here's what happened today (Fri, 11 Sep 2026). I analyzed ${tc.total} events. Overall, everything looks normal.`,
+    content: `Here's what happened today (${formatWeekdayDate(now)}). I analyzed ${tc.total} events. Overall, everything looks normal.`,
     chips: [
       { label: "People", value: tc.byType.person, icon: "Users", tone: "primary" },
       { label: "Packages", value: tc.byType.package, icon: "Package", tone: "success" },

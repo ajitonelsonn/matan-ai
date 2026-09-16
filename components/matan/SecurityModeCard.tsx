@@ -38,12 +38,13 @@ export function SecurityModeCard({ mode, active, onActivate, onCustomize, busy, 
     <article className={cn("card flex flex-col p-3.5 transition-[border-color,box-shadow] duration-200", active && "border-primary/60 glow-strong", className)} aria-current={active ? "true" : undefined}>
       <ModeIllustration mode={mode} />
       <h3 className="mt-3.5 text-[17px] font-semibold text-text">{mode.name}</h3>
-      <p className="mt-1 min-h-[3.6em] text-[13px] leading-snug text-text-2">{mode.tagline}</p>
+      <p className="mt-1 flex-1 text-[13px] leading-snug text-text-2">{mode.tagline}</p>
       <div className="mt-3.5">
         {active ? (
-          <Button variant="success" fullWidth leftIcon={<CircleCheck className="size-4" />} className="bg-gradient-to-b from-success to-[#0fbf85] text-bg border-transparent hover:from-success hover:to-success" disabled>
+          <div className="inline-flex h-10.5 w-full items-center justify-center gap-2 rounded-control bg-gradient-to-b from-success to-[#0fbf85] text-sm font-semibold text-bg shadow-[0_6px_20px_rgba(22,223,155,0.3)]" aria-label={`${mode.name} is active`}>
+            <CircleCheck className="size-4" />
             Active
-          </Button>
+          </div>
         ) : (
           <Button variant="secondary" fullWidth onClick={onActivate} loading={busy}>
             Activate

@@ -91,6 +91,22 @@ export const showcaseEvents: RingEvent[] = [
     ],
   },
   {
+    id: "EVT-1040A",
+    type: "animal",
+    title: "Animal detected",
+    location: "Backyard",
+    cameraId: "cam-back",
+    timestamp: at(0, 6, 48, 0),
+    priority: "normal",
+    confidence: 0.9,
+    summary: "Cat crossed the backyard. No action required.",
+    imageUrl: images.cat,
+    clipDuration: 11,
+    tags: ["Animal", "Cat", "Normal behaviour"],
+    aiAssessment: "The neighbourhood cat passed through the backyard at dawn, as it does most mornings.",
+    recommendedActions: [{ id: "k1", label: "No action required", done: true }],
+  },
+  {
     id: "EVT-1039",
     type: "vehicle",
     title: "Vehicle detected",
@@ -303,8 +319,8 @@ function generateFiller(): RingEvent[] {
   const out: RingEvent[] = [];
   let seq = 900;
 
-  // Today: exactly 21 additional normal events before 09:24 -> 24 total (22/1/1).
-  for (let i = 0; i < 21; i++) {
+  // Today: exactly 20 additional normal events before 09:24 -> 24 total (22/1/1).
+  for (let i = 0; i < 20; i++) {
     const type = pickType(rnd());
     const cam = cams[Math.floor(rnd() * cams.length)];
     const tpl = normalTemplates[type][Math.floor(rnd() * normalTemplates[type].length)];

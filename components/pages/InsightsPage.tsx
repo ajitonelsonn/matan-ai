@@ -25,6 +25,7 @@ import { insightsApi } from "@/lib/api/insights";
 import { chartColors } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { InsightRange } from "@/lib/types";
+import { isoDate, lastDaysLabel } from "@/lib/mock/clock";
 
 const EventTrendsChart = dynamic(() => import("@/components/charts/StackedBarChart").then((m) => m.EventTrendsChart), { ssr: false, loading: () => <Skeleton className="h-[260px] w-full" /> });
 const DonutChart = dynamic(() => import("@/components/charts/DonutChart").then((m) => m.DonutChart), { ssr: false, loading: () => <Skeleton className="size-[168px] rounded-full" /> });
@@ -45,7 +46,7 @@ export function InsightsPage() {
   const [range, setRange] = React.useState<InsightRange>((params.get("range") as InsightRange) ?? "7d");
   const [search, setSearch] = React.useState("");
   const [customOpen, setCustomOpen] = React.useState(false);
-  const [custom, setCustom] = React.useState({ from: "2026-08-29", to: "2026-09-11" });
+  const [custom, setCustom] = React.useState({ from: isoDate(-13), to: isoDate(0) });
   const [generating, setGenerating] = React.useState(false);
   const [regenerated, setRegenerated] = React.useState(false);
 
@@ -91,7 +92,7 @@ export function InsightsPage() {
         search={{ value: search, onChange: setSearch, placeholder: "Search insights…" }}
         actions={
           <Button variant="secondary" leftIcon={<CalendarDays className="size-4" />} onClick={() => setCustomOpen(true)} className="font-medium">
-            {d?.rangeLabel ?? "Sep 4 – Sep 11, 2026"}
+            {d?.rangeLabel ?? lastDaysLabel(7)}
           </Button>
         }
       />
@@ -127,7 +128,7 @@ export function InsightsPage() {
                   {q.loading || !d ? (
                     <Skeleton className="h-[260px]" />
                   ) : (
-                    <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+                    <div className="flex flex-col items-center gap-5 2xl:flex-row 2xl:items-center">
                       <DonutChart
                         data={d.byCamera.map((c, i) => ({ name: c.name, value: c.count, color: cameraColors[i % cameraColors.length] }))}
                         size={168}
@@ -295,7 +296,7 @@ export function InsightsPage() {
             <Input id="to" type="date" value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} />
           </Field>
         </div>
-        <p className="mt-3 text-xs text-text-3">Demo data covers Aug 13 – Sep 11, 2026. Custom ranges use the last 14 days.</p>
+        <p className="mt-3 text-xs text-text-3">Demo data covers {lastDaysLabel(30)}. Custom ranges use the last 14 days.</p>
       </Modal>
     </>
   );

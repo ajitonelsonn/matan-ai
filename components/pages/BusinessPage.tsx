@@ -32,6 +32,7 @@ import { HBarList } from "@/components/charts/HBarList";
 import { useApi } from "@/hooks/useApi";
 import { businessApi } from "@/lib/api/business";
 import { images } from "@/lib/mock/images";
+import { lastDaysLabel, at } from "@/lib/mock/clock";
 import { formatDate, relativeDayTime, timeAgo } from "@/lib/utils/format";
 import { chartColors } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
@@ -89,7 +90,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
   const generateReport = async () => {
     setGenerating(true);
     try {
-      const r = await businessApi.generateReport("Business Activity Report", "Sep 4 - Sep 11, 2026");
+      const r = await businessApi.generateReport("Business Activity Report", lastDaysLabel(7));
       await q.refetch({ silent: true });
       toast.success("Report generated", `${r.name} · ${r.size}`);
       setTab("reports");
@@ -187,7 +188,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
     toast.success("Business settings saved");
   };
 
-  const trend = d ? (trendRange === "7d" ? d.trend : [...d.trend.map((t, i) => ({ ...t, day: `Aug ${28 + i}`, people: Math.round(t.people * 0.9), vehicles: Math.round(t.vehicles * 0.85), packages: Math.round(t.packages * 1.1) })), ...d.trend]) : [];
+  const trend = d ? (trendRange === "7d" ? d.trend : [...d.trend.map((t, i) => ({ ...t, day: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "Asia/Dili" }).format(new Date(at(-13 + i, 12, 0))), people: Math.round(t.people * 0.9), vehicles: Math.round(t.vehicles * 0.85), packages: Math.round(t.packages * 1.1) })), ...d.trend]) : [];
 
   const locationCard = (l: BusinessLocation) => (
     <button key={l.id} type="button" onClick={() => setLocationId(l.id)} className={cn("card hover-lift flex w-full flex-col overflow-hidden text-left transition-[border-color]", l.status === "offline" && "border-danger/30")}>
@@ -557,7 +558,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
               <Button variant="secondary" leftIcon={<FileText className="size-4" />} onClick={() => void generateReport()} loading={generating}>Report</Button>
               <Button variant="secondary" leftIcon={<Power className="size-4" />} onClick={() => void setLocationStatus(location, location.status === "online" ? "offline" : "online")}>{location.status === "online" ? "Set offline" : "Bring online"}</Button>
             </div>
-            <p className="text-[12px] text-text-3">Added {formatDate("2026-03-02T00:00:00+09:00")} · {location.slug}</p>
+            <p className="text-[12px] text-text-3">Added {formatDate(at(-190, 9, 0))} · {location.slug}</p>
           </div>
         )}
       </Drawer>

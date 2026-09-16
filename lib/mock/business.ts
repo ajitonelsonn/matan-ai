@@ -7,7 +7,8 @@ import type {
   TeamMember,
 } from "@/lib/types";
 import { images } from "./images";
-import { at, isoDate } from "./clock";
+import { at, isoDate, lastDaysLabel, MOCK_NOW } from "./clock";
+import { formatDate } from "@/lib/utils/format";
 
 export const businessLocations: BusinessLocation[] = [
   { id: "loc-main", slug: "main-office", name: "Main Office", city: "Dili, Timor-Leste", cameras: 8, status: "online", imageUrl: images.office, manager: "Sara Gomes", openHours: "08:00 - 18:00", eventsToday: 42 },
@@ -44,7 +45,7 @@ export const businessEvents: BusinessEvent[] = [
 export const businessInsights: BusinessInsight[] = [
   { id: "bi-1", title: "Foot traffic increased by 18% compared to last week.", tone: "success", icon: "TrendingUp" },
   { id: "bi-2", title: "Peak delivery time: 10 AM - 12 PM.", tone: "warning", icon: "Package" },
-  { id: "bi-3", title: "Unusual activity detected at Warehouse (Sept 9, 8:14 PM).", tone: "danger", icon: "TriangleAlert" },
+  { id: "bi-3", title: `Unusual activity detected at Warehouse (${formatDate(at(-2, 20, 14)).slice(0, 6)}, 8:14 PM).`, tone: "danger", icon: "TriangleAlert" },
   { id: "bi-4", title: "Consider adding cameras at the parking area.", tone: "warning", icon: "Lightbulb" },
 ];
 
@@ -65,10 +66,10 @@ export const businessTrend = Array.from({ length: 7 }, (_, i) => {
 });
 
 export const businessReports: BusinessReport[] = [
-  { id: "rep-1", name: "Weekly Security Summary", period: "Sep 4 - Sep 10, 2026", createdAt: at(0, 6, 0), size: "1.2 MB", status: "ready" },
-  { id: "rep-2", name: "Foot Traffic Analysis", period: "August 2026", createdAt: at(-10, 8, 0), size: "3.4 MB", status: "ready" },
-  { id: "rep-3", name: "Delivery Log", period: "Sep 1 - Sep 10, 2026", createdAt: at(-1, 20, 0), size: "640 KB", status: "ready" },
-  { id: "rep-4", name: "Incident Report - Remote Site", period: "Sep 10, 2026", createdAt: at(-1, 21, 30), size: "210 KB", status: "ready" },
+  { id: "rep-1", name: "Weekly Security Summary", period: lastDaysLabel(7), createdAt: at(0, 6, 0), size: "1.2 MB", status: "ready" },
+  { id: "rep-2", name: "Foot Traffic Analysis", period: "Last month", createdAt: at(-10, 8, 0), size: "3.4 MB", status: "ready" },
+  { id: "rep-3", name: "Delivery Log", period: lastDaysLabel(10), createdAt: at(-1, 20, 0), size: "640 KB", status: "ready" },
+  { id: "rep-4", name: "Incident Report - Remote Site", period: formatDate(at(-1, 12, 0)), createdAt: at(-1, 21, 30), size: "210 KB", status: "ready" },
 ];
 
 export const businessIntegrations: BusinessIntegration[] = [

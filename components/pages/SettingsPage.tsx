@@ -297,7 +297,7 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="abt">
       <CardHeader icon={<Info />} title={<span id="abt">About Matan AI</span>} subtitle="Your intelligent eye at home." />
       <dl className="grid gap-3 sm:grid-cols-2 text-[13.5px]">
-        {[["Version", "0.1.0 · UI preview"], ["Build", "2026.09.11"], ["Data", "Demo dataset (no live Ring/AWS)"], ["AI", "Amazon Nova via Bedrock (next phase)"], ["Made in", "Dili, Timor-Leste"], ["Licence", "Preview build"]].map(([k, v]) => (
+        {[["Version", "0.1.0 · UI preview"], ["Build", "Preview · Sep 2026"], ["Data", "Demo dataset (no live Ring/AWS)"], ["AI", "Amazon Nova via Bedrock (next phase)"], ["Made in", "Dili, Timor-Leste"], ["Licence", "Preview build"]].map(([k, v]) => (
           <div key={k} className="card-inset p-3"><dt className="text-[11.5px] uppercase tracking-wide text-text-3">{k}</dt><dd className="mt-0.5 font-medium text-text">{v}</dd></div>
         ))}
       </dl>

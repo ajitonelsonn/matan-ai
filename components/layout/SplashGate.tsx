@@ -16,6 +16,11 @@ const MIN_VISIBLE_MS = 1600;
 export function SplashGate() {
   const { data, error } = useAppData();
   const [visible, setVisible] = React.useState(true);
+
+  // `?splash=0` skips the splash (used for QA screenshots and embeds).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("splash") === "0") setVisible(false);
+  }, []);
   const [ready, setReady] = React.useState(false);
   const [minElapsed, setMinElapsed] = React.useState(false);
   const scope = React.useRef<HTMLDivElement>(null);

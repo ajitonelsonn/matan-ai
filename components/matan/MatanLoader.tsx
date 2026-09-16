@@ -58,28 +58,32 @@ export function MatanLoader({ size = "md", wordmark = size !== "xs", messages = 
         return;
       }
 
+      // Only tween what this size variant actually renders (xs/sm omit rings, bar, text).
+      const has = (sel: string) => q(sel).length > 0;
+
       // --- Intro -----------------------------------------------------------
       const intro = gsap.timeline({ defaults: { ease: "power3.out" } });
-      intro
-        .fromTo(q("[data-logo]"), { scale: 0.45, opacity: 0, rotation: -10, y: 8 }, { scale: 1, opacity: 1, rotation: 0, y: 0, duration: 0.9, ease: "back.out(1.8)" })
-        .fromTo(q("[data-halo]"), { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 0.85, duration: 0.7 }, 0.1)
-        .fromTo(q("[data-arc]"), { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 0.35)
-        .fromTo(q("[data-letter]"), { y: 14, opacity: 0, filter: "blur(4px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, stagger: 0.045 }, 0.45)
-        .fromTo(q("[data-sub]"), { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 0.8);
+      intro.fromTo(q("[data-logo]"), { scale: 0.45, opacity: 0, rotation: -10, y: 8 }, { scale: 1, opacity: 1, rotation: 0, y: 0, duration: 0.9, ease: "back.out(1.8)" });
+      intro.fromTo(q("[data-halo]"), { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 0.85, duration: 0.7 }, 0.1);
+      intro.fromTo(q("[data-arc]"), { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 0.35);
+      if (has("[data-letter]")) intro.fromTo(q("[data-letter]"), { y: 14, opacity: 0, filter: "blur(4px)" }, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, stagger: 0.045 }, 0.45);
+      if (has("[data-sub]")) intro.fromTo(q("[data-sub]"), { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, 0.8);
 
       // --- Loops (compositor-only: transform + opacity) ------------------------
       gsap.to(q("[data-logo]"), { scale: 1.05, y: -3, duration: 1.7, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 0.9 });
       gsap.to(q("[data-halo]"), { scale: 1.12, opacity: 0.55, duration: 1.7, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 0.9 });
       gsap.to(q("[data-arc]"), { rotation: 360, duration: 1.6, repeat: -1, ease: "none" });
-      gsap.to(q("[data-arc-2]"), { rotation: -360, duration: 2.6, repeat: -1, ease: "none" });
-      gsap.fromTo(
-        q("[data-ring]"),
-        { scale: 0.7, opacity: 0.75 },
-        { scale: 1.75, opacity: 0, duration: 2.4, repeat: -1, ease: "power2.out", stagger: { each: 0.8, repeat: -1 }, delay: 0.6 },
-      );
-      gsap.to(q("[data-orbit]"), { rotation: 360, duration: 4.5, repeat: -1, ease: "none" });
-      gsap.to(q("[data-orbit-dot]"), { scale: 1.5, duration: 0.9, yoyo: true, repeat: -1, ease: "sine.inOut" });
-      gsap.to(q("[data-bar]"), { xPercent: 260, duration: 1.4, repeat: -1, ease: "power1.inOut" });
+      if (has("[data-arc-2]")) gsap.to(q("[data-arc-2]"), { rotation: -360, duration: 2.6, repeat: -1, ease: "none" });
+      if (has("[data-ring]")) {
+        gsap.fromTo(
+          q("[data-ring]"),
+          { scale: 0.7, opacity: 0.75 },
+          { scale: 1.75, opacity: 0, duration: 2.4, repeat: -1, ease: "power2.out", stagger: { each: 0.8, repeat: -1 }, delay: 0.6 },
+        );
+      }
+      if (has("[data-orbit]")) gsap.to(q("[data-orbit]"), { rotation: 360, duration: 4.5, repeat: -1, ease: "none" });
+      if (has("[data-orbit-dot]")) gsap.to(q("[data-orbit-dot]"), { scale: 1.5, duration: 0.9, yoyo: true, repeat: -1, ease: "sine.inOut" });
+      if (has("[data-bar]")) gsap.to(q("[data-bar]"), { xPercent: 260, duration: 1.4, repeat: -1, ease: "power1.inOut" });
 
       // --- Rotating status messages ------------------------------------------
       const msgEl = q("[data-msg]")[0] as HTMLElement | undefined;

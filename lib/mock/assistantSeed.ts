@@ -1,5 +1,6 @@
 import type { AssistantConversation } from "@/lib/types";
-import { minutesAgo } from "./clock";
+import { minutesAgo, MOCK_NOW } from "./clock";
+import { formatWeekdayDate } from "@/lib/utils/format";
 import { allEvents } from "./events";
 import { countEvents, eventsInRange } from "./insights";
 
@@ -27,7 +28,7 @@ export const seedConversations: AssistantConversation[] = [
       {
         id: "m3",
         role: "assistant",
-        content: `Here's what happened today (Fri, 11 Sep 2026). I analyzed ${today.total} events. Overall, everything looks normal.`,
+        content: `Here's what happened today (${formatWeekdayDate(MOCK_NOW)}). I analyzed ${today.total} events. Overall, everything looks normal.`,
         timestamp: minutesAgo(2),
         chips: [
           { label: "People", value: today.byType.person, icon: "Users", tone: "primary" },
@@ -138,9 +139,9 @@ export const seedConversations: AssistantConversation[] = [
       {
         id: "r2",
         role: "assistant",
-        content: "Done - I generated a daily report for 9 Sep 2026 and emailed it to ajito@example.com.",
+        content: "Done - I generated yesterday's daily report and emailed it to ajito@example.com.",
         timestamp: minutesAgo(2900),
-        banner: { tone: "primary", title: "Report generated", subtitle: "Daily Summary - 9 Sep 2026" },
+        banner: { tone: "primary", title: "Report generated", subtitle: "Daily Summary" },
       },
     ],
   },

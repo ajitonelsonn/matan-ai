@@ -21,6 +21,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { eventsApi } from "@/lib/api/events";
 import type { EventPriority, InsightRange, RingEvent } from "@/lib/types";
+import { lastDaysLabel } from "@/lib/mock/clock";
 import { priorityLabel, priorityTone } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 
@@ -29,7 +30,7 @@ type Sort = "newest" | "oldest" | "priority";
 
 const rangeOptions = [
   { value: "today" as InsightRange, label: "Today" },
-  { value: "7d" as InsightRange, label: "Sep 4 – Sep 11, 2026", description: "Last 7 days" },
+  { value: "7d" as InsightRange, label: lastDaysLabel(7), description: "Last 7 days" },
   { value: "30d" as InsightRange, label: "Last 30 days" },
 ];
 

@@ -9,7 +9,7 @@ import type {
   InsightsData,
   RingEvent,
 } from "@/lib/types";
-import { MOCK_NOW, TIME_ZONE, isoDate } from "./clock";
+import { MOCK_NOW, TIME_ZONE, isoDate, lastDaysLabel } from "./clock";
 
 const emptyByType = (): Record<EventType, number> => ({
   person: 0,
@@ -50,7 +50,7 @@ export function eventsInRange(events: RingEvent[], range: InsightRange, offsetDa
 export function rangeLabel(range: InsightRange) {
   const days = rangeDays(range);
   if (days === 1) return shortFmt.format(new Date(MOCK_NOW));
-  return `${shortFmt.format(new Date(isoDate(-(days - 1)) + "T12:00:00+09:00"))} - ${shortFmt.format(new Date(MOCK_NOW))}, 2026`;
+  return lastDaysLabel(days);
 }
 
 const cameraNames: Record<string, string> = {

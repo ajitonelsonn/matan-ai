@@ -181,9 +181,9 @@ export function AssistantPage() {
     <>
       <Topbar title="AI Assistant" subtitle="Ask anything about your home, business, or Ring devices." search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
 
-      <div className="grid gap-5 xl:grid-cols-12 min-h-[calc(100dvh-200px)]">
+      <div className="grid gap-5 xl:grid-cols-12 xl:items-start">
         {/* Recent chats */}
-        <aside className="card flex flex-col p-4 xl:col-span-3 max-h-[70vh] xl:max-h-none">
+        <aside className="card flex flex-col p-4 xl:col-span-3 max-h-[70vh] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]">
           <Button fullWidth leftIcon={<Plus className="size-4" />} onClick={newChat} size="lg">
             New Chat
           </Button>
@@ -240,7 +240,7 @@ export function AssistantPage() {
         </aside>
 
         {/* Conversation */}
-        <section className="card relative flex flex-col p-4 sm:p-5 xl:col-span-6 min-h-[560px]" aria-label="Conversation">
+        <section className="card relative flex flex-col p-4 sm:p-5 xl:col-span-6 min-h-[560px] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]" aria-label="Conversation">
           <div className="absolute right-4 top-4 z-10">
             <NovaBadge />
           </div>

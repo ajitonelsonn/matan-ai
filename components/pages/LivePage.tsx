@@ -433,9 +433,9 @@ export function LivePage() {
                     { label: "Download", icon: <Download />, onClick: () => toast.success("Download started", "Last 5 minutes · 42 MB") },
                     { label: "Share Event", icon: <Share2 />, onClick: () => toast.success("Link copied") },
                   ].map((a) => (
-                    <button key={a.label} type="button" onClick={a.onClick} className="card-inset flex items-center gap-2 px-3 py-3 text-left text-[12.5px] font-medium text-text transition-[border-color,background-color] hover:border-border-strong">
-                      <span className="text-primary [&>svg]:size-4">{a.icon}</span>
-                      {a.label}
+                    <button key={a.label} type="button" onClick={a.onClick} className="card-inset flex min-w-0 flex-col items-center gap-1.5 px-2 py-3 text-center text-[12px] font-medium text-text transition-[border-color,background-color] hover:border-border-strong">
+                      <span className="text-primary [&>svg]:size-[18px]">{a.icon}</span>
+                      <span className="truncate max-w-full">{a.label}</span>
                     </button>
                   ))}
                 </div>

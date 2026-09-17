@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
+import { Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, Activity, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -219,6 +219,30 @@ export function SettingsPage() {
         {match("recognition") && <Row icon={<UserRound />} title="People Recognition" hint={`Manage known faces (${s.ai.knownFaces}).`} onClick={() => setModal("faces")} control={<span className="flex items-center gap-2"><Toggle size="sm" checked={s.ai.peopleRecognition} onChange={(v) => void update({ ai: { peopleRecognition: v } }, v ? "People recognition on" : "People recognition off")} label="People recognition" /><ChevronRight className="size-4 text-text-3" /></span>} />}
         {match("smart alerts") && <Row icon={<Lightbulb />} title="Smart Alerts" hint="Let AI filter unimportant events." tone="warning" control={<Toggle checked={s.ai.smartAlerts} onChange={(v) => void update({ ai: { smartAlerts: v } }, v ? "Smart alerts on" : "Smart alerts off")} label="Smart alerts" />} />}
         {match("language") && <Row icon={<MessageSquare />} title="AI Language" hint="Choose AI assistant language." control={<Select size="sm" value={s.ai.language} onChange={(v) => void update({ ai: { language: v } })} options={["English", "Tetum", "Português", "Bahasa Indonesia"].map((v) => ({ value: v, label: v }))} align="end" label="AI language" />} />}
+        {match("auto") && (
+          <Row
+            icon={<Sparkles />}
+            title="Auto-analyze new Ring events"
+            hint="Real Mode · Bedrock Nova Pro runs on new events automatically."
+            tone="purple"
+            control={
+              <Select
+                size="sm"
+                value={s.ai.autoAnalyze ?? "off"}
+                onChange={(v) => void update({ ai: { autoAnalyze: v } }, v === "off" ? "Auto-analysis off" : v === "video" ? "Auto-analysis: snapshot + video escalation" : "Auto-analysis: snapshot")}
+                options={[
+                  { value: "off" as const, label: "Off", description: "Analyze manually only" },
+                  { value: "snapshot" as const, label: "Snapshot", description: "≈ $0.003 per event" },
+                  { value: "video" as const, label: "Snapshot + video", description: "Escalates to the clip when useful" },
+                ]}
+                align="end"
+                label="Auto-analyze"
+              />
+            }
+          />
+        )}
+        {match("live view") && <Row icon={<Activity />} title="Include live-view sessions" hint="Also analyze on_demand sessions (Playground simulations)." tone="purple" control={<Toggle checked={s.ai.autoIncludeLiveView ?? false} onChange={(v) => void update({ ai: { autoIncludeLiveView: v } }, v ? "Live-view sessions included" : "Live-view sessions excluded")} label="Include live-view sessions" />} />}
+        {match("media window") && <Row icon={<Clock />} title="Media window" hint="Seconds of media before and after the event sent to Nova." control={<Select size="sm" value={String(s.ai.mediaPadSeconds ?? 5)} onChange={(v) => void update({ ai: { mediaPadSeconds: Number(v) as 5 | 10 } }, `Media window ±${v}s`)} options={[{ value: "5", label: "±5 s" }, { value: "10", label: "±10 s" }]} align="end" label="Media window" />} />}
       </div>
     </section>
   );

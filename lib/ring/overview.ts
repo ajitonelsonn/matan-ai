@@ -9,7 +9,9 @@ import { user, weather } from "@/lib/mock/users";
 import { isRingApiError } from "./errors";
 import type { RingSessionInfo } from "./types";
 import { getIntelligenceSync } from "@/lib/matan/store";
-import { applyIntelligence } from "@/lib/matan/analysis";
+import { applyIntelligence, currentUserSettings } from "@/lib/matan/analysis";
+import { markAnalyzingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
+import { runMatanPipeline } from "@/lib/matan/pipeline";
 
 /**
  * Real-mode read model. Everything here is derived from the Ring Playground
@@ -32,10 +34,12 @@ const CACHE_MS = 60_000;
 
 /** Overlay any completed Matan AI intelligence onto raw Ring events (analysis: pending → done). */
 function withIntelligence(events: RingEvent[]) {
-  return events.map((e) => {
-    const intel = getIntelligenceSync(e.id);
-    return intel ? applyIntelligence(e, intel) : e;
-  });
+  return markAnalyzingState(
+    events.map((e) => {
+      const intel = getIntelligenceSync(e.id);
+      return intel ? applyIntelligence(e, intel) : e;
+    }),
+  );
 }
 
 export async function getRingEvents(force = false): Promise<{ events: RingEvent[]; session: RingSessionInfo | null; stale: boolean }> {
@@ -61,6 +65,8 @@ export async function getRingEvents(force = false): Promise<{ events: RingEvent[
   );
   all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   globalThis.__matanRingEventsCache = { at: Date.now(), events: all, errors };
+  // Fresh sync → auto-analyze new events in the background (never blocks this request).
+  scheduleAutoAnalysis(all, (ev, o) => runMatanPipeline(ev, all, currentUserSettings(), { media: o.media, auto: true }));
   return { events: withIntelligence(all), session: sessionInfo(session), stale: false };
 }
 

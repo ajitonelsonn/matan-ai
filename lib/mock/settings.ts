@@ -30,6 +30,9 @@ export const defaultSettings: SettingsData = {
     knownFaces: 6,
     smartAlerts: true,
     language: "English",
+    autoAnalyze: "snapshot",
+    autoIncludeLiveView: true,
+    mediaPadSeconds: 5,
   },
   appearance: {
     theme: "Dark",

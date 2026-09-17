@@ -27,7 +27,7 @@ export function EventCard({ event, onClick, className }: { event: RingEvent; onC
         <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-border">
           <SafeImage src={event.imageUrl} alt={event.title} sizes="120px" grayscale={event.priority === "important"} />
         </div>
-        <RiskBadge priority={event.priority} label={event.badgeLabel} size="xs" pending={event.analysis === "pending"} />
+        <RiskBadge priority={event.priority} label={event.badgeLabel} size="xs" pending={event.analysis === "pending"} analyzing={event.analysis === "analyzing"} />
       </div>
       <h3 className="mt-3 text-[15px] font-semibold text-text leading-tight">{event.title}</h3>
       <dl className="mt-2 space-y-1 text-[12.5px] text-text-2">
@@ -84,7 +84,7 @@ export function EventRow({ event, selected, onSelect, className, ...rest }: { ev
         <p className="hidden sm:block text-[13.5px] leading-snug text-text-2 line-clamp-2">{event.summary}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <RiskBadge priority={event.priority} label={event.badgeLabel} pending={event.analysis === "pending"} />
+        <RiskBadge priority={event.priority} label={event.badgeLabel} pending={event.analysis === "pending"} analyzing={event.analysis === "analyzing"} />
         <ChevronRight className={cn("size-4 text-text-3 transition-transform group-hover:translate-x-0.5", selected && "text-primary")} aria-hidden />
       </div>
     </button>
@@ -107,7 +107,7 @@ export function EventLine({ event, onClick, className, showDay }: { event: Pick<
         <span className={cn("block truncate text-sm", event.priority === "important" ? "font-semibold text-text" : "text-text")}>{event.title}</span>
         <span className="block truncate text-xs text-text-3">{event.location}</span>
       </span>
-      <RiskBadge priority={event.priority} size="xs" variant="soft" pending={event.analysis === "pending"} />
+      <RiskBadge priority={event.priority} size="xs" variant="soft" pending={event.analysis === "pending"} analyzing={event.analysis === "analyzing"} />
     </Tag>
   );
 }

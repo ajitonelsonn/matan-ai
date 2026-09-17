@@ -29,9 +29,9 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
   const inFlight = React.useRef(false);
 
   React.useEffect(() => {
-    setStatus(event.intelligence ? "complete" : "pending");
+    setStatus(event.intelligence ? "complete" : event.analysis === "analyzing" ? "analyzing" : "pending");
     setError(null);
-  }, [event.id, event.intelligence]);
+  }, [event.id, event.intelligence, event.analysis]);
 
   const run = async (media: "auto" | "video" = "auto") => {
     if (inFlight.current) return;
@@ -98,7 +98,7 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
               <MatanLoader size="sm" wordmark={false} messages={false} label="Analyzing with Matan AI" />
               <div>
                 <p className="text-[15px] font-semibold text-text">Analyzing with Matan AI…</p>
-                <p className="text-[13px] text-text-3">{runningMode === "video" ? "Fetching the Ring clip → Nova Pro (video) → Matan Decision Engine" : "Ring snapshot → Nova Pro → Matan Decision Engine (video only if needed)"}</p>
+                <p className="text-[13px] text-text-3">{event.analysis === "analyzing" && !inFlight.current ? "Automatic analysis in progress (padded media window) → Nova Pro → Matan Decision Engine" : runningMode === "video" ? "Fetching the Ring clip → Nova Pro (video) → Matan Decision Engine" : "Ring snapshot → Nova Pro → Matan Decision Engine (video only if needed)"}</p>
               </div>
             </div>
           )}

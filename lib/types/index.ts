@@ -47,8 +47,8 @@ export interface RingEvent {
   reviewed?: boolean;
   /** Where this event came from. Undefined = demo dataset. */
   source?: "demo" | "ring";
-  /** Ring-derived events are "pending" until the Matan AI (Bedrock) pipeline has actually run. */
-  analysis?: "pending" | "done";
+  /** Ring-derived events are "pending" until the Matan AI (Bedrock) pipeline has actually run; "analyzing" while a run is in flight. */
+  analysis?: "pending" | "analyzing" | "done";
   /** Raw Ring event type (motion | ding | on_demand) for Ring-derived events. */
   ringEventType?: string;
   /** Matan AI intelligence (Nova analysis + deterministic decision) once analysis completed. */
@@ -430,6 +430,12 @@ export interface SettingsData {
     knownFaces: number;
     smartAlerts: boolean;
     language: string;
+    /** Real Mode: analyze new Ring events automatically. */
+    autoAnalyze: "off" | "snapshot" | "video";
+    /** Also auto-analyze on_demand live-view sessions (Playground simulations). */
+    autoIncludeLiveView: boolean;
+    /** Seconds of media before/after the event window sent to Nova. */
+    mediaPadSeconds: 5 | 10;
   };
   appearance: {
     theme: "Dark" | "Light" | "Auto";

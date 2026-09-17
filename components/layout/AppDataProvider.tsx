@@ -51,6 +51,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // Real Mode: poll so new Ring events and automatic analyses show up on Home without a click.
+  React.useEffect(() => {
+    if (mode !== "ring") return;
+    const id = setInterval(() => void refresh(), 30_000);
+    return () => clearInterval(id);
+  }, [mode, refresh]);
+
   const markAllRead = React.useCallback(async () => {
     setData((d) => (d ? { ...d, unreadNotifications: 0, notifications: d.notifications.map((n) => ({ ...n, read: true })) } : d));
     await dashboardApi.markAllRead();

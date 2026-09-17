@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { discoverRingDevices } from "@/lib/ring/client";
 import { getRingSession, listConnected, markInvalid, markValidated, sessionInfo, syncConnected, usableToken } from "@/lib/ring/session";
 import { ringCodeError, ringError } from "@/lib/ring/http";
+import { getRingEvents } from "@/lib/ring/overview";
 import { isRingApiError } from "@/lib/ring/errors";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,9 @@ export async function POST() {
     const devices = await discoverRingDevices(token);
     markValidated(session!, devices);
     syncConnected(devices);
-    return NextResponse.json({ devices, connected: listConnected(), session: sessionInfo(session) });
+    // Also resync Ring event history (bypassing the 60 s cache) so new events + auto-analysis run now.
+    const { events } = await getRingEvents(true);
+    return NextResponse.json({ devices, connected: listConnected(), session: sessionInfo(session), eventCount: events.length });
   } catch (e) {
     if (isRingApiError(e) && (e.code === "RING_TOKEN_INVALID" || e.code === "RING_TOKEN_EXPIRED") && session) markInvalid(session);
     return ringError(e);

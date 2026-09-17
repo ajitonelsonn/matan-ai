@@ -257,3 +257,27 @@ Consequences:
 - Emulator + real Nova: snapshot of a warehouse photo → "warehouse with shelves and boxes" (`motion`, normal); 10 s test clip → "Video: a serene garden scene with a large tree… unrelated to a home entrance" (`unknown`, normal). Auto mode correctly declined video when the snapshot was sufficient.
 - Media-rejection errors from Bedrock now map to `MATAN_AI_BAD_REQUEST` with a clear message.
 - Tests: 14/14 (`pnpm test`) incl. escalation gate rules; `tsc` and `next build` clean.
+
+---
+
+## Addendum 2 — Automatic analysis of new events (padded media window)
+
+**Behaviour:** in Real Mode, every Ring history sync (page load, 30 s poll, or the banner **Refresh**, which now forces an event resync) hands newly arrived events to a background scheduler. Each is analyzed with a **padded media window** — event `start − pad … end + pad` (pad = 5 s default, 10 s optional) — so Nova sees the lead-in and aftermath, e.g. an event at 02:02:06 is analyzed from 02:02:01 to 02:02:11+. The list shows **Analyzing…** while it runs and updates itself (6 s polling while anything is analyzing, 30 s otherwise); no click needed. Manual **Analyze / Analyze full clip** still work.
+
+**Settings → AI Preferences**
+- *Auto-analyze new Ring events*: **Off · Snapshot (default) · Snapshot + video** (video escalates via the existing gate)
+- *Include live-view sessions*: also analyze `on_demand` sessions (needed for Playground simulations) — default on
+- *Media window*: ±5 s / ±10 s
+
+**Guards (`lib/matan/auto.ts`)**
+| Guard | Why |
+|---|---|
+| Watermark on first sync | never analyze the whole backlog; only events newer than the previous sync |
+| Own-media filter | every Matan snapshot/clip request creates an `on_demand` entry on Ring — those are recognised (timestamps of our requests, 3-min window) and skipped, preventing an analyze→event→analyze loop |
+| `shouldAnalyze()` cost gate | status/heartbeat events skipped; `on_demand` only when "include live-view sessions" is on |
+| Rate limits | ≤ 5 per sync, ≤ 30 per hour, concurrency 2, dedupe by id, in-flight guard |
+| Budget guard | stops at the monthly token budget; video disabled at 80 % |
+
+**Files:** `lib/matan/auto.ts` (scheduler), `lib/matan/pipeline.ts` (shared snapshot → escalation → clip pipeline with padded windows, used by both the route and the scheduler), `lib/ring/overview.ts` (hooks the scheduler after a fresh sync, marks `analysis: "analyzing"`), `app/api/ring/refresh/route.ts` (forces event resync), Settings AI card, Events/Home polling.
+
+**Verified (emulator + real Nova):** initial sync → watermark; injected new `motion` event → `matan_auto_queued` → list shows *Analyzing…* → ~10 s later `done`, priority normal, snapshot stored and displayed, Nova summary in the row; older pending events untouched.

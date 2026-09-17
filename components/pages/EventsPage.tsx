@@ -79,6 +79,18 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
     setPage(1);
   }, [ds.mode]);
 
+  // Real Mode: poll Ring history so new events and automatic analyses land without a click.
+  const anyAnalyzing = items.some((e) => e.analysis === "analyzing");
+  React.useEffect(() => {
+    if (!isRing) return;
+    const id = setInterval(() => {
+      if (page === 1) void q.refetch({ silent: true });
+      if (selectedId) void detailQ.refetch({ silent: true });
+    }, anyAnalyzing ? 6000 : 30000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRing, anyAnalyzing, page, selectedId]);
+
   // Keep a valid selection: the deep-linked event, else the first item.
   const detailQ = useApi(() => (selectedId ? ds.getEvent(selectedId) : Promise.resolve(null)), [selectedId, ds.mode]);
   React.useEffect(() => {

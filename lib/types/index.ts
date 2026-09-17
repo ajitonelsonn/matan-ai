@@ -51,6 +51,8 @@ export interface RingEvent {
   analysis?: "pending" | "done";
   /** Raw Ring event type (motion | ding | on_demand) for Ring-derived events. */
   ringEventType?: string;
+  /** Matan AI intelligence (Nova analysis + deterministic decision) once analysis completed. */
+  intelligence?: import("@/lib/matan/schema").MatanEventIntelligence;
 }
 
 export type DeviceKind = "camera" | "doorbell" | "lock" | "chime";

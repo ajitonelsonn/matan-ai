@@ -155,3 +155,167 @@ export async function stopWhepSession(token: string, sessionUrl: string): Promis
     /* best effort - the session times out on Ring's side anyway */
   }
 }
+
+/* ---- Event media (snapshots) --------------------------------------------- */
+
+export type SnapshotRequest = { type: "at_timestamp"; timestamp: number } | { type: "latest_in_range"; start_timestamp: number; end_timestamp?: number };
+
+export interface RingSnapshot {
+  bytes: Uint8Array;
+  contentType: string;
+  format: "jpeg" | "png";
+  /** Ring-reported capture time (X-Media-Timestamp), when present. */
+  capturedAt?: string;
+}
+
+const MAX_SNAPSHOT_BYTES = 6 * 1024 * 1024;
+
+/**
+ * Download an image snapshot for a device/time window.
+ * POST /v1/devices/{id}/media/image/download -> 303 See Other -> pre-signed image URL.
+ * The Bearer token is sent ONLY to api.amazonvision.com; the redirect is followed
+ * manually without credentials. Returns null when Ring has no media (404/416).
+ */
+export async function getRingSnapshot(token: string, deviceId: string, req: SnapshotRequest, format: "jpeg" | "png" = "jpeg"): Promise<RingSnapshot | null> {
+  const path = `/v1/devices/${encodeURIComponent(deviceId)}/media/image/download`;
+  let res: Response;
+  try {
+    res = await fetch(`${RING_API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "*/*" },
+      body: JSON.stringify({ ...req, image_options: { format } }),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    console.error({ event: "ring_snapshot_failed", reason: e instanceof Error ? e.name : "unknown" });
+    throw new RingApiError("RING_NETWORK", 502);
+  }
+
+  if (res.status === 404 || res.status === 416) {
+    console.log({ event: "ring_snapshot_unavailable", status: res.status });
+    return null;
+  }
+
+  let imageRes: Response = res;
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("Location");
+    if (!location) return null;
+    try {
+      imageRes = await fetch(location, { cache: "no-store", signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS) }); // pre-signed URL: no Authorization header
+    } catch {
+      throw new RingApiError("RING_NETWORK", 502);
+    }
+  }
+
+  if (!imageRes.ok) {
+    if (imageRes === res) {
+      let body: JsonApiErrorDocument | null = null;
+      try {
+        body = (await res.json()) as JsonApiErrorDocument;
+      } catch {
+        body = null;
+      }
+      const err = fromResponse(res.status, body, res.headers.get("Retry-After"));
+      console.error({ event: "ring_snapshot_error", status: res.status, code: err.code });
+      throw err;
+    }
+    console.error({ event: "ring_snapshot_media_error", status: imageRes.status });
+    return null;
+  }
+
+  const contentType = imageRes.headers.get("Content-Type") ?? `image/${format}`;
+  const buf = new Uint8Array(await imageRes.arrayBuffer());
+  if (!buf.byteLength || buf.byteLength > MAX_SNAPSHOT_BYTES) return null;
+  const ts = res.headers.get("X-Media-Timestamp") ?? imageRes.headers.get("X-Media-Timestamp");
+  console.log({ event: "ring_snapshot", success: true, bytes: buf.byteLength, contentType });
+  return { bytes: buf, contentType, format: /png/i.test(contentType) ? "png" : "jpeg", capturedAt: ts ? new Date(Number(ts)).toISOString() : undefined };
+}
+
+/* ---- Event media (video clips) -------------------------------------------- */
+
+export interface RingClip {
+  bytes: Uint8Array;
+  contentType: string;
+  format: "mp4";
+  /** Ring-reported actual start (X-Media-Timestamp) and length (X-Media-Length, ms). */
+  actualTimestamp?: string;
+  actualLengthMs?: number;
+  partial: boolean;
+}
+
+export const MAX_CLIP_MS = 60_000; // hard cap: never request more than 60 s of video
+const MAX_CLIP_BYTES = 20 * 1024 * 1024; // Nova inline video limit is 25 MB total payload
+
+/**
+ * Download an existing recording for a time window.
+ * POST /v1/devices/{id}/media/video/download { timestamp, duration } -> 200/206 MP4 bytes
+ * (416 when nothing was recorded). Follows a 303 without credentials if Ring redirects.
+ * Returns null when no media is available.
+ */
+export async function getRingClip(token: string, deviceId: string, timestampMs: number, durationMs: number): Promise<RingClip | null> {
+  const duration = Math.max(1000, Math.min(MAX_CLIP_MS, Math.floor(durationMs)));
+  const path = `/v1/devices/${encodeURIComponent(deviceId)}/media/video/download`;
+  let res: Response;
+  try {
+    res = await fetch(`${RING_API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "*/*" },
+      // Minimal documented body; Ring picks codec/resolution. (Adding video_options caused HTTP 400 on the Playground.)
+      body: JSON.stringify({ timestamp: Math.floor(timestampMs), duration }),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS * 2),
+    });
+  } catch (e) {
+    console.error({ event: "ring_clip_failed", reason: e instanceof Error ? e.name : "unknown" });
+    throw new RingApiError("RING_NETWORK", 502);
+  }
+  if (res.status === 404 || res.status === 416) {
+    console.log({ event: "ring_clip_unavailable", status: res.status });
+    return null;
+  }
+  let mediaRes: Response = res;
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("Location");
+    if (!location) return null;
+    try {
+      mediaRes = await fetch(location, { cache: "no-store", signal: AbortSignal.timeout(RING_REQUEST_TIMEOUT_MS * 2) });
+    } catch {
+      throw new RingApiError("RING_NETWORK", 502);
+    }
+  }
+  if (!mediaRes.ok) {
+    if (mediaRes === res) {
+      let body: JsonApiErrorDocument | null = null;
+      try {
+        body = (await res.json()) as JsonApiErrorDocument;
+      } catch {
+        body = null;
+      }
+      const err = fromResponse(res.status, body, res.headers.get("Retry-After"));
+      const first = body?.errors?.[0];
+      console.error({ event: "ring_clip_error", status: res.status, code: err.code, ringCode: first?.code, ringTitle: first?.title, ringDetail: first?.detail?.slice(0, 200) });
+      if (res.status === 400) return null; // treat "cannot serve this window" as no media rather than failing the analysis
+      throw err;
+    }
+    return null;
+  }
+  const buf = new Uint8Array(await mediaRes.arrayBuffer());
+  if (!buf.byteLength || buf.byteLength > MAX_CLIP_BYTES) {
+    console.log({ event: "ring_clip_skipped", bytes: buf.byteLength });
+    return null;
+  }
+  const ts = res.headers.get("X-Media-Timestamp") ?? mediaRes.headers.get("X-Media-Timestamp");
+  const len = res.headers.get("X-Media-Length") ?? mediaRes.headers.get("X-Media-Length");
+  console.log({ event: "ring_clip", success: true, bytes: buf.byteLength, partial: mediaRes.status === 206, lengthMs: len ? Number(len) : undefined });
+  return {
+    bytes: buf,
+    contentType: mediaRes.headers.get("Content-Type") ?? "video/mp4",
+    format: "mp4",
+    actualTimestamp: ts ? new Date(Number(ts)).toISOString() : undefined,
+    actualLengthMs: len ? Number(len) : undefined,
+    partial: mediaRes.status === 206,
+  };
+}

@@ -41,6 +41,10 @@ const detectionType: Record<string, { title: string; type: EventType }> = {
 
 /** Map a Ring history event to the shared event shape. Analysis stays "pending" until Matan AI actually runs. */
 export function ringEventToMatan(e: RingHistoryEvent, device: ConnectedRingDevice): RingEvent {
+  // Ring may sub-type events, e.g. "motion.human" -> kind "motion" + detection "human".
+  const [kindBase, ...subParts] = e.kind.split(".");
+  const sub = subParts.join(".");
+  if (sub && !e.detections.includes(sub)) e = { ...e, kind: kindBase, detections: [...e.detections, sub] };
   const base = kindTitle[e.kind] ?? { title: `${e.kind.replace(/[_-]/g, " ")} event`, type: "other" as EventType, summary: `Ring reported a ${e.kind.replace(/[_-]/g, " ")} event.` };
   const det = e.detections.map((d) => detectionType[d.toLowerCase()]).find(Boolean);
   const start = e.createdAt ?? new Date().toISOString();

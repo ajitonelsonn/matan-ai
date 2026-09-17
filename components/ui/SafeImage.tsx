@@ -40,6 +40,7 @@ export function SafeImage({ src, alt, className, sizes = "(max-width: 768px) 100
           fill
           sizes={sizes}
           priority={priority}
+          unoptimized={src.startsWith("/api/")}
           className={cn("object-cover transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0", grayscale && "grayscale contrast-110")}
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}

@@ -40,6 +40,7 @@ import { eventTypeTone, toneStyles } from "@/lib/utils/tones";
 import { formatDate, formatDuration, formatTime, formatTimeWithSeconds, relativeDay } from "@/lib/utils/format";
 import type { RingEvent } from "@/lib/types";
 import { SourceBadge } from "@/components/experience/source-badge";
+import { MatanAnalysisPanel } from "./MatanAnalysisPanel";
 
 function useMockPlayer(duration = 15) {
   const [playing, setPlaying] = React.useState(false);
@@ -165,6 +166,22 @@ export function EventDetail({
           <RiskBadge priority={event.priority} pending={pending} size="md" />
         </div>
 
+        {event.videoUrl ? (
+          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-black">
+            <video src={event.videoUrl} poster={event.imageUrl} controls playsInline className="absolute inset-0 h-full w-full object-contain" aria-label={`Ring clip analyzed for ${event.title}`} />
+            <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-white/10 bg-bg/60 px-3 py-1 text-[12.5px] font-medium text-text backdrop-blur">
+              <StatusDot tone="purple" /> Ring clip · what Matan AI analyzed
+            </div>
+          </div>
+        ) : event.imageUrl ? (
+          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-surface-2">
+            <SafeImage src={event.imageUrl} alt={`Ring snapshot analyzed for ${event.title}`} sizes="(max-width: 1024px) 100vw, 40vw" />
+            <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full border border-white/10 bg-bg/60 px-3 py-1 text-[12.5px] font-medium text-text backdrop-blur">
+              <StatusDot tone="primary" /> Ring snapshot · what Matan AI analyzed
+            </div>
+          </div>
+        ) : null}
+
         <dl className="grid gap-2.5 sm:grid-cols-2">
           {[
             ["Source", <SourceBadge key="s" source="ring" size="xs" short />],
@@ -179,27 +196,17 @@ export function EventDetail({
           ))}
         </dl>
 
-        <section className="card-inset p-4">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-3/60 text-text-3">
-              <Sparkles className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wide text-text-3">Matan AI</p>
-              <p className="text-[15px] font-semibold text-text">Awaiting analysis</p>
-              <p className="mt-1 text-[13.5px] leading-relaxed text-text-2">
-                This event was recorded by the Ring Simulator. Priority, confidence and recommended actions will appear once the Matan AI (Amazon Bedrock) pipeline has actually processed it - Matan never claims an analysis that hasn&apos;t run.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {event.tags.map((tag) => (
-                  <Badge key={tag} tone={tag === "Ring Simulator" ? "primary" : "neutral"} size="md">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+        <MatanAnalysisPanel event={event} onAnalyzed={onChange} onReview={() => frameRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+
+        {event.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {event.tags.map((tag) => (
+              <Badge key={tag} tone={tag === "Ring Simulator" ? "primary" : "neutral"} size="sm">
+                {tag}
+              </Badge>
+            ))}
           </div>
-        </section>
+        )}
 
         {timeline.length > 0 && (
           <section className="card-inset p-4">

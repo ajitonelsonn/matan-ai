@@ -5,6 +5,7 @@ import { Hub } from "aws-amplify/utils";
 import { configureAuth, currentMatanUser, signOutEverywhere } from "@/lib/auth/client";
 import { isAuthConfigured } from "@/lib/auth/config";
 import type { AuthState, MatanUser } from "@/lib/auth/user";
+import { clearModeChoiceForSession } from "@/components/experience/experience-provider";
 
 interface AuthContextValue extends AuthState {
   configured: boolean;
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOutEverywhere();
     } finally {
+      clearModeChoiceForSession(); // next sign-in starts at the Demo/Real chooser again
       setState({ loading: false, authenticated: false, user: null });
     }
   }, []);

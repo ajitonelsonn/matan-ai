@@ -10,6 +10,24 @@ export type AppMode = "demo" | "ring";
 export type RingConnectionState = "not_connected" | "connecting" | "connected" | "expiring" | "expired" | "invalid";
 
 export const MODE_STORAGE_KEY = "matan.experience.mode";
+/** Session-scoped flag: the chooser is shown once per sign-in, not on every refresh. Cleared on sign-out. */
+export const MODE_CHOSEN_SESSION_KEY = "matan.experience.chosen";
+
+export function clearModeChoiceForSession() {
+  try {
+    sessionStorage.removeItem(MODE_CHOSEN_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function chosenThisSession() {
+  try {
+    return sessionStorage.getItem(MODE_CHOSEN_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 interface ExperienceContextValue {
   /** null = the user has not chosen yet (first run). */
@@ -79,9 +97,11 @@ export function ExperienceProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   React.useEffect(() => {
+    // The stored mode is remembered as the default, but every new sign-in starts at the
+    // Demo/Real chooser; a plain refresh within the same session skips it.
     const stored = readStoredMode();
     setModeState(stored);
-    setChosen(Boolean(stored));
+    setChosen(Boolean(stored) && chosenThisSession());
     setHydrated(true);
     void refreshRing();
     const t = setInterval(() => void refreshRing(), 60_000);
@@ -100,6 +120,7 @@ export function ExperienceProvider({ children }: { children: React.ReactNode }) 
   const persist = React.useCallback((m: AppMode) => {
     try {
       localStorage.setItem(MODE_STORAGE_KEY, m);
+      sessionStorage.setItem(MODE_CHOSEN_SESSION_KEY, "1");
       document.cookie = `matan_mode=${m}; path=/; max-age=31536000; samesite=lax`;
     } catch {
       /* ignore */

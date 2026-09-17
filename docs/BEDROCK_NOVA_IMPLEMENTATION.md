@@ -280,4 +280,8 @@ Consequences:
 
 **Files:** `lib/matan/auto.ts` (scheduler), `lib/matan/pipeline.ts` (shared snapshot → escalation → clip pipeline with padded windows, used by both the route and the scheduler), `lib/ring/overview.ts` (hooks the scheduler after a fresh sync, marks `analysis: "analyzing"`), `app/api/ring/refresh/route.ts` (forces event resync), Settings AI card, Events/Home polling.
 
+**Media window details:** `from = start − pad`, `to = min(end + pad, now − 1.5 s)` — Ring's media service rejects timestamps in the future (observed as HTTP 422 from the pre-signed snapshot URL), so the window is clamped to "now"; the `at_timestamp` fallback is clamped the same way. When the snapshot URL fails, the log entry `ring_snapshot_media_error` now includes Ring's response hint.
+
+**Related fixes (commit `155387d`):** Ring history rows are deduped by id after sync; the Events list only merges a fetched page whose `meta.page` matches the current page and filters duplicate ids (previously "Load more" could append page 1 twice, surfacing as React duplicate-key warnings once Real Mode polling was added).
+
 **Verified (emulator + real Nova):** initial sync → watermark; injected new `motion` event → `matan_auto_queued` → list shows *Analyzing…* → ~10 s later `done`, priority normal, snapshot stored and displayed, Nova summary in the row; older pending events untouched.

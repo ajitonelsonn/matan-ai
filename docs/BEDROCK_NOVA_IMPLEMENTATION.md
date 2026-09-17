@@ -208,6 +208,20 @@ The Playground's Package / Vehicle / Motion buttons start a **live-view simulati
 - `on_demand` sessions without detections decide **normal / none** ("a live view session started by a user, not a detection").
 - Matan now obtains **Ring media server-side** for the event window and gives it to Nova.
 
+### Where the picture/video comes from — two separate Ring sources
+Ring history events contain **no media**. What Nova receives is assembled from two different APIs:
+
+| What | Ring API | Contains | Sent to Nova as |
+|---|---|---|---|
+| **The event** | `GET /v1/history/devices/{id}/events` | Metadata only: `event_type` (`motion` / `ding` / `on_demand`), `start`, `end`, source device, `cv_detections` labels (person / package / vehicle – empty on the Playground) | text (JSON context, marked as untrusted data) |
+| **The media** | `POST /v1/devices/{id}/media/image/download` (snapshot) · `POST /v1/devices/{id}/media/video/download` (clip) | Camera pixels for a **time window** the server asks for | image / video bytes (primary evidence) |
+
+```
+history event ──▶ start … end ──▶ snapshot / clip request for that window ──▶ bytes ──▶ Nova (metadata + media)
+```
+
+Matan uses the event's `start`/`end` to request media for exactly that window, then sends event metadata **and** media together. A snapshot is one frame chosen by Ring for the window (`latest_in_range`), not a canonical event thumbnail – which is why Matan keeps the frame it fetched and shows it as the event image. On the Playground only the snapshot exists (live-view sessions are not recordings); with a real device / production webhooks both snapshot and clip exist.
+
 ### Media pipeline
 | Step | Endpoint / component |
 |---|---|

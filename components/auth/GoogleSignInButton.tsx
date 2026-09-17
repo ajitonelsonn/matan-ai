@@ -16,15 +16,22 @@ function GoogleMark() {
   );
 }
 
-/** Launches Cognito managed login with the Google identity provider. Hidden until Google is enabled on the pool. */
+/**
+ * Launches Cognito managed login with the Google identity provider. Until the
+ * Google IdP is configured on the pool it renders disabled with a hint.
+ */
 export function GoogleSignInButton({ label = "Continue with Google", next }: { label?: string; next?: string }) {
   const [busy, setBusy] = React.useState(false);
-  if (!authConfig.googleEnabled) return null;
+  const enabled = authConfig.googleEnabled;
   return (
     <Button
       variant="outline"
+      size="lg"
       fullWidth
       loading={busy}
+      disabled={!enabled}
+      title={enabled ? undefined : "Google sign-in is being set up"}
+      className="border-white/70 bg-white text-[#1f2937] shadow-[0_8px_24px_-12px_rgba(255,255,255,0.6)] hover:bg-white/95 hover:text-[#111827] disabled:opacity-80"
       leftIcon={<GoogleMark />}
       onClick={async () => {
         setBusy(true);

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
+import { ArrowRight, Mail, MailCheck } from "lucide-react";
 import { confirmEmail, resendEmailCode } from "@/lib/auth/client";
 import { mapAuthError, type FriendlyAuthError } from "@/lib/auth/errors";
 import { maskEmail } from "@/lib/auth/user";
 import { safeNext } from "./AuthGuard";
-import { AuthAlert, AuthLayout } from "./AuthLayout";
+import { AuthAlert, AuthLayout, IconInput } from "./AuthLayout";
 
 export function VerifyEmailForm() {
   const router = useRouter();
@@ -65,11 +66,16 @@ export function VerifyEmailForm() {
       }
     >
       <form onSubmit={submit} className="space-y-4" noValidate aria-busy={busy}>
+        <div className="flex justify-center">
+          <span className="inline-flex size-16 items-center justify-center rounded-full border border-primary/30 bg-primary/12 text-primary shadow-[0_0_30px_rgba(18,168,255,0.25)]">
+            <MailCheck className="size-7" aria-hidden />
+          </span>
+        </div>
         {resent && !error && <AuthAlert tone="success" title="Check your inbox" message={resent} />}
         {error && <AuthAlert title={error.title} message={error.message} />}
         {!params.get("email") && (
           <Field label="Email" htmlFor="ve-email">
-            <Input id="ve-email" name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <IconInput icon={<Mail />} id="ve-email" name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </Field>
         )}
         <Field label="Verification code" htmlFor="ve-code" hint="Codes expire after 24 hours. Check spam if it hasn't arrived.">
@@ -85,10 +91,10 @@ export function VerifyEmailForm() {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="123456"
-            className="text-center text-[20px] font-semibold tracking-[0.4em]"
+            className="h-14 text-center text-[24px] font-bold tracking-[0.45em]"
           />
         </Field>
-        <Button type="submit" fullWidth loading={busy}>
+        <Button type="submit" size="lg" fullWidth loading={busy} rightIcon={<ArrowRight className="size-4" />}>
           Verify email
         </Button>
         <Button type="button" variant="ghost" fullWidth onClick={resend} disabled={cooldown > 0}>

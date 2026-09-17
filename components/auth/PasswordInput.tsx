@@ -1,22 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/utils/cn";
 
-export const PasswordInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function PasswordInput(props, ref) {
+export const PasswordInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function PasswordInput({ className, ...props }, ref) {
   const [show, setShow] = React.useState(false);
   return (
     <div className="relative">
-      <Input ref={ref} type={show ? "text" : "password"} {...props} className="pr-11" />
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-3" aria-hidden>
+        <Lock className="size-[18px]" />
+      </span>
+      <Input ref={ref} type={show ? "text" : "password"} {...props} className={cn("h-12 pl-11 pr-12", className)} />
       <button
         type="button"
         onClick={() => setShow((s) => !s)}
         aria-label={show ? "Hide password" : "Show password"}
         aria-pressed={show}
-        className="absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[8px] text-text-3 transition-colors hover:bg-surface-3 hover:text-text"
+        className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[8px] text-text-3 transition-colors hover:bg-surface-3 hover:text-primary"
       >
-        {show ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+        {show ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
       </button>
     </div>
   );

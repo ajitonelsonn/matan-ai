@@ -4,11 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Input";
+import { Field } from "@/components/ui/Input";
+import { ArrowRight, Mail, UserRound } from "lucide-react";
 import { signUpWithEmail } from "@/lib/auth/client";
 import { mapAuthError, type FriendlyAuthError } from "@/lib/auth/errors";
 import { safeNext, useRedirectIfAuthenticated } from "./AuthGuard";
-import { AuthAlert, AuthLayout } from "./AuthLayout";
+import { AuthAlert, AuthDivider, AuthLayout, IconInput } from "./AuthLayout";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import { PasswordInput, passwordProblems } from "./PasswordInput";
 
@@ -44,6 +45,7 @@ export function SignUpForm() {
 
   return (
     <AuthLayout
+      wide
       title="Create your account"
       subtitle="Matan AI turns Ring events into clear, calm decisions."
       footer={
@@ -58,11 +60,12 @@ export function SignUpForm() {
       <form onSubmit={submit} className="space-y-4" noValidate aria-busy={busy || redirecting}>
         {error && <AuthAlert title={error.title} message={error.message} />}
         <GoogleSignInButton label="Sign up with Google" next={next} />
+        <AuthDivider />
         <Field label="Full name" htmlFor="su-name">
-          <Input id="su-name" name="name" autoComplete="name" autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+          <IconInput icon={<UserRound />} id="su-name" name="name" autoComplete="name" autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
         </Field>
         <Field label="Email" htmlFor="su-email">
-          <Input id="su-email" name="email" type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <IconInput icon={<Mail />} id="su-email" name="email" type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         </Field>
         <Field label="Password" htmlFor="su-password" hint={password && problems.length ? `Still needs ${problems.join(", ")}.` : "At least 8 characters with upper & lower case, a number and a symbol."}>
           <PasswordInput id="su-password" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Create a password" aria-describedby="su-password-hint" />
@@ -70,7 +73,7 @@ export function SignUpForm() {
         <Field label="Confirm password" htmlFor="su-confirm" error={mismatch ? "Passwords don't match." : undefined}>
           <PasswordInput id="su-confirm" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat your password" aria-invalid={mismatch || undefined} />
         </Field>
-        <Button type="submit" fullWidth loading={busy} disabled={redirecting}>
+        <Button type="submit" size="lg" fullWidth loading={busy} disabled={redirecting} rightIcon={<ArrowRight className="size-4" />}>
           Create account
         </Button>
         <p className="text-center text-[12px] text-text-3">We&apos;ll email you a 6-digit code to verify your address.</p>

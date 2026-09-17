@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
+import { ArrowRight, Mail } from "lucide-react";
 import { completePasswordReset, requestPasswordReset } from "@/lib/auth/client";
 import { mapAuthError, type FriendlyAuthError } from "@/lib/auth/errors";
 import { maskEmail } from "@/lib/auth/user";
-import { AuthAlert, AuthLayout } from "./AuthLayout";
+import { AuthAlert, AuthLayout, IconInput } from "./AuthLayout";
 import { PasswordInput, passwordProblems } from "./PasswordInput";
 
 export function ForgotPasswordForm() {
@@ -73,9 +74,9 @@ export function ForgotPasswordForm() {
         <form onSubmit={request} className="space-y-4" noValidate aria-busy={busy}>
           {error && <AuthAlert title={error.title} message={error.message} />}
           <Field label="Email" htmlFor="fp-email">
-            <Input id="fp-email" name="email" type="email" inputMode="email" autoComplete="username" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <IconInput icon={<Mail />} id="fp-email" name="email" type="email" inputMode="email" autoComplete="username" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </Field>
-          <Button type="submit" fullWidth loading={busy}>
+          <Button type="submit" size="lg" fullWidth loading={busy} rightIcon={<ArrowRight className="size-4" />}>
             Send code
           </Button>
         </form>
@@ -84,7 +85,7 @@ export function ForgotPasswordForm() {
           {!error && <AuthAlert tone="success" title="Check your inbox" message="If an account exists for this email, a code is on its way." />}
           {error && <AuthAlert title={error.title} message={error.message} />}
           <Field label="Verification code" htmlFor="fp-code">
-            <Input id="fp-code" name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" autoFocus required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" className="text-center text-[20px] font-semibold tracking-[0.4em]" />
+            <Input id="fp-code" name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" autoFocus required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" className="h-14 text-center text-[24px] font-bold tracking-[0.45em]" />
           </Field>
           <Field label="New password" htmlFor="fp-password" hint={password && problems.length ? `Still needs ${problems.join(", ")}.` : "At least 8 characters with upper & lower case, a number and a symbol."}>
             <PasswordInput id="fp-password" name="new-password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" />
@@ -92,7 +93,7 @@ export function ForgotPasswordForm() {
           <Field label="Confirm new password" htmlFor="fp-confirm" error={confirm && confirm !== password ? "Passwords don't match." : undefined}>
             <PasswordInput id="fp-confirm" name="confirm-password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Repeat new password" />
           </Field>
-          <Button type="submit" fullWidth loading={busy}>
+          <Button type="submit" size="lg" fullWidth loading={busy} rightIcon={<ArrowRight className="size-4" />}>
             Update password
           </Button>
           <Button type="button" variant="ghost" fullWidth onClick={() => { setStage("request"); setError(null); }}>

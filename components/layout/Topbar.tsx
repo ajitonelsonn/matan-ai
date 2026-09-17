@@ -19,6 +19,9 @@ import { useAppData } from "./AppDataProvider";
 import { RefreshIndicator } from "./RefreshIndicator";
 import { ExperienceModeSwitch } from "@/components/experience/experience-mode-switch";
 import { ExperienceBanner } from "@/components/experience/experience-banner";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { AuthLoadingScreen } from "@/components/auth/AuthGuard";
+import { firstNameOf } from "@/lib/auth/user";
 
 const weatherIcons = { sun: Sun, "cloud-sun": CloudSun, cloud: Cloud, rain: CloudRain };
 
@@ -115,17 +118,36 @@ export function NotificationsButton() {
 
 export function ProfileMenu({ compact }: { compact?: boolean }) {
   const { data } = useAppData();
+  const { user, signOut } = useAuth();
   const { open, setOpen, rootRef, triggerRef } = usePopover();
   const toast = useToast();
   const router = useRouter();
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  const displayName = user?.name || user?.email || data?.user.name || "";
+  const firstName = user ? firstNameOf(user) : data?.user.firstName ?? "";
+  const avatar = user?.pictureUrl ?? (user ? undefined : data?.user.avatarUrl);
 
   const go = (href: string) => {
     setOpen(false);
     router.push(href);
   };
 
+  const handleSignOut = async () => {
+    setOpen(false);
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login?notice=signed-out");
+    } catch {
+      setSigningOut(false);
+      toast.error("Couldn't sign out", "Please try again.");
+    }
+  };
+
   return (
     <div ref={rootRef} className="relative">
+      {signingOut && <AuthLoadingScreen label="Signing you out…" />}
       <button
         ref={triggerRef}
         type="button"
@@ -135,25 +157,32 @@ export function ProfileMenu({ compact }: { compact?: boolean }) {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-surface-2/80"
       >
-        {data ? <Avatar name={data.user.name} src={data.user.avatarUrl} size="md" ring /> : <Skeleton className="size-10 rounded-full" />}
+        {displayName ? <Avatar name={displayName} src={avatar} size="md" ring /> : <Skeleton className="size-10 rounded-full" />}
         {!compact && (
           <>
-            <span className="text-[15px] font-medium text-text">{data ? `Hello, ${data.user.firstName}` : ""}</span>
+            <span className="text-[15px] font-medium text-text">{firstName ? `Hello, ${firstName}` : ""}</span>
             <ChevronDown className={cn("size-4 text-text-3 transition-transform", open && "rotate-180")} aria-hidden />
           </>
         )}
       </button>
       <PopoverPanel open={open} align="end" width="16rem" role="menu">
         <div className="px-3 py-2.5">
-          <p className="text-sm font-semibold text-text">{data?.user.name}</p>
-          <p className="text-xs text-text-3">{data?.user.email}</p>
-          <Badge tone="primary" size="xs" className="mt-2">
-            {data?.user.role}
-          </Badge>
+          <p className="text-sm font-semibold text-text">{displayName}</p>
+          <p className="text-xs text-text-3">{user?.email ?? data?.user.email}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Badge tone="primary" size="xs">
+              {data?.user.role ?? "Member"}
+            </Badge>
+            {user && (
+              <Badge tone={user.provider === "google" ? "success" : "neutral"} size="xs">
+                {user.provider === "google" ? "Google" : "Email"}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="my-1 h-px bg-border" />
         {[
-          { label: "Manage account", icon: User, href: "/settings" },
+          { label: "My account", icon: User, href: "/settings?tab=account" },
           { label: "Settings", icon: Settings, href: "/settings" },
           { label: "Business workspace", icon: Building2, href: "/business" },
           { label: "Help & support", icon: LifeBuoy, href: "/settings?tab=about" },
@@ -164,15 +193,7 @@ export function ProfileMenu({ compact }: { compact?: boolean }) {
           </button>
         ))}
         <div className="my-1 h-px bg-border" />
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            toast.info("Sign out isn't available in this preview", "Production authentication is part of a later phase.");
-          }}
-          className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm text-text-2 transition-colors hover:bg-danger/12 hover:text-danger"
-        >
+        <button role="menuitem" type="button" onClick={handleSignOut} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-sm text-text-2 transition-colors hover:bg-danger/12 hover:text-danger">
           <LogOut className="size-4" aria-hidden />
           Sign out
         </button>

@@ -6,6 +6,8 @@ import type { DashboardData } from "@/lib/types";
 import { useAppMode } from "@/components/experience/experience-provider";
 import { getDataSource } from "@/lib/data/get-data-source";
 import type { RingSessionInfo } from "@/lib/ring/types";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { firstNameOf, type MatanUser } from "@/lib/auth/user";
 
 interface AppDataContextValue {
   data: (DashboardData & { stale?: boolean; ringSession?: RingSessionInfo | null }) | null;
@@ -25,6 +27,7 @@ const AppDataContext = React.createContext<AppDataContextValue | null>(null);
  */
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const mode = useAppMode();
+  const { user: authUser } = useAuth();
   const [data, setData] = React.useState<AppDataContextValue["data"]>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -35,7 +38,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const d = await getDataSource(mode).getDashboard();
       if (id !== seq.current) return;
-      setData(d);
+      setData(withSignedInUser(d, authUser));
       setError(null);
     } catch (e) {
       if (id !== seq.current) return;
@@ -43,7 +46,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (id === seq.current) setLoading(false);
     }
-  }, [mode]);
+  }, [mode, authUser]);
 
   // (Re)load whenever the experience mode changes - the two sources never mix.
   React.useEffect(() => {
@@ -80,4 +83,11 @@ export function useAppData() {
   const ctx = React.useContext(AppDataContext);
   if (!ctx) throw new Error("useAppData must be used within <AppDataProvider>");
   return ctx;
+}
+
+/** The shell shows the real Cognito identity; the mock profile only supplies role/plan/location. */
+function withSignedInUser<T extends DashboardData>(d: T, u: MatanUser | null): T {
+  if (!u) return d;
+  const name = u.name || u.email;
+  return { ...d, user: { ...d.user, id: u.id, name, firstName: firstNameOf(u), email: u.email, avatarUrl: u.pictureUrl } };
 }

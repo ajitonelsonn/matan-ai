@@ -28,6 +28,8 @@ import type { SettingsData } from "@/lib/types";
 import { ExperienceSettingsCard } from "@/components/experience/experience-settings-card";
 import { useTheme } from "@/components/experience/theme-provider";
 import { ThemeToggle } from "@/components/experience/theme-toggle";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { AuthLoadingScreen } from "@/components/auth/AuthGuard";
 
 type Tab = "general" | "notifications" | "privacy" | "ai" | "appearance" | "region" | "about";
 const tabs: { value: Tab; label: string; icon: React.ReactNode }[] = [
@@ -71,7 +73,9 @@ export function SettingsPage() {
   const { refresh } = useAppData();
   const { theme } = useTheme();
   const q = useApi(() => settingsApi.get(), []);
-  const [tab, setTab] = React.useState<Tab>((params.get("tab") as Tab) ?? "general");
+  const [tab, setTab] = React.useState<Tab>(((params.get("tab") === "account" ? "general" : params.get("tab")) as Tab) ?? "general");
+  const auth = useAuth();
+  const [signingOut, setSigningOut] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [modal, setModal] = React.useState<null | "appName" | "quiet" | "storage" | "zones" | "faces" | "password" | "linked" | "plan" | "import" | "feedback" | "guide" | "account">(null);
   const [appName, setAppName] = React.useState("");
@@ -332,11 +336,32 @@ export function SettingsPage() {
       </button>
       <div className="mt-3 space-y-1 border-t border-border pt-3">
         <Row icon={<User />} title="Manage Account" hint="Name, email and photo." onClick={() => setModal("account")} />
-        <Row icon={<Lock />} title="Change Password" hint="Last changed 3 months ago." onClick={() => setModal("password")} />
+        <Row icon={<KeyRound />} title="Sign-in method" hint={auth.user?.provider === "google" ? "Google account via Amazon Cognito." : "Email & password via Amazon Cognito."} control={<Badge tone={auth.user?.provider === "google" ? "success" : "primary"} size="xs">{auth.user?.provider === "google" ? "Google" : "Email"}</Badge>} />
+        {auth.user?.provider !== "google" && <Row icon={<Lock />} title="Change Password" hint="We'll email you a verification code." onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(auth.user?.email ?? "")}`)} />}
         <Row icon={<ShieldCheck />} title="Two-Factor Authentication" hint="Protect your account with a code." tone="success" onClick={() => toast.info("Two-factor authentication is managed in the next phase", "It's currently enabled for this account.")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-success">Enabled <ChevronRight className="size-4 text-text-3" /></span>} />
         <Row icon={<Link2 />} title="Linked Accounts" hint="Ring, Google, Apple." onClick={() => setModal("linked")} />
         <Row icon={<Crown />} title="Subscription Plan" hint="Manage billing and plan." tone="warning" onClick={() => setModal("plan")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-primary">{account.plan} <ChevronRight className="size-4 text-text-3" /></span>} />
       </div>
+      <div className="mt-3 border-t border-border pt-3">
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={async () => {
+            if (!(await confirm({ title: "Sign out of Matan AI?", description: "Your Demo/Real mode preference stays on this device; the Ring session ends with your account session.", confirmLabel: "Sign out" }))) return;
+            setSigningOut(true);
+            try {
+              await auth.signOut();
+              router.replace("/login?notice=signed-out");
+            } catch {
+              setSigningOut(false);
+              toast.error("Couldn't sign out", "Please try again.");
+            }
+          }}
+        >
+          Sign out
+        </Button>
+      </div>
+      {signingOut && <AuthLoadingScreen label="Signing you out…" />}
     </section>
   );
 

@@ -96,6 +96,14 @@ ThemeProvider > ToastProvider > ConfirmProvider
 - `ProfileMenu` (Topbar) shows the Cognito name/email/avatar with an Email/Google badge; **Sign out** calls `signOut()`, shows "Signing you out…", and lands on `/login?notice=signed-out`. Settings → Account card gained "Sign-in method", "Change Password" (email users → reset-code flow) and a confirmed Sign out.
 - `AppDataProvider` overlays the Cognito identity (`id`, `name`, `firstName`, `email`, `avatarUrl`) on the shell user model so Home greeting, Topbar and Settings show the real user; role/plan/location still come from mock data (no profile store yet).
 
+## Pool created via the console wizard (actual configuration)
+
+The pool was created by hand in the Cognito console (`<pool-id>`, client `<client-id>`, domain `<cognito-domain>` - discovered from the pool's public `/.well-known/openid-configuration`). Differences from the script's intended layout and how the app copes:
+
+- **Email is an alias, not the username.** Cognito rejects email-shaped usernames (`Username cannot be of email format, since user pool is configured for email alias`) and the alias only resolves after verification. `lib/auth/client.ts` therefore derives an opaque deterministic username `u-<sha256(email)[0:20]>` and uses it for `signUp`, `confirmSignUp`, `resendSignUpCode`, and as a fallback for `signIn` (so an unverified account is routed to `/verify-email` instead of "incorrect password"). Users only ever type their email; `resetPassword` uses the verified email alias.
+- **OAuth scopes on the client are `phone openid email`** - `profile` is rejected (`invalid_scope`). Needed for Google later: App client → Login pages → Edit → tick `profile`, untick `phone`.
+- **Allowed sign-out URL** `http://localhost:3000/` still needs adding on the client (only used by the Google/hosted logout path).
+
 ## User flows
 
 | Flow | Path |

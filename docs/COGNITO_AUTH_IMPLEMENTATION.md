@@ -8,13 +8,13 @@ Matan AI requires a signed-in user before any dashboard page, Demo/Real mode dat
 | --- | --- |
 | App code (provider, guard, pages, forms, user menu, sign-out) | ✅ done, typechecks, builds, 14 tests pass |
 | Provisioning script (`pnpm cognito:provision`) | ✅ written, idempotent, dry-run verified |
-| Cognito User Pool `MatanAI-Users` / app client `matan-ai-web` / managed-login domain | ⏳ **blocked** — see "AWS permission blocker" |
+| Cognito User Pool / app client / managed-login domain | ✅ created in the console (IDs in `.env` only) |
 | Google identity provider | ⏳ pending real `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` |
-| `.env` public identifiers | ⏳ written automatically by the provisioning script |
+| `.env` public identifiers | ✅ set |
 
 ### AWS permission blocker
 
-The only AWS identity available in this environment is IAM user **`<iam-user>`** (account `<account-id>`, `us-east-1`). It is scoped to Bedrock. The first Cognito call failed:
+The AWS identity in the local `.env` is the Bedrock-scoped IAM user used for Nova. It has no Cognito permissions, so the first provisioning call failed:
 
 ```
 ✖ AWS operation failed: cognito-idp:ListUserPools
@@ -98,7 +98,7 @@ ThemeProvider > ToastProvider > ConfirmProvider
 
 ## Pool created via the console wizard (actual configuration)
 
-The pool was created by hand in the Cognito console (`<pool-id>`, client `<client-id>`, domain `<cognito-domain>` - discovered from the pool's public `/.well-known/openid-configuration`). Differences from the script's intended layout and how the app copes:
+The pool was created by hand in the Cognito console; its IDs live only in the git-ignored `.env` (`NEXT_PUBLIC_COGNITO_*`). The managed-login domain can be read from the pool's public metadata: `https://cognito-idp.<region>.amazonaws.com/<pool-id>/.well-known/openid-configuration` → `authorization_endpoint`. Differences from the script's intended layout and how the app copes:
 
 - **Email is an alias, not the username.** Cognito rejects email-shaped usernames (`Username cannot be of email format, since user pool is configured for email alias`) and the alias only resolves after verification. `lib/auth/client.ts` therefore derives an opaque deterministic username `u-<sha256(email)[0:20]>` and uses it for `signUp`, `confirmSignUp`, `resendSignUpCode`, and as a fallback for `signIn` (so an unverified account is routed to `/verify-email` instead of "incorrect password"). Users only ever type their email; `resetPassword` uses the verified email alias.
 - **OAuth scopes on the client are `phone openid email`** - `profile` is rejected (`invalid_scope`). Needed for Google later: App client → Login pages → Edit → tick `profile`, untick `phone`.

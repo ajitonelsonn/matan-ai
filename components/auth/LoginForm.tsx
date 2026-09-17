@@ -4,12 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Input";
+import { Field } from "@/components/ui/Input";
+import { ArrowRight, Mail } from "lucide-react";
 import { signInWithEmail } from "@/lib/auth/client";
 import { mapAuthError, friendlyAuthError, type FriendlyAuthError } from "@/lib/auth/errors";
 import { useAuth } from "./AuthProvider";
 import { safeNext, useRedirectIfAuthenticated } from "./AuthGuard";
-import { AuthAlert, AuthLayout } from "./AuthLayout";
+import { AuthAlert, AuthDivider, AuthLayout, IconInput } from "./AuthLayout";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import { PasswordInput } from "./PasswordInput";
 
@@ -79,16 +80,10 @@ export function LoginForm() {
         {error && <AuthAlert title={error.title} message={error.message} />}
 
         <GoogleSignInButton next={next} />
-        {process.env.NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED === "true" && (
-          <div className="flex items-center gap-3 text-[12px] uppercase tracking-wider text-text-3" aria-hidden>
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-        )}
+        <AuthDivider />
 
         <Field label="Email" htmlFor="login-email">
-          <Input id="login-email" name="email" type="email" inputMode="email" autoComplete="username" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <IconInput icon={<Mail />} id="login-email" name="email" type="email" inputMode="email" autoComplete="username" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         </Field>
         <Field label="Password" htmlFor="login-password">
           <PasswordInput id="login-password" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" />
@@ -98,7 +93,7 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </div>
-        <Button type="submit" fullWidth loading={busy} disabled={redirecting}>
+        <Button type="submit" size="lg" fullWidth loading={busy} disabled={redirecting} rightIcon={<ArrowRight className="size-4" />}>
           Sign in
         </Button>
       </form>

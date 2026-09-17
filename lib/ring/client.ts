@@ -221,7 +221,13 @@ export async function getRingSnapshot(token: string, deviceId: string, req: Snap
       console.error({ event: "ring_snapshot_error", status: res.status, code: err.code });
       throw err;
     }
-    console.error({ event: "ring_snapshot_media_error", status: imageRes.status });
+    let hint = "";
+    try {
+      hint = (await imageRes.text()).slice(0, 160);
+    } catch {
+      /* ignore */
+    }
+    console.error({ event: "ring_snapshot_media_error", status: imageRes.status, hint });
     return null;
   }
 

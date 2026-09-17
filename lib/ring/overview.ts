@@ -64,6 +64,10 @@ export async function getRingEvents(force = false): Promise<{ events: RingEvent[
     }),
   );
   all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const ids = new Set<string>();
+  const deduped = all.filter((e) => (ids.has(e.id) ? false : (ids.add(e.id), true)));
+  all.length = 0;
+  all.push(...deduped);
   globalThis.__matanRingEventsCache = { at: Date.now(), events: all, errors };
   // Fresh sync → auto-analyze new events in the background (never blocks this request).
   scheduleAutoAnalysis(all, (ev, o) => runMatanPipeline(ev, all, currentUserSettings(), { media: o.media, auto: true }));

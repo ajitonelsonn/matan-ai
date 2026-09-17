@@ -18,10 +18,13 @@ export interface PipelineResult {
 
 /** Media window = event start−pad … end+pad (pad from settings, 5 or 10 s). */
 function mediaWindow(event: RingEvent, padSeconds: number) {
-  const start = new Date(event.timestamp).getTime();
-  const end = start + Math.max(1, event.clipDuration ?? 20) * 1000;
+  const now = Date.now() - 1500; // Ring rejects timestamps in the future
+  const start = Math.min(new Date(event.timestamp).getTime(), now);
+  const end = Math.min(start + Math.max(1, event.clipDuration ?? 20) * 1000, now);
   const pad = padSeconds * 1000;
-  return { from: start - pad, to: end + pad, durationMs: Math.min(MAX_CLIP_MS, end - start + 2 * pad) };
+  const from = start - pad;
+  const to = Math.min(end + pad, now);
+  return { from, to, durationMs: Math.max(1000, Math.min(MAX_CLIP_MS, to - from)) };
 }
 
 /** Server-side snapshot inside the padded event window. Never exposes the Ring token. */
@@ -36,7 +39,7 @@ async function obtainRingMedia(event: RingEvent, padSeconds: number): Promise<{ 
     noteOwnMediaRequest();
     const snap =
       (await getRingSnapshot(token, device.ringDeviceId, { type: "latest_in_range", start_timestamp: w.from, end_timestamp: w.to })) ??
-      (await getRingSnapshot(token, device.ringDeviceId, { type: "at_timestamp", timestamp: new Date(event.timestamp).getTime() + 3000 }));
+      (await getRingSnapshot(token, device.ringDeviceId, { type: "at_timestamp", timestamp: Math.min(new Date(event.timestamp).getTime() + 3000, Date.now() - 1500) }));
     if (!snap) return { media: null, note: "No media - Ring returned no snapshot for this event window" };
     saveMedia(event.id, { bytes: snap.bytes, contentType: snap.contentType, capturedAt: snap.capturedAt });
     return { media: { kind: "image", image: snap.bytes, format: snap.format } };

@@ -70,7 +70,15 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
 
   React.useEffect(() => {
     if (!q.data) return;
-    setItems((prev) => (page === 1 ? q.data!.items : [...prev, ...q.data!.items]));
+    const fetched = q.data;
+    // Only merge data that belongs to the current page (the effect also fires when `page`
+    // changes before the new page has loaded), and never keep duplicate ids.
+    if (fetched.meta.page !== page) return;
+    setItems((prev) => {
+      const merged = page === 1 ? fetched.items : [...prev, ...fetched.items];
+      const seen = new Set<string>();
+      return merged.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+    });
   }, [q.data, page]);
   // Never mix sources: clear the list + selection when the mode changes.
   React.useEffect(() => {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { userRoute } from "@/lib/auth/scope";
 import { discoverRingDevices } from "@/lib/ring/client";
 import { createRingSession, sessionInfo } from "@/lib/ring/session";
 import { RingApiError } from "@/lib/ring/errors";
@@ -13,7 +14,7 @@ export const runtime = "nodejs";
  * stores the token in a server session (HttpOnly cookie id) and returns
  * normalized device metadata. The token is never echoed or logged.
  */
-export async function POST(req: Request) {
+export const POST = userRoute(async (req: Request) => {
   const body = await readBody<{ token?: unknown }>(req);
   const raw = typeof body?.token === "string" ? body.token.trim() : "";
   if (!raw) return ringError(new RingApiError("RING_TOKEN_MISSING", 400));
@@ -26,4 +27,4 @@ export async function POST(req: Request) {
   } catch (e) {
     return ringError(e);
   }
-}
+});

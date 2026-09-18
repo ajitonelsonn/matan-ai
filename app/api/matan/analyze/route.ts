@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { userRoute } from "@/lib/auth/scope";
 import type { RingEvent } from "@/lib/types";
 import { getRingEvents } from "@/lib/ring/overview";
 import { applyIntelligence, currentUserSettings, relatedRecent, shouldAnalyze } from "@/lib/matan/analysis";
 import { runMatanPipeline } from "@/lib/matan/pipeline";
-import { memoryIntelligenceStore } from "@/lib/matan/store";
+import { dynamoIntelligenceStore } from "@/lib/matan/store";
 import { budgetSnapshot } from "@/lib/matan/budget";
 import { MatanAiError } from "@/lib/matan/errors";
 import { BEDROCK_MODEL_ID } from "@/lib/bedrock/client";
@@ -34,7 +35,7 @@ function fail(e: unknown) {
  * Browser → this route → Ring media (server-side) → Bedrock (Nova Pro) → Matan Decision → stored → returned.
  * No AWS credentials or Ring tokens ever leave the server.
  */
-export async function POST(req: Request) {
+export const POST = userRoute(async (req: Request) => {
   let body: AnalyzeBody;
   try {
     body = (await req.json()) as AnalyzeBody;
@@ -97,11 +98,11 @@ export async function POST(req: Request) {
     if (e instanceof MatanAiError && e.code === "MATAN_AI_THROTTLED") return NextResponse.json({ success: false, error: e.toPayload() }, { status: 409 });
     return fail(e);
   }
-}
+});
 
 /** GET /api/matan/analyze?eventId= → stored intelligence (or null). */
-export async function GET(req: Request) {
+export const GET = userRoute(async (req: Request) => {
   const id = new URL(req.url).searchParams.get("eventId");
   if (!id) return fail(new MatanAiError("MATAN_AI_BAD_REQUEST"));
-  return NextResponse.json({ eventId: id, intelligence: await memoryIntelligenceStore.get(id) });
-}
+  return NextResponse.json({ eventId: id, intelligence: await dynamoIntelligenceStore.get(id) });
+});

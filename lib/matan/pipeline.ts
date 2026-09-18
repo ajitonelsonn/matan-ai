@@ -6,7 +6,7 @@ import type { NovaMedia } from "@/lib/bedrock/nova";
 import { analyzeEvent, buildMatanContext, type UserSettingsForAnalysis } from "./analysis";
 import { shouldEscalateToVideo } from "./escalation";
 import { budgetSnapshot } from "./budget";
-import { beginAnalysis, endAnalysis, memoryIntelligenceStore, saveMedia } from "./store";
+import { beginAnalysis, endAnalysis, dynamoIntelligenceStore, saveMedia } from "./store";
 import { MatanAiError } from "./errors";
 import { autoSettings, noteOwnMediaRequest } from "./auto";
 import type { MatanEventIntelligence } from "./schema";
@@ -84,7 +84,7 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
 
     if (mode !== "video") {
       const { media, note } = hasRingMedia ? await obtainRingMedia(event, pad) : { media: null, note: "No media supplied - context-only analysis" };
-      intelligence = await analyzeEvent(event, recent, settings, { media, mediaNote: note, store: memoryIntelligenceStore });
+      intelligence = await analyzeEvent(event, recent, settings, { media, mediaNote: note, store: dynamoIntelligenceStore });
     }
 
     let escalation = { attempted: false, reason: "", applied: false };
@@ -106,19 +106,19 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
           intelligence = await analyzeEvent(event, recent, settings, {
             media: { kind: "video", video: clip.bytes, format: "mp4", durationSeconds: (clip.actualLengthMs ?? w.durationMs) / 1000 },
             escalatedFrom: intelligence ? (intelligence.mediaAnalyzed ? "snapshot" : "context") : undefined,
-            store: memoryIntelligenceStore,
+            store: dynamoIntelligenceStore,
           });
           escalation.applied = true;
         } else {
           escalation.reason = `${gate.reason}; Ring returned no clip for this window (live-view sessions are not recordings)`;
           if (!intelligence) {
             const { media, note } = await obtainRingMedia(event, pad);
-            intelligence = await analyzeEvent(event, recent, settings, { media, mediaNote: `${note}; no Ring clip available either`, store: memoryIntelligenceStore });
+            intelligence = await analyzeEvent(event, recent, settings, { media, mediaNote: `${note}; no Ring clip available either`, store: dynamoIntelligenceStore });
           }
         }
       }
     }
-    if (!intelligence) intelligence = await analyzeEvent(event, recent, settings, { media: null, mediaNote: "No media supplied - context-only analysis", store: memoryIntelligenceStore });
+    if (!intelligence) intelligence = await analyzeEvent(event, recent, settings, { media: null, mediaNote: "No media supplied - context-only analysis", store: dynamoIntelligenceStore });
 
     console.info({ event: "matan_ai_escalation", eventId: event.id, auto: Boolean(opts.auto), padSeconds: pad, ...escalation, budgetUsedPct: budget.usedPct });
     return { intelligence, escalation };

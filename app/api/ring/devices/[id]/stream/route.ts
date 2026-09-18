@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { userRoute } from "@/lib/auth/scope";
 import { startWhepSession, stopWhepSession } from "@/lib/ring/client";
 import { getRingSession, listConnected, markInvalid, usableToken } from "@/lib/ring/session";
 import { ringCodeError, ringError, readBody } from "@/lib/ring/http";
@@ -13,7 +14,7 @@ type Params = { params: Promise<{ id: string }> };
  * POST /api/ring/devices/:id/stream  { sdpOffer }
  * Browser -> Matan backend -> Ring WHEP. Returns { sdpAnswer, sessionUrl }.
  */
-export async function POST(req: Request, { params }: Params) {
+export const POST = userRoute(async (req: Request, { params }: Params) => {
   const { id } = await params;
   const device = listConnected().find((d) => d.id === id);
   if (!device) return ringCodeError("RING_NOT_FOUND", 404);
@@ -32,10 +33,10 @@ export async function POST(req: Request, { params }: Params) {
     if (isRingApiError(e) && (e.code === "RING_TOKEN_INVALID" || e.code === "RING_TOKEN_EXPIRED") && session) markInvalid(session);
     return ringError(e);
   }
-}
+});
 
 /** DELETE /api/ring/devices/:id/stream  { sessionUrl } -> ends the WHEP session. */
-export async function DELETE(req: Request, { params }: Params) {
+export const DELETE = userRoute(async (req: Request, { params }: Params) => {
   const { id } = await params;
   if (!listConnected().some((d) => d.id === id)) return ringCodeError("RING_NOT_FOUND", 404);
   const session = await getRingSession();
@@ -50,4 +51,4 @@ export async function DELETE(req: Request, { params }: Params) {
   } catch (e) {
     return ringError(e);
   }
-}
+});

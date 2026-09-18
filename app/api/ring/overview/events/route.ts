@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { userRoute } from "@/lib/auth/scope";
 import { buildRingEventList, findRingEvent } from "@/lib/ring/overview";
 import { ringError, ringCodeError } from "@/lib/ring/http";
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /** GET /api/ring/overview/events?…  (same query params as /api/events) · ?id=<eventId> for one event */
-export async function GET(req: Request) {
+export const GET = userRoute(async (req: Request) => {
   const url = new URL(req.url);
   try {
     const id = url.searchParams.get("id");
@@ -18,4 +19,4 @@ export async function GET(req: Request) {
   } catch (e) {
     return ringError(e);
   }
-}
+});

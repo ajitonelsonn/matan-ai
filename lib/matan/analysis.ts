@@ -2,9 +2,10 @@ import "server-only";
 import type { RingEvent } from "@/lib/types";
 import { analyzeWithNova, type ConverseInvoker, type NovaMedia } from "@/lib/bedrock/nova";
 import { decide, type DecisionContext } from "./decision";
-import { memoryIntelligenceStore, hasMediaSync, type MatanIntelligenceStore } from "./store";
+import { dynamoIntelligenceStore, hasMediaSync, type MatanIntelligenceStore } from "./store";
 import type { MatanEventIntelligence } from "./schema";
 import { getStore } from "@/lib/mock/store";
+import { getUserSettings } from "./user-settings";
 
 /* ---------------------------------------------------------------------------
    Context builder + orchestration:
@@ -21,8 +22,8 @@ const MAX_RECENT = 15;
 
 /** Current Matan-level environment (security mode + quiet hours) from the app store. */
 export function currentUserSettings(): UserSettingsForAnalysis {
-  const s = getStore();
-  return { securityMode: s.activeModeId, quietHours: { enabled: s.settings.notifications.quietHoursEnabled, window: s.settings.notifications.quietHours } };
+  const settings = getUserSettings();
+  return { securityMode: getStore().activeModeId, quietHours: { enabled: settings.notifications.quietHoursEnabled, window: settings.notifications.quietHours } };
 }
 
 function inQuietHours(iso: string, settings: UserSettingsForAnalysis) {
@@ -114,7 +115,7 @@ export interface AnalyzeOptions {
 
 /** Full pipeline for one event. Throws MatanAiError on failure; never fabricates. */
 export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], settings: UserSettingsForAnalysis, opts: AnalyzeOptions = {}): Promise<MatanEventIntelligence> {
-  const store = opts.store ?? memoryIntelligenceStore;
+  const store = opts.store ?? dynamoIntelligenceStore;
   const built = buildMatanContext(event, recentEvents, settings);
   const nova = await analyzeWithNova({ context: built.context, media: opts.media ?? null }, opts.invoke);
   // With a snapshot, Nova's category is real evidence about the session - let the rules use it.

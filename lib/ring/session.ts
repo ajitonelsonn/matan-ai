@@ -2,14 +2,17 @@ import "server-only";
 import { cookies } from "next/headers";
 import { RING_PLAYGROUND_TOKEN_LIFETIME_MS, RING_SESSION_COOKIE, RING_TOKEN_EXPIRING_THRESHOLD_MS } from "./constants";
 import type { ConnectedRingDevice, RingDiscoveredDevice, RingSessionInfo } from "./types";
+import { currentUserSub } from "@/lib/auth/server";
+import { SK, deleteItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 
 /**
  * Server-side Ring Playground session + connected-device store (hackathon Option A).
  * - The raw token lives ONLY here, in server memory, keyed by a random session id.
  * - The browser holds an HttpOnly cookie with the session id - never the token.
- * - Connected devices are stored separately from the UI mock dataset and never
+ * - Connected devices are per Cognito user, persisted in DynamoDB
+ *   (PK=USER#{sub}, SK=DEVICE#{id}) with a per-user in-memory cache, and never
  *   contain the token.
- * State survives Next.js hot reloads via globalThis; it is intentionally lost on restart.
+ * Token sessions survive hot reloads via globalThis and are intentionally lost on restart.
  */
 interface RingSession {
   id: string;
@@ -23,7 +26,9 @@ interface RingSession {
 
 interface RingState {
   sessions: Map<string, RingSession>;
-  connected: ConnectedRingDevice[];
+  /** sub → connected devices (hydrated from DynamoDB once per process). */
+  connected: Map<string, ConnectedRingDevice[]>;
+  hydrated: Set<string>;
 }
 
 declare global {
@@ -32,7 +37,7 @@ declare global {
 }
 
 function state(): RingState {
-  if (!globalThis.__matanRing) globalThis.__matanRing = { sessions: new Map(), connected: [] };
+  if (!globalThis.__matanRing) globalThis.__matanRing = { sessions: new Map(), connected: new Map(), hydrated: new Set() };
   return globalThis.__matanRing;
 }
 
@@ -125,42 +130,80 @@ export async function destroyRingSession() {
   jar.delete(RING_SESSION_COOKIE);
 }
 
-/* ---- Connected devices --------------------------------------------------- */
+/* ---- Connected devices (per user, DynamoDB-backed) ----------------------- */
 
-export function listConnected(): ConnectedRingDevice[] {
-  return state().connected;
+type DeviceItem = ConnectedRingDevice & { PK: string; SK: string; type: "DEVICE" };
+
+function connectedList(sub = currentUserSub()) {
+  const s = state();
+  let list = s.connected.get(sub);
+  if (!list) {
+    list = [];
+    s.connected.set(sub, list);
+  }
+  return list;
 }
 
-export function upsertConnected(device: ConnectedRingDevice) {
-  const list = state().connected;
+/** Load the user's connected devices from DynamoDB into the cache (once per process). */
+export async function hydrateConnected(sub: string, force = false) {
+  const s = state();
+  if (!force && s.hydrated.has(sub)) return;
+  const items = await queryPrefix<DeviceItem>(userPK(sub), "DEVICE#");
+  const list = items.map((it) => stripKeys<ConnectedRingDevice & { type?: string }>(it as unknown as Record<string, unknown>)).map(({ type: _t, ...d }) => d as ConnectedRingDevice);
+  list.sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
+  s.connected.set(sub, list);
+  s.hydrated.add(sub);
+  console.info({ event: "dynamodb_hydrated", kind: "devices", count: list.length });
+}
+
+async function persistDevice(sub: string, d: ConnectedRingDevice) {
+  // Only application data - never the Ring token, never the raw session.
+  await putItem({ ...d, PK: userPK(sub), SK: SK.device(d.id), type: "DEVICE" });
+}
+
+export function listConnected(): ConnectedRingDevice[] {
+  return connectedList();
+}
+
+export async function upsertConnected(device: ConnectedRingDevice) {
+  const sub = currentUserSub();
+  const list = connectedList(sub);
   const idx = list.findIndex((d) => d.ringDeviceId === device.ringDeviceId);
   if (idx >= 0) list[idx] = { ...list[idx], ...device, id: list[idx].id, connectedAt: list[idx].connectedAt };
   else list.push(device);
-  return list[idx >= 0 ? idx : list.length - 1];
+  const saved = list[idx >= 0 ? idx : list.length - 1];
+  await persistDevice(sub, saved);
+  return saved;
 }
 
-export function updateConnected(id: string, patch: Partial<Pick<ConnectedRingDevice, "displayName" | "locationLabel" | "aiEnabled" | "favorite">>) {
-  const d = state().connected.find((x) => x.id === id);
+export async function updateConnected(id: string, patch: Partial<Pick<ConnectedRingDevice, "displayName" | "locationLabel" | "aiEnabled" | "favorite">>) {
+  const sub = currentUserSub();
+  const d = connectedList(sub).find((x) => x.id === id);
   if (!d) return null;
   if (typeof patch.displayName === "string" && patch.displayName.trim()) d.displayName = patch.displayName.trim().slice(0, 60);
   if (patch.locationLabel !== undefined) d.locationLabel = patch.locationLabel.trim().slice(0, 60) || undefined;
   if (typeof patch.aiEnabled === "boolean") d.aiEnabled = patch.aiEnabled;
   if (typeof patch.favorite === "boolean") d.favorite = patch.favorite;
+  await persistDevice(sub, d);
   return d;
 }
 
-export function removeConnected(id: string) {
-  const list = state().connected;
+export async function removeConnected(id: string) {
+  const sub = currentUserSub();
+  const list = connectedList(sub);
   const idx = list.findIndex((x) => x.id === id);
   if (idx === -1) return false;
   list.splice(idx, 1);
+  await deleteItem(userPK(sub), SK.device(id));
   return true;
 }
 
 /** Refresh status/capabilities of connected devices from a fresh discovery result. */
-export function syncConnected(discovered: RingDiscoveredDevice[]) {
+export async function syncConnected(discovered: RingDiscoveredDevice[]) {
+  const sub = currentUserSub();
   const now = new Date().toISOString();
-  for (const d of state().connected) {
+  const changed: ConnectedRingDevice[] = [];
+  for (const d of connectedList(sub)) {
     const fresh = discovered.find((x) => x.id === d.ringDeviceId);
     if (!fresh) continue;
     d.ringName = fresh.name;
@@ -170,7 +213,9 @@ export function syncConnected(discovered: RingDiscoveredDevice[]) {
     d.imageUrl = fresh.imageUrl ?? d.imageUrl;
     d.model = fresh.model ?? d.model;
     d.lastSyncedAt = now;
+    changed.push(d);
   }
+  await Promise.all(changed.map((d) => persistDevice(sub, d)));
 }
 
 export function toConnected(dev: RingDiscoveredDevice, local: { displayName?: string; locationLabel?: string; aiEnabled?: boolean; favorite?: boolean }, capabilityLabels: string[]): ConnectedRingDevice {

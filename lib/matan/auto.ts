@@ -1,9 +1,10 @@
 import "server-only";
 import type { RingEvent } from "@/lib/types";
-import { getStore } from "@/lib/mock/store";
+import { getUserSettings } from "./user-settings";
 import { budgetSnapshot } from "./budget";
 import { getIntelligenceSync, isAnalyzing } from "./store";
 import { currentUserSettings, relatedRecent, shouldAnalyze } from "./analysis";
+import { currentUser } from "@/lib/auth/server";
 
 /**
  * Automatic analysis of NEW Ring events (Real Mode).
@@ -25,7 +26,7 @@ interface AutoState {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __matanAuto: AutoState | undefined;
+  var __matanAuto: Map<string, AutoState> | undefined;
 }
 
 const MAX_PER_HOUR = 30;
@@ -33,9 +34,16 @@ const MAX_PER_SYNC = 5;
 const CONCURRENCY = 2;
 const OWN_REQUEST_WINDOW_MS = 3 * 60 * 1000;
 
+/** Auto-analysis bookkeeping is per user (watermark, queue, rate limit). */
 function state(): AutoState {
-  if (!globalThis.__matanAuto) globalThis.__matanAuto = { watermarkMs: null, seen: new Set(), ownMediaRequests: [], runs: [], running: 0, queue: [] };
-  return globalThis.__matanAuto;
+  if (!globalThis.__matanAuto) globalThis.__matanAuto = new Map();
+  const key = currentUser()?.sub ?? "anonymous";
+  let s = globalThis.__matanAuto.get(key);
+  if (!s) {
+    s = { watermarkMs: null, seen: new Set(), ownMediaRequests: [], runs: [], running: 0, queue: [] };
+    globalThis.__matanAuto.set(key, s);
+  }
+  return s;
 }
 
 /** Call whenever Matan requests media from Ring (snapshot/clip) so the resulting on_demand entry is ignored. */
@@ -52,7 +60,7 @@ function isOwnOnDemand(e: RingEvent) {
 }
 
 export function autoSettings() {
-  const ai = getStore().settings.ai;
+  const ai = getUserSettings().ai;
   return { mode: ai.autoAnalyze ?? "off", includeLiveView: ai.autoIncludeLiveView ?? false, padSeconds: ai.mediaPadSeconds ?? 5 };
 }
 

@@ -4,6 +4,8 @@ import { ok, badRequest, readJson, notFound } from "@/lib/api/http";
 import type { AssistantConversation, AssistantMessage } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/mock/clock";
 import { answerRing } from "@/lib/ring/assistant";
+import { AuthRequiredError, authErrorResponse, requireUser, withUser } from "@/lib/auth/server";
+import { hydrateUserScope } from "@/lib/auth/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +32,21 @@ export async function POST(req: Request) {
   convo.messages.push(userMsg);
   // Simulated "thinking" latency.
   await delay(mode === "ring" ? 300 : 700 + Math.min(600, body.message.length * 8));
-  const reply: AssistantMessage = { id: nextId("m"), role: "assistant", ...(mode === "ring" ? await answerRing(body.message, now) : answer(body.message, s, now)) };
+  // Real Mode answers read the signed-in user's Ring data, so they need the verified Cognito identity.
+  let ringAnswer: Omit<AssistantMessage, "id" | "role"> | null = null;
+  if (mode === "ring") {
+    try {
+      const user = await requireUser(req);
+      ringAnswer = await withUser(user, async () => {
+        await hydrateUserScope(user);
+        return answerRing(body.message, now);
+      });
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return authErrorResponse(e);
+      throw e;
+    }
+  }
+  const reply: AssistantMessage = { id: nextId("m"), role: "assistant", ...(ringAnswer ?? answer(body.message, s, now)) };
   convo.messages.push(reply);
   convo.updatedAt = now;
   if (convo.messages.filter((m) => m.role === "user").length === 1) convo.title = titleFor(body.message);

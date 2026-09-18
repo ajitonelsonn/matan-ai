@@ -6,6 +6,7 @@ import { configureAuth, currentMatanUser, signOutEverywhere } from "@/lib/auth/c
 import { isAuthConfigured } from "@/lib/auth/config";
 import type { AuthState, MatanUser } from "@/lib/auth/user";
 import { clearModeChoiceForSession } from "@/components/experience/experience-provider";
+import { AUTH_EXPIRED_EVENT } from "@/lib/api/client";
 
 interface AuthContextValue extends AuthState {
   configured: boolean;
@@ -70,7 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           break;
       }
     });
-    return stop;
+    const onExpired = () => void refresh();
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => {
+      stop();
+      window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    };
   }, [refresh]);
 
   const value = React.useMemo<AuthContextValue>(() => ({ ...state, configured: isAuthConfigured, refresh, signOut, oauthError }), [state, refresh, signOut, oauthError]);

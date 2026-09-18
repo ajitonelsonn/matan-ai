@@ -12,25 +12,83 @@ import { getIntelligenceSync } from "@/lib/matan/store";
 import { applyIntelligence, currentUserSettings } from "@/lib/matan/analysis";
 import { markAnalyzingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
 import { runMatanPipeline } from "@/lib/matan/pipeline";
+import { currentUser, currentUserSub, withUser } from "@/lib/auth/server";
+import { SK, putIfAbsent, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 
 /**
  * Real-mode read model. Everything here is derived from the Ring Playground
  * (connected devices + event history). No mock events are ever mixed in.
- * Event history is cached per session for 60 s and kept after expiry so the
- * user still sees their previous Matan records ("Connection expired", not "offline").
+ * Event history is cached per user for 60 s and persisted to DynamoDB
+ * (PK=USER#{sub}, SK=EVENT#{eventId}) so it survives restarts and token expiry:
+ * the user still sees their previous Matan records ("Connection expired", not "offline").
  */
 interface EventsCache {
+  /** 0 = hydrated from DynamoDB only, never synced from Ring in this process. */
   at: number;
   events: RingEvent[];
   errors: number;
+  /** Event ids already written to DynamoDB (idempotent sync). */
+  persisted: Set<string>;
 }
 
 declare global {
   // eslint-disable-next-line no-var
-  var __matanRingEventsCache: EventsCache | undefined;
+  var __matanRingEventsCache: Map<string, EventsCache> | undefined;
 }
 
 const CACHE_MS = 60_000;
+/** Cap on history kept per user in DynamoDB/cache; Ring Playground history is small anyway. */
+const MAX_PERSISTED_EVENTS = 2000;
+
+type EventItem = { PK: string; SK: string; type: "EVENT"; event: RingEvent; timestamp: string };
+
+function caches() {
+  if (!globalThis.__matanRingEventsCache) globalThis.__matanRingEventsCache = new Map();
+  return globalThis.__matanRingEventsCache;
+}
+
+/** Load a user's persisted Ring events into the cache (once per process). */
+export async function hydrateRingEvents(sub: string, force = false) {
+  if (!force && caches().has(sub)) return;
+  const items = await queryPrefix<EventItem>(userPK(sub), "EVENT#");
+  const events = items.map((it) => stripKeys<EventItem>(it as unknown as Record<string, unknown>).event).filter(Boolean);
+  events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  caches().set(sub, { at: 0, events, errors: 0, persisted: new Set(events.map((e) => e.id)) });
+  console.info({ event: "dynamodb_hydrated", kind: "events", count: events.length });
+}
+
+/** Write newly synced events (normalized, token-free) - PutItem with attribute_not_exists so re-syncs never duplicate. */
+async function persistNewEvents(sub: string, cache: EventsCache, events: RingEvent[]) {
+  const fresh = events.filter((e) => !cache.persisted.has(e.id)).slice(0, MAX_PERSISTED_EVENTS);
+  if (!fresh.length) return;
+  // Strip volatile overlay fields; intelligence lives under ANALYSIS# and is re-applied on read.
+  const bare = (e: RingEvent): RingEvent => {
+    const { intelligence: _i, analysis: _a, ...rest } = e;
+    return { ...rest, analysis: "pending" };
+  };
+  let written = 0;
+  for (const batch of chunk(fresh, 10)) {
+    await Promise.all(
+      batch.map(async (e) => {
+        try {
+          await putIfAbsent({ PK: userPK(sub), SK: SK.event(e.id), type: "EVENT", eventId: e.id, timestamp: e.timestamp, event: bare(e) });
+          written += 1;
+        } catch (err) {
+          console.error({ event: "ring_event_persist_failed", eventId: e.id, code: (err as { code?: string })?.code });
+          return;
+        }
+        cache.persisted.add(e.id);
+      }),
+    );
+  }
+  if (written) console.info({ event: "ring_events_persisted", count: written });
+}
+
+function chunk<T>(arr: T[], n: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
 
 /** Overlay any completed Matan AI intelligence onto raw Ring events (analysis: pending → done). */
 function withIntelligence(events: RingEvent[]) {
@@ -43,11 +101,13 @@ function withIntelligence(events: RingEvent[]) {
 }
 
 export async function getRingEvents(force = false): Promise<{ events: RingEvent[]; session: RingSessionInfo | null; stale: boolean }> {
+  const sub = currentUserSub();
+  await hydrateRingEvents(sub);
   const session = await getRingSession();
   const token = usableToken(session);
-  const cache = globalThis.__matanRingEventsCache;
-  if (!token) return { events: withIntelligence(cache?.events ?? []), session: sessionInfo(session), stale: true };
-  if (!force && cache && Date.now() - cache.at < CACHE_MS) return { events: withIntelligence(cache.events), session: sessionInfo(session), stale: false };
+  const cache = caches().get(sub)!;
+  if (!token) return { events: withIntelligence(cache.events), session: sessionInfo(session), stale: true };
+  if (!force && cache.at && Date.now() - cache.at < CACHE_MS) return { events: withIntelligence(cache.events), session: sessionInfo(session), stale: false };
 
   const connected = listConnected();
   const all: RingEvent[] = [];
@@ -63,14 +123,20 @@ export async function getRingEvents(force = false): Promise<{ events: RingEvent[
       }
     }),
   );
+  // Merge with persisted history (Ring's history window is limited; DynamoDB keeps what we have seen).
+  for (const e of cache.events) all.push(e);
   all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const ids = new Set<string>();
   const deduped = all.filter((e) => (ids.has(e.id) ? false : (ids.add(e.id), true)));
   all.length = 0;
   all.push(...deduped);
-  globalThis.__matanRingEventsCache = { at: Date.now(), events: all, errors };
-  // Fresh sync → auto-analyze new events in the background (never blocks this request).
-  scheduleAutoAnalysis(all, (ev, o) => runMatanPipeline(ev, all, currentUserSettings(), { media: o.media, auto: true }));
+  cache.at = Date.now();
+  cache.events = all;
+  cache.errors = errors;
+  await persistNewEvents(sub, cache, all);
+  // Fresh sync → auto-analyze new events in the background (never blocks this request); runs as this user.
+  const user = currentUser()!;
+  scheduleAutoAnalysis(all, (ev, o) => withUser(user, () => runMatanPipeline(ev, all, currentUserSettings(), { media: o.media, auto: true })));
   return { events: withIntelligence(all), session: sessionInfo(session), stale: false };
 }
 

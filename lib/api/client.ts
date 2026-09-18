@@ -1,4 +1,20 @@
 import { trackRequest } from "@/lib/loading/store";
+import { fetchAuthSession } from "aws-amplify/auth";
+
+/** Fired when the server rejects our Cognito token; AuthProvider re-checks the session and the guard redirects to /login. */
+export const AUTH_EXPIRED_EVENT = "matan:auth-expired";
+
+/** Cognito access token for same-origin API calls (server verifies it and derives the user's partition key). */
+async function bearer(): Promise<Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.accessToken?.toString();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Thin fetch wrapper. Every UI call goes through here, so swapping the mock
@@ -21,9 +37,10 @@ export function request<T>(url: string, init?: RequestInit & { json?: unknown })
 
 async function doRequest<T>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {
   const { json, ...rest } = init ?? {};
+  const auth = url.startsWith("/api/") ? await bearer() : {};
   const res = await fetch(url, {
     ...rest,
-    headers: { "Content-Type": "application/json", ...(rest.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...auth, ...(rest.headers ?? {}) },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
     cache: "no-store",
   });
@@ -38,6 +55,7 @@ async function doRequest<T>(url: string, init?: RequestInit & { json?: unknown }
     } catch {
       /* ignore */
     }
+    if (res.status === 401 && typeof window !== "undefined" && /AUTH_(INVALID|REQUIRED)/.test(JSON.stringify(payload ?? ""))) window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     throw new ApiError(message, res.status, payload);
   }
   return (await res.json()) as T;

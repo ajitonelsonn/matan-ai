@@ -9,7 +9,7 @@ Matan AI requires a signed-in user before any dashboard page, Demo/Real mode dat
 | App code (provider, guard, pages, forms, user menu, sign-out) | ✅ done, typechecks, builds, 14 tests pass |
 | Provisioning script (`pnpm cognito:provision`) | ✅ written, idempotent, dry-run verified |
 | Cognito User Pool / app client / managed-login domain | ✅ created in the console (IDs in `.env` only) |
-| Google identity provider | ⏳ pending real `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` |
+| Google identity provider | ✅ working (managed login → Google → `/auth/callback`) |
 | `.env` public identifiers | ✅ set |
 
 ### AWS permission blocker
@@ -103,6 +103,22 @@ The pool was created by hand in the Cognito console; its IDs live only in the gi
 - **Email is an alias, not the username.** Cognito rejects email-shaped usernames (`Username cannot be of email format, since user pool is configured for email alias`) and the alias only resolves after verification. `lib/auth/client.ts` therefore derives an opaque deterministic username `u-<sha256(email)[0:20]>` and uses it for `signUp`, `confirmSignUp`, `resendSignUpCode`, and as a fallback for `signIn` (so an unverified account is routed to `/verify-email` instead of "incorrect password"). Users only ever type their email; `resetPassword` uses the verified email alias.
 - **OAuth scopes on the client are `phone openid email`** - `profile` is rejected (`invalid_scope`). Needed for Google later: App client → Login pages → Edit → tick `profile`, untick `phone`.
 - **Allowed sign-out URL** `http://localhost:3000/` still needs adding on the client (only used by the Google/hosted logout path).
+
+### Google sign-in: setup checklist and pitfalls (from the live setup)
+
+Google Cloud Console (same project for everything):
+- OAuth consent screen: External, app in *Testing* → add your Gmail under **Test users**.
+- OAuth client (**Web application**): Authorized redirect URI `https://<cognito-domain>/oauth2/idpresponse`. Paste the **full** client ID (must end in `.apps.googleusercontent.com` - a truncated paste produced Google `401 invalid_client`).
+- **People API enabled** (Cognito reads `name`/`picture` through it).
+
+Cognito console:
+- *Social and external providers → Google*: client ID + secret, scopes `openid email profile`, mapping `email→email`, `name→name`, `picture→picture`.
+- *App client → Login pages → Edit*: **Identity providers must include Google** (the wizard only ticks "Cognito user pool directory"); scopes `openid email profile`; sign-out URL `http://localhost:3000/`. Missing Google here made every attempt end on Cognito's blank `/error` 400 *after* Google had issued a code - the `identity_provider=Google` redirect still works, so the symptom is misleading.
+- Cognito's managed-login `/error` page renders an empty 400 (no `error_description`), so failures have to be diagnosed from the outside: `scripts`-style probes of `/oauth2/authorize`, and replaying the Google code flow with the same client (token exchange, userinfo, People API) to rule Google out.
+
+App side:
+- `fetchUserAttributes()` needs the `aws.cognito.signin.user.admin` scope, which hosted-login (Google) access tokens don't carry → profile fields were empty. `currentMatanUser()` now reads `email`, `name`, `picture`, `identities` from the **ID token** (`fetchAuthSession`) and only falls back to `fetchUserAttributes`. Provider = `google` when `identities` mentions Google or the username starts with `google_`.
+- `NEXT_PUBLIC_COGNITO_GOOGLE_ENABLED=true` activates the button; when false it renders disabled with a hint.
 
 ## User flows
 

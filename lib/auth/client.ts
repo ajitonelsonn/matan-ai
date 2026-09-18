@@ -16,6 +16,7 @@ import {
   signOut as amplifySignOut,
   getCurrentUser,
   fetchUserAttributes,
+  fetchAuthSession,
   signInWithRedirect,
 } from "aws-amplify/auth";
 import { authConfig, isAuthConfigured, oauthRedirects } from "./config";
@@ -56,22 +57,40 @@ export function configureAuth() {
   return true;
 }
 
+/**
+ * Build the MatanUser from the ID token claims (works for both SRP and OAuth
+ * sessions). `fetchUserAttributes` needs the `aws.cognito.signin.user.admin`
+ * scope, which hosted-login (Google) access tokens don't have, so it is only a
+ * best-effort supplement.
+ */
 export async function currentMatanUser(): Promise<MatanUser | null> {
   try {
     const u = await getCurrentUser();
-    let attrs: Record<string, string | undefined> = {};
+    let claims: Record<string, unknown> = {};
     try {
-      attrs = (await fetchUserAttributes()) as Record<string, string | undefined>;
+      const session = await fetchAuthSession();
+      claims = (session.tokens?.idToken?.payload as Record<string, unknown> | undefined) ?? {};
     } catch {
-      /* attributes may be unavailable offline; keep the identity */
+      /* offline or expired - fall through */
     }
-    const identities = attrs.identities ?? "";
+    let attrs: Record<string, string | undefined> = {};
+    if (!claims.email) {
+      try {
+        attrs = (await fetchUserAttributes()) as Record<string, string | undefined>;
+      } catch {
+        /* not permitted for OAuth tokens; claims are enough */
+      }
+    }
+    const str = (k: string) => (typeof claims[k] === "string" ? (claims[k] as string) : undefined) ?? attrs[k];
+    const identities = JSON.stringify(claims.identities ?? attrs.identities ?? "");
+    const username = str("cognito:username") ?? u.username ?? "";
+    const provider: MatanUser["provider"] = /google/i.test(identities) || /^google_/i.test(username) ? "google" : "cognito";
     return {
       id: u.userId,
-      email: attrs.email ?? u.signInDetails?.loginId ?? "",
-      name: attrs.name ?? attrs.given_name,
-      pictureUrl: attrs.picture,
-      provider: /google/i.test(identities) ? "google" : "cognito",
+      email: str("email") ?? u.signInDetails?.loginId ?? "",
+      name: str("name") ?? str("given_name"),
+      pictureUrl: str("picture"),
+      provider,
     };
   } catch {
     return null;

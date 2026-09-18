@@ -1,6 +1,6 @@
 // Connectivity check for the MatanAI DynamoDB table using the server .env (never prints secrets).
 import { readFileSync, existsSync } from "node:fs";
-for (const line of existsSync(".env") ? readFileSync(".env", "utf8").split("\n") : []) { const m = line.match(/^\s*([A-Z_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim(); }
+for (const line of existsSync(".env") ? readFileSync(".env", "utf8").split("\n") : []) { const m = line.match(/^\s*([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim(); }
 const { DynamoDBClient, DescribeTableCommand } = await import("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, GetCommand } = await import("@aws-sdk/lib-dynamodb");
 const region = process.env.AWS_REGION ?? "us-east-1";

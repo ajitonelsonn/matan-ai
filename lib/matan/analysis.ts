@@ -2,7 +2,8 @@ import "server-only";
 import type { RingEvent } from "@/lib/types";
 import { analyzeWithNova, type ConverseInvoker, type NovaMedia } from "@/lib/bedrock/nova";
 import { decide, type DecisionContext } from "./decision";
-import { dynamoIntelligenceStore, hasMediaSync, type MatanIntelligenceStore } from "./store";
+import { dynamoIntelligenceStore, type MatanIntelligenceStore } from "./store";
+import { hasMediaSync } from "./media-store";
 import type { MatanEventIntelligence } from "./schema";
 import { getStore } from "@/lib/mock/store";
 import { getUserSettings } from "./user-settings";
@@ -149,8 +150,8 @@ export function applyIntelligence(event: RingEvent, intel: MatanEventIntelligenc
     confidence: intel.analysis.confidence,
     summary: intel.analysis.summary,
     aiAssessment: `${intel.analysis.summary} ${intel.decision.explanation}`,
-    imageUrl: hasMediaSync(event.id) ? `/api/matan/media/${event.id}.jpg` : event.imageUrl,
-    videoUrl: hasMediaSync(event.id, "video") ? `/api/matan/media/${event.id}.mp4` : event.videoUrl,
+    imageUrl: hasMediaSync(event.id, "snapshot") ? `/api/matan/media/${event.id}.jpg` : event.imageUrl,
+    videoUrl: hasMediaSync(event.id, "clip") ? `/api/matan/media/${event.id}.mp4` : event.videoUrl,
     title: titleFor(intel.analysis.category, event.title),
     type: typeFor(intel.analysis.category, event.type),
     recommendedActions: [

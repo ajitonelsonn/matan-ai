@@ -1,6 +1,6 @@
 // Inspect AWS identity + existing Cognito pools using the server .env (never prints secrets).
 import { readFileSync } from "node:fs";
-for (const line of readFileSync(".env", "utf8").split("\n")) { const m = line.match(/^\s*([A-Z_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim(); }
+for (const line of readFileSync(".env", "utf8").split("\n")) { const m = line.match(/^\s*([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim(); }
 const { STSClient, GetCallerIdentityCommand } = await import("@aws-sdk/client-sts");
 const { CognitoIdentityProviderClient, ListUserPoolsCommand } = await import("@aws-sdk/client-cognito-identity-provider");
 const region = process.env.AWS_REGION ?? "us-east-1";

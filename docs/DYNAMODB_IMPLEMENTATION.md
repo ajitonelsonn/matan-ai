@@ -46,7 +46,7 @@ A client-supplied user id is never read anywhere.
 - **Devices** (`lib/ring/session.ts`): `upsert/update/remove/syncConnected` are now `async` and write through to `DEVICE#`; `listConnected()` stays synchronous over the per-user cache. Device items contain only application fields (verified: no token-like field).
 - **Settings** (`lib/matan/user-settings.ts`): `/api/settings` reads/writes the user's `SETTINGS` item (defaults merged). `currentUserSettings()` and `autoSettings()` read the per-user settings when in scope, else the mock store (Demo/tests).
 - **Auto-analysis state** (`lib/matan/auto.ts`): watermark, queue and rate limit are per user.
-- **Media** (snapshots/clips bytes): still process memory, bounded — S3 is a later milestone.
+- **Media** (snapshot/clip bytes): private S3 + `MEDIA#{eventId}` metadata — see [S3_MEDIA_IMPLEMENTATION.md](./S3_MEDIA_IMPLEMENTATION.md).
 
 ## Environment
 
@@ -74,4 +74,4 @@ Pending a signed-in browser session (needs your Cognito login): Real Mode end-to
 - Ring token: unchanged design (server memory keyed by random id in the HttpOnly `matan_ring_session` cookie). Not written to any DynamoDB item; event/device/analysis items are built from normalized data only.
 - Partition key derives from the verified JWT `sub` only. Users cannot address another partition through any request field.
 - No AWS secret in the browser: `lib/aws/dynamodb.ts` and `lib/auth/server.ts` are `server-only`; `.env` is git-ignored; nothing logs secret values.
-- `/api/matan/media/:id` (snapshot bytes served from memory by Ring event id) is still same-origin/unauthenticated; tightening it requires cookie-based auth for `<img>`/`<video>` requests — noted for a later hardening pass.
+- `/api/matan/media/:id` now requires the Cognito token and resolves media through the caller's partition (see the S3 notes).

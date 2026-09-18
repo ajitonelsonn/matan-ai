@@ -41,6 +41,7 @@ import { formatDate, formatDuration, formatTime, formatTimeWithSeconds, relative
 import type { RingEvent } from "@/lib/types";
 import { SourceBadge } from "@/components/experience/source-badge";
 import { MatanAnalysisPanel } from "./MatanAnalysisPanel";
+import { useProtectedMedia } from "@/hooks/useProtectedMedia";
 
 function useMockPlayer(duration = 15) {
   const [playing, setPlaying] = React.useState(false);
@@ -168,7 +169,7 @@ export function EventDetail({
 
         {event.videoUrl ? (
           <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-black">
-            <video src={event.videoUrl} poster={event.imageUrl} controls playsInline className="absolute inset-0 h-full w-full object-contain" aria-label={`Ring clip analyzed for ${event.title}`} />
+            <ProtectedVideo src={event.videoUrl} poster={event.imageUrl} label={`Ring clip analyzed for ${event.title}`} />
             <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-white/10 bg-bg/60 px-3 py-1 text-[12.5px] font-medium text-text backdrop-blur">
               <StatusDot tone="purple" /> Ring clip · what Matan AI analyzed
             </div>
@@ -428,4 +429,13 @@ export function EventDetail({
       </p>
     </div>
   );
+}
+
+/** Ring clips live behind the authenticated media API; fetch with the Cognito token and play from an object URL. */
+function ProtectedVideo({ src, poster, label }: { src: string; poster?: string; label: string }) {
+  const video = useProtectedMedia(src);
+  const image = useProtectedMedia(poster);
+  if (video.error) return <div className="absolute inset-0 flex items-center justify-center text-[13px] text-text-3">Clip unavailable</div>;
+  if (!video.url) return <div className="absolute inset-0 animate-pulse bg-surface-2/60" aria-busy="true" aria-label="Loading clip" />;
+  return <video src={video.url} poster={image.url} controls playsInline className="absolute inset-0 h-full w-full object-contain" aria-label={label} />;
 }

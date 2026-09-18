@@ -6,7 +6,8 @@ import type { NovaMedia } from "@/lib/bedrock/nova";
 import { analyzeEvent, buildMatanContext, type UserSettingsForAnalysis } from "./analysis";
 import { shouldEscalateToVideo } from "./escalation";
 import { budgetSnapshot } from "./budget";
-import { beginAnalysis, endAnalysis, dynamoIntelligenceStore, saveMedia } from "./store";
+import { beginAnalysis, endAnalysis, dynamoIntelligenceStore } from "./store";
+import { putMedia } from "./media-store";
 import { MatanAiError } from "./errors";
 import { autoSettings, noteOwnMediaRequest } from "./auto";
 import type { MatanEventIntelligence } from "./schema";
@@ -41,7 +42,8 @@ async function obtainRingMedia(event: RingEvent, padSeconds: number): Promise<{ 
       (await getRingSnapshot(token, device.ringDeviceId, { type: "latest_in_range", start_timestamp: w.from, end_timestamp: w.to })) ??
       (await getRingSnapshot(token, device.ringDeviceId, { type: "at_timestamp", timestamp: Math.min(new Date(event.timestamp).getTime() + 3000, Date.now() - 1500) }));
     if (!snap) return { media: null, note: "No media - Ring returned no snapshot for this event window" };
-    saveMedia(event.id, { bytes: snap.bytes, contentType: snap.contentType, capturedAt: snap.capturedAt });
+    // Persist first (S3 → metadata); a failed upload is logged and analysis continues with the bytes in hand.
+    await putMedia(event.id, "snapshot", { bytes: snap.bytes, contentType: snap.contentType, capturedAt: snap.capturedAt }).catch(() => null);
     return { media: { kind: "image", image: snap.bytes, format: snap.format } };
   } catch (e) {
     console.error({ event: "matan_ai_media_unavailable", reason: (e as { code?: string })?.code ?? "error" });
@@ -58,7 +60,7 @@ async function obtainRingClip(event: RingEvent, padSeconds: number) {
   try {
     noteOwnMediaRequest();
     const clip = await getRingClip(token, device.ringDeviceId, w.from, w.durationMs);
-    if (clip) saveMedia(event.id, { bytes: clip.bytes, contentType: clip.contentType, capturedAt: clip.actualTimestamp, lengthMs: clip.actualLengthMs }, "video");
+    if (clip) await putMedia(event.id, "clip", { bytes: clip.bytes, contentType: clip.contentType, capturedAt: clip.actualTimestamp, lengthMs: clip.actualLengthMs }).catch(() => null);
     return clip;
   } catch (e) {
     console.error({ event: "matan_ai_clip_unavailable", reason: (e as { code?: string })?.code ?? "error" });

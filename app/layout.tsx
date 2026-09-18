@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { inter } from "@/lib/fonts";
 import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
 import { themeInitScript } from "@/components/experience/theme-script";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Matan AI", template: "%s · Matan AI" },

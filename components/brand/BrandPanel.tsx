@@ -2,11 +2,9 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Caveat } from "next/font/google";
+import { caveat as script } from "@/lib/fonts";
 import { Eye, Brain, Bell, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-
-const script = Caveat({ subsets: ["latin"], weight: ["500", "600"], display: "swap" });
 
 export const brandScriptClass = script.className;
 

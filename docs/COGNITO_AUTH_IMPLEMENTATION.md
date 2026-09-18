@@ -106,6 +106,8 @@ The pool was created by hand in the Cognito console; its IDs live only in the gi
 
 ### Google sign-in: setup checklist and pitfalls (from the live setup)
 
+Full step-by-step guide: [GOOGLE_OAUTH_COGNITO_SETUP.md](./GOOGLE_OAUTH_COGNITO_SETUP.md).
+
 Google Cloud Console (same project for everything):
 - OAuth consent screen: External, app in *Testing* → add your Gmail under **Test users**.
 - OAuth client (**Web application**): Authorized redirect URI `https://<cognito-domain>/oauth2/idpresponse`. Paste the **full** client ID (must end in `.apps.googleusercontent.com` - a truncated paste produced Google `401 invalid_client`).

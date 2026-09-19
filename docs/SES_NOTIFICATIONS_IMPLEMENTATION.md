@@ -68,7 +68,7 @@ Subject `Matan AI Alert — <event title>`; body lists Event, Device, Time (Asia
 
 ## Environment
 ```
-SES_FROM_EMAIL=<verified sender>      # server-only
+SES_FROM_EMAIL=<address on the verified sending domain>   # server-only
 SES_CONFIGURATION_SET=matan-ai
 APP_BASE_URL=http://localhost:3000
 ```
@@ -81,3 +81,14 @@ No `NEXT_PUBLIC_*` additions.
 - `tsc --noEmit` ✓ · `pnpm build` ✓ · `pnpm test` 26/26 ✓ (recipient validation, decision gating incl. demo, content + escaping, false→no send, true→one send to the user's address, duplicate→one email, per-user deps, SES failure recorded/retried without throwing).
 - Live: `pnpm ses:check` ✓ — SendEmail via `matan-ai` returned a MessageId and the mail was delivered to the verified Gmail.
 - Pending: the browser flow (Real Mode → high-priority event → email arrives → re-analyze → no duplicate).
+
+## Going to production (Sandbox → production access)
+
+What we learned setting this up:
+
+- **Sandbox** (default for new accounts): 200 emails/day, 1/s, and *recipients must be verified identities*. IAM is even evaluated against the recipient identity ARN (`ses:SendEmail … on resource identity/<recipient>`), so unverified users simply can't be emailed. The app records these as `SES_MESSAGE_REJECTED` / `SES_ACCESS_DENIED` and carries on.
+- The console's **Request production access** button stays disabled until a **sending domain** is verified. Verifying an email address alone is not enough.
+- Domain identity: SES → Get set up → *Verify sending domain* → Domain (a subdomain is fine, e.g. `matanai.<your-domain>`) → Easy DKIM → publish the 3 CNAMEs at the DNS host → status *Verified*, DKIM *Successful*. Then request production access (Transactional, app URL, use case, bounce/complaint handling).
+- After the domain is verified, set `SES_FROM_EMAIL` to any address on it (e.g. `alerts@matanai.<your-domain>`) and add `arn:aws:ses:<region>:<account-id>:identity/<domain>` to the IAM statement next to the configuration set. No code change - `pnpm ses:check` confirms.
+- Optional deliverability records: `TXT <domain> "v=spf1 include:amazonses.com ~all"` and `TXT _dmarc.<domain> "v=DMARC1; p=none;"`.
+- Once production access is granted the recipient restrictions disappear; each user's alert address just needs to be a real mailbox.

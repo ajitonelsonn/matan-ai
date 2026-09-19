@@ -22,6 +22,8 @@ import { LoadingOverlay } from "@/components/matan/MatanLoader";
 import { useAppData } from "@/components/layout/AppDataProvider";
 import { useApi } from "@/hooks/useApi";
 import { settingsApi } from "@/lib/api/settings";
+import { matanApi } from "@/lib/api/matan";
+import { ApiError } from "@/lib/api/client";
 import { images } from "@/lib/mock/images";
 import { cn } from "@/lib/utils/cn";
 import type { SettingsData } from "@/lib/types";
@@ -79,6 +81,7 @@ export function SettingsPage() {
   const [search, setSearch] = React.useState("");
   const [modal, setModal] = React.useState<null | "appName" | "quiet" | "storage" | "zones" | "faces" | "password" | "linked" | "plan" | "import" | "feedback" | "guide" | "account" | "alertEmail">(null);
   const [alertEmail, setAlertEmail] = React.useState("");
+  const [testingEmail, setTestingEmail] = React.useState(false);
   const [appName, setAppName] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [feedback, setFeedback] = React.useState("");
@@ -187,6 +190,40 @@ export function SettingsPage() {
         {tab === "notifications" && (
           <>
             <Row icon={<Mail />} title="Alert email address" hint={s.notifications.emailAddress ? `Matan AI email alerts go to ${s.notifications.emailAddress}` : "Set where high-priority Matan AI alerts are emailed."} tone="primary" onClick={() => { setAlertEmail(s.notifications.emailAddress ?? (auth.user?.email ?? "")); setModal("alertEmail"); }} control={<ChevronRight className="size-4 text-text-3" />} />
+            {s.notifications.emailAddress && (
+              <Row
+                icon={<Sparkles />}
+                title="Send test alert"
+                hint="Emails a sample high-priority alert to the address above via Amazon SES."
+                tone="primary"
+                control={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={testingEmail}
+                    onClick={async () => {
+                      setTestingEmail(true);
+                      try {
+                        const r = await matanApi.sendTestAlert();
+                        if (r.status === "sent") toast.success("Test alert sent", `Check ${s.notifications.emailAddress}. Message id ${r.messageId.slice(0, 12)}…`);
+                        else if (r.status === "duplicate") toast.info("Please wait a minute", "Test alerts are limited to one per minute.");
+                        else if (r.status === "skipped") toast.info("Not sent", r.reason);
+                        else toast.error("Email failed", r.code === "SES_MESSAGE_REJECTED" ? "SES rejected the address - while SES is in Sandbox the recipient must be a verified identity." : r.code);
+                      } catch (e) {
+                        const p = (e as ApiError).payload as { reason?: string; code?: string; status?: string } | undefined;
+                        if (p?.status === "duplicate") toast.info("Please wait a minute", "Test alerts are limited to one per minute.");
+                        else if (p?.status === "skipped") toast.info("Not sent", p.reason);
+                        else toast.error("Email failed", p?.code === "SES_MESSAGE_REJECTED" ? "SES rejected the address - while SES is in Sandbox the recipient must be a verified identity." : p?.code ?? "Please try again.");
+                      } finally {
+                        setTestingEmail(false);
+                      }
+                    }}
+                  >
+                    Send test
+                  </Button>
+                }
+              />
+            )}
             <Row icon={<Moon />} title="Quiet hours" hint={s.notifications.quietHoursEnabled ? s.notifications.quietHours : "Off"} tone="purple" control={<Toggle checked={s.notifications.quietHoursEnabled} onChange={(v) => void update({ notifications: { quietHoursEnabled: v } }, v ? "Quiet hours on" : "Quiet hours off")} label="Quiet hours" />} />
             <div className="grid grid-cols-3 gap-2 px-2 pt-2">
               {(["push", "email", "sms"] as const).map((ch) => (

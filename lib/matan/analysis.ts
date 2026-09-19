@@ -7,6 +7,7 @@ import { hasMediaSync } from "./media-store";
 import type { MatanEventIntelligence } from "./schema";
 import { getStore } from "@/lib/mock/store";
 import { getUserSettings } from "./user-settings";
+import { emailPrefs } from "./notification-email";
 
 /* ---------------------------------------------------------------------------
    Context builder + orchestration:
@@ -85,7 +86,7 @@ export function buildMatanContext(event: RingEvent, recentEvents: RingEvent[], s
       relatedRecentCount: related.length,
       multipleDevices: new Set(related.map((e) => e.cameraId)).size > 1 || related.some((e) => e.cameraId !== event.cameraId),
       deviceName: event.location,
-      highPriorityEmailRule: false,
+      highPriorityEmailRule: emailRuleEnabled(),
       ringEventType: event.ringEventType,
       detections: event.tags.filter((t) => !["Ring Simulator", "motion", "ding", "on demand"].includes(t)),
     } satisfies DecisionContext,
@@ -114,6 +115,12 @@ export interface AnalyzeOptions {
   emailRule?: boolean;
 }
 
+/** Whether the signed-in user's settings allow email alerts (drives the Decision Engine's "email" action). */
+export function emailRuleEnabled() {
+  const prefs = emailPrefs(getUserSettings());
+  return prefs.enabled && Boolean(prefs.address);
+}
+
 /** Full pipeline for one event. Throws MatanAiError on failure; never fabricates. */
 export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], settings: UserSettingsForAnalysis, opts: AnalyzeOptions = {}): Promise<MatanEventIntelligence> {
   const store = opts.store ?? dynamoIntelligenceStore;
@@ -121,7 +128,9 @@ export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], 
   const nova = await analyzeWithNova({ context: built.context, media: opts.media ?? null }, opts.invoke);
   // With a snapshot, Nova's category is real evidence about the session - let the rules use it.
   const detections = nova.mediaAnalyzed && nova.analysis.category !== "unknown" ? [...(built.decision.detections ?? []), `snapshot:${nova.analysis.category}`] : built.decision.detections;
-  const decision = decide(nova.analysis, { ...built.decision, detections, highPriorityEmailRule: opts.emailRule ?? false });
+  // High-priority events are emailed when the user has the email channel on with a valid address (SES milestone).
+  const emailRule = opts.emailRule ?? emailRuleEnabled();
+  const decision = decide(nova.analysis, { ...built.decision, detections, highPriorityEmailRule: emailRule });
   const intelligence: MatanEventIntelligence = {
     analysis: nova.analysis,
     decision,

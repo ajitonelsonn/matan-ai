@@ -57,6 +57,12 @@ Ring event → Nova Pro analysis → Matan decision (final, in runMatanPipeline)
 - **Logging**: `email_notification_sent { eventId, messageId }`, `email_notification_skipped { eventId, reason }`, `email_notification_failed { eventId, code }`. No addresses in success logs beyond the masked script output; never tokens or bodies.
 - **Demo Mode**: `shouldEmail` rejects any event whose `source !== "ring"`; Demo Mode also never runs the pipeline. Unit tests use fakes — nothing in `pnpm test` talks to SES.
 
+## Decision rule wiring
+The Decision Engine's high-priority email rule (`ctx.highPriorityEmailRule`) was a placeholder left `false` by the Bedrock milestone. It is now `emailRuleEnabled()` = the signed-in user's `channels.email` is on **and** a valid `emailAddress` is set — so a *high* decision (person/motion/unusual activity + Night Mode or quiet hours + ≥2 related events in 30 min, confidence not low) becomes `action: "email"` only for users who opted in.
+
+## Test alert
+Settings → Notifications → **Send test alert** → `POST /api/matan/notifications/test` (authenticated, user-scoped, no recipient accepted, 1 per minute per user via the `NOTIFICATION#TEST-<minute>#EMAIL` idempotency record). It builds a synthetic high-priority Ring event and runs the *same* `notifyByEmail` path (gate, content, SES sender + `matan-ai` configuration set). Responses: `sent {messageId}` · `skipped {reason}` (400) · `duplicate` (429) · `failed {code}` (502). The UI explains `SES_MESSAGE_REJECTED` as the Sandbox verified-recipient rule.
+
 ## Email content
 Subject `Matan AI Alert — <event title>`; body lists Event, Device, Time (Asia/Dili), Priority, the analysis summary as "Reason", up to three observations, and an **Open Matan AI** link built from `APP_BASE_URL` (`/events/<id>`), never from request headers. HTML is escaped. No Ring/Cognito tokens, AWS values or storage URLs.
 

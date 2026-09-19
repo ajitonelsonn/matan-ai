@@ -122,7 +122,7 @@ export function decide(analysis: MatanAIAnalysis, ctx: DecisionContext): MatanDe
     reasons.push(`Confidence is low (${pct}) - review recommended`);
   }
 
-  // Application automation rule (SES itself is a later milestone).
+  // Application automation rule: high priority → email, when the user has email alerts enabled (delivered via SES).
   if (priority === "high" && ctx.highPriorityEmailRule) {
     action = "email";
     reasons.push("Automation rule: high priority events are emailed");

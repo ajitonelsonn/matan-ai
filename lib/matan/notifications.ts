@@ -1,5 +1,6 @@
 import "server-only";
 import type { RingEvent } from "@/lib/types";
+import { emailPrefs } from "./notification-email";
 import type { MatanEventIntelligence } from "./schema";
 import { getUserSettings } from "./user-settings";
 import { currentUser, currentUserSub } from "@/lib/auth/server";
@@ -37,5 +38,44 @@ export async function notifyForIntelligence(event: RingEvent, intelligence: Mata
   if (!isSesConfigured()) return { status: "skipped", reason: "SES not configured (SES_FROM_EMAIL missing)" };
   const outcome = await notifyByEmail(event, intelligence, deps(currentUserSub()));
   if (outcome.status === "skipped") console.info({ event: "email_notification_skipped", eventId: event.id, reason: outcome.reason });
+  return outcome;
+}
+
+const TEST_COOLDOWN_MS = 60_000;
+
+/**
+ * Send a sample alert to the signed-in user's own configured address (Settings → "Send test alert").
+ * Uses the same gate/content/SES path with a synthetic high-priority Ring event; one per minute per user.
+ */
+export async function sendTestAlert(): Promise<NotificationOutcome> {
+  if (!currentUser()) return { status: "skipped", reason: "no authenticated user in scope" };
+  if (!isSesConfigured()) return { status: "skipped", reason: "SES is not configured on the server" };
+  const prefs = emailPrefs(getUserSettings());
+  if (!prefs.enabled || !prefs.address) return { status: "skipped", reason: "Set an alert email address in Settings → Notifications first" };
+  const now = Date.now();
+  const bucket = Math.floor(now / TEST_COOLDOWN_MS);
+  const event: RingEvent = {
+    id: `TEST-${bucket}`,
+    type: "person",
+    title: "Test alert — Person detected",
+    location: "Front Door (sample)",
+    cameraId: "test",
+    timestamp: new Date(now).toISOString(),
+    priority: "important",
+    summary: "This is a sample Matan AI alert.",
+    tags: ["test"],
+    source: "ring",
+    analysis: "done",
+    ringEventType: "motion",
+  };
+  const intelligence: MatanEventIntelligence = {
+    analysis: { summary: "This is a sample alert so you can confirm Matan AI email notifications reach you. No real activity was detected.", category: "person", confidence: 1, observations: ["Sample observation: a person approached the front door", "Sample observation: activity repeated during night monitoring"] },
+    decision: { priority: "high", action: "email", reasons: ["Test alert requested from Settings"], explanation: "An email alert will be sent." },
+    analyzedAt: new Date(now).toISOString(),
+    model: "test",
+    mediaAnalyzed: false,
+  };
+  const outcome = await notifyByEmail(event, intelligence, deps(currentUserSub()));
+  if (outcome.status === "duplicate") console.info({ event: "email_notification_skipped", eventId: event.id, reason: "test alert cooldown (1/min)" });
   return outcome;
 }

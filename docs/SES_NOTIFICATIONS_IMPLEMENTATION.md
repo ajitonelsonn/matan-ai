@@ -12,16 +12,16 @@ Matan AI emails the signed-in user when the **existing Decision Engine** says so
 | Recipient from `USER#{sub}/SETTINGS` (`notifications.emailAddress`, `channels.email`) + Settings UI row | ✅ |
 | Idempotency `NOTIFICATION#{eventId}#EMAIL` in DynamoDB (claim → send → sent/failed) | ✅ |
 | Unit tests (`tests/notifications.test.ts`, 8) | ✅ 26/26 total |
-| `pnpm ses:check` | ⚠️ blocked by IAM — see below |
+| `pnpm ses:check` | ✅ passes (MessageId returned, mail delivered) after adding the configuration-set ARN to IAM |
 
-### IAM blocker (exact operation)
+### IAM note (resolved)
 
 ```
 ✖ ses:SendEmail on resource arn:aws:ses:us-east-1:<account-id>:configuration-set/matan-ai
   AccessDeniedException for the app IAM user
 ```
 
-SES v2 authorizes `SendEmail` against **both** the sender identity ARN **and** the configuration-set ARN when `ConfigurationSetName` is given. The current policy only lists the identity. A diagnostic send *without* the configuration set succeeded (MessageId returned, mail delivered), so credentials, verified sender and Sandbox recipient are fine.
+This was the initial failure. SES v2 authorizes `SendEmail` against **both** the sender identity ARN **and** the configuration-set ARN when `ConfigurationSetName` is given. The current policy only lists the identity. A diagnostic send *without* the configuration set succeeded (MessageId returned, mail delivered), so credentials, verified sender and Sandbox recipient are fine.
 
 Fix — add the configuration set to the same statement (least privilege, no `AmazonSESFullAccess`):
 
@@ -73,5 +73,5 @@ No `NEXT_PUBLIC_*` additions.
 
 ## Verification
 - `tsc --noEmit` ✓ · `pnpm build` ✓ · `pnpm test` 26/26 ✓ (recipient validation, decision gating incl. demo, content + escaping, false→no send, true→one send to the user's address, duplicate→one email, per-user deps, SES failure recorded/retried without throwing).
-- Live: `SendEmail` without configuration set ✓ delivered; with `matan-ai` ✗ IAM (above).
-- Pending after the IAM fix: `pnpm ses:check`, then the browser flow (Real Mode → high-priority event → email arrives → re-analyze → no duplicate).
+- Live: `pnpm ses:check` ✓ — SendEmail via `matan-ai` returned a MessageId and the mail was delivered to the verified Gmail.
+- Pending: the browser flow (Real Mode → high-priority event → email arrives → re-analyze → no duplicate).

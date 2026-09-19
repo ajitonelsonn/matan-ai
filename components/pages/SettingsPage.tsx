@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, Activity, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
+import { Mail, Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, Activity, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -77,7 +77,8 @@ export function SettingsPage() {
   const auth = useAuth();
   const [signingOut, setSigningOut] = React.useState(false);
   const [search, setSearch] = React.useState("");
-  const [modal, setModal] = React.useState<null | "appName" | "quiet" | "storage" | "zones" | "faces" | "password" | "linked" | "plan" | "import" | "feedback" | "guide" | "account">(null);
+  const [modal, setModal] = React.useState<null | "appName" | "quiet" | "storage" | "zones" | "faces" | "password" | "linked" | "plan" | "import" | "feedback" | "guide" | "account" | "alertEmail">(null);
+  const [alertEmail, setAlertEmail] = React.useState("");
   const [appName, setAppName] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [feedback, setFeedback] = React.useState("");
@@ -185,6 +186,7 @@ export function SettingsPage() {
           .map(([k, l, h, icon, tone]) => <Row key={k} icon={icon} title={l} hint={h} tone={tone} control={<Toggle checked={Boolean(s.notifications[k])} onChange={(v) => void update({ notifications: { [k]: v } }, `${l} ${v ? "on" : "off"}`)} label={l} />} />)}
         {tab === "notifications" && (
           <>
+            <Row icon={<Mail />} title="Alert email address" hint={s.notifications.emailAddress ? `Matan AI email alerts go to ${s.notifications.emailAddress}` : "Set where high-priority Matan AI alerts are emailed."} tone="primary" onClick={() => { setAlertEmail(s.notifications.emailAddress ?? (auth.user?.email ?? "")); setModal("alertEmail"); }} control={<ChevronRight className="size-4 text-text-3" />} />
             <Row icon={<Moon />} title="Quiet hours" hint={s.notifications.quietHoursEnabled ? s.notifications.quietHours : "Off"} tone="purple" control={<Toggle checked={s.notifications.quietHoursEnabled} onChange={(v) => void update({ notifications: { quietHoursEnabled: v } }, v ? "Quiet hours on" : "Quiet hours off")} label="Quiet hours" />} />
             <div className="grid grid-cols-3 gap-2 px-2 pt-2">
               {(["push", "email", "sms"] as const).map((ch) => (
@@ -455,6 +457,11 @@ export function SettingsPage() {
         </div>
       </Modal>
 
+      <Modal open={modal === "alertEmail"} onClose={() => setModal(null)} title="Alert email address" size="sm" icon={<Mail />} footer={<><Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button><Button onClick={() => { const v = alertEmail.trim().toLowerCase(); if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { toast.error("Enter a valid email address"); return; } void update({ notifications: { emailAddress: v, channels: { email: Boolean(v) } } }, v ? "Alert email saved" : "Email alerts turned off"); setModal(null); }}>Save</Button></>}>
+        <Field label="Email" htmlFor="alert-email" hint="High-priority Matan AI decisions are emailed here via Amazon SES. While SES is in Sandbox, only verified addresses receive mail.">
+          <Input id="alert-email" type="email" inputMode="email" autoComplete="email" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} placeholder="you@example.com" />
+        </Field>
+      </Modal>
       <Modal open={modal === "password"} onClose={() => setModal(null)} title="Change password" size="sm" icon={<KeyRound />} footer={<><Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button><Button onClick={() => { setModal(null); toast.success("Password updated"); }}>Update password</Button></>}>
         <div className="space-y-3">
           <Field label="Current password" htmlFor="pw0"><Input id="pw0" type="password" placeholder="••••••••" data-autofocus /></Field>

@@ -13,12 +13,14 @@
     "cognito:provision": "node scripts/cognito-provision.mjs",
     "dynamodb:check": "node scripts/dynamodb-check.mjs",
     "s3:check": "node scripts/s3-check.mjs",
-    "s3:provision": "node scripts/s3-provision.mjs"
+    "s3:provision": "node scripts/s3-provision.mjs",
+    "ses:check": "node scripts/ses-check.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1134.0",
     "@aws-sdk/client-dynamodb": "^3.1135.0",
     "@aws-sdk/client-s3": "^3.1135.0",
+    "@aws-sdk/client-sesv2": "^3.1136.0",
     "@aws-sdk/lib-dynamodb": "^3.1135.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/caveat": "^5.3.0",

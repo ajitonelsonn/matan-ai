@@ -10,6 +10,7 @@ import { beginAnalysis, endAnalysis, dynamoIntelligenceStore } from "./store";
 import { putMedia } from "./media-store";
 import { MatanAiError } from "./errors";
 import { autoSettings, noteOwnMediaRequest } from "./auto";
+import { notifyForIntelligence } from "./notifications";
 import type { MatanEventIntelligence } from "./schema";
 
 export interface PipelineResult {
@@ -123,6 +124,9 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
     if (!intelligence) intelligence = await analyzeEvent(event, recent, settings, { media: null, mediaNote: "No media supplied - context-only analysis", store: dynamoIntelligenceStore });
 
     console.info({ event: "matan_ai_escalation", eventId: event.id, auto: Boolean(opts.auto), padSeconds: pad, ...escalation, budgetUsedPct: budget.usedPct });
+    // Decision is final here (manual and automatic paths alike) → notification service. Fire-and-forget,
+    // never throws, so SES problems can't fail the analysis response or Ring sync.
+    void notifyForIntelligence(event, intelligence);
     return { intelligence, escalation };
   } finally {
     endAnalysis(event.id);

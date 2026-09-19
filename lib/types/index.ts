@@ -416,6 +416,8 @@ export interface SettingsData {
     quietHoursEnabled: boolean;
     quietHours: string;
     channels: { push: boolean; email: boolean; sms: boolean };
+    /** Where Matan AI email alerts go (server-side recipient; SES Sandbox requires a verified address). */
+    emailAddress?: string;
   };
   privacy: {
     retentionDays: number;

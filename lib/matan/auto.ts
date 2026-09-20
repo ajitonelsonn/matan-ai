@@ -38,6 +38,8 @@ const CONCURRENCY = 2;
 const OWN_REQUEST_BEFORE_MS = 5_000;
 const OWN_REQUEST_AFTER_MS = 20_000;
 const OWN_REQUEST_KEEP_MS = 10 * 60 * 1000;
+/** Matan's snapshot/clip request opens a session for a moment; Playground scenarios run ~20 s. */
+const OWN_MAX_DURATION_S = 6;
 
 /** Auto-analysis bookkeeping is per user (watermark, queue, rate limit). */
 function state(): AutoState {
@@ -65,6 +67,7 @@ export function noteOwnMediaRequest() {
  */
 function isOwnOnDemand(e: RingEvent) {
   if (e.ringEventType !== "on_demand") return false;
+  if ((e.clipDuration ?? 0) > OWN_MAX_DURATION_S) return false; // a real (user/Playground) session, not our footprint
   const start = new Date(e.timestamp).getTime();
   const reqs = state().ownMediaRequests;
   if (reqs.some((r) => r.claimedBy === e.id)) return true;
@@ -119,7 +122,7 @@ export function scheduleAutoAnalysis(events: RingEvent[], analyze: Analyzer) {
     .slice(0, MAX_PER_SYNC);
 
   s.watermarkMs = Math.max(s.watermarkMs, newest);
-  if (fresh.length && Object.keys(skipped).length) console.info({ event: "matan_auto_skipped", fresh: fresh.length, skipped });
+  if (fresh.length && Object.keys(skipped).length) console.info({ event: "matan_auto_skipped", fresh: fresh.map((e) => `${e.id}:${e.ringEventType ?? e.type}:${e.clipDuration ?? 0}s`), skipped });
   if (!candidates.length) return { queued: 0, reason: "no new candidates" };
 
   const now = Date.now();

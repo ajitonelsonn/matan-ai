@@ -13,7 +13,7 @@ export interface EmailContent {
   html: string;
 }
 
-export type AlertLevel = "high" | "medium" | "low";
+export type AlertLevel = "high" | "medium" | "low" | "all";
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -27,19 +27,19 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function emailPrefs(settings: SettingsData): NotificationPrefs {
   const n = settings.notifications;
   const address = (n.emailAddress ?? "").trim().toLowerCase();
-  const level: AlertLevel = n.alertLevel === "low" || n.alertLevel === "medium" ? n.alertLevel : "high";
+  const level: AlertLevel = n.alertLevel === "low" || n.alertLevel === "medium" || n.alertLevel === "all" ? n.alertLevel : "high";
   return { enabled: Boolean(n.channels?.email), address: EMAIL_RE.test(address) ? address : null, level };
 }
 
 export type EmailGate = { send: true } | { send: false; reason: string };
 
 const PRIORITY_RANK: Record<MatanEventIntelligence["decision"]["priority"], number> = { normal: 0, low: 1, medium: 2, high: 3 };
-const LEVEL_RANK: Record<AlertLevel, number> = { low: 1, medium: 2, high: 3 };
+const LEVEL_RANK: Record<AlertLevel, number> = { all: 0, low: 1, medium: 2, high: 3 };
 
 /**
  * Does this finalized decision clear the user's minimum alert level?
- * "low" → low/medium/high are emailed · "medium" → medium/high · "high" → high only.
- * "normal" decisions (nothing of concern, e.g. a live-view session) are never emailed.
+ * "low" → low/medium/high are emailed · "medium" → medium/high · "high" → high only ·
+ * "all" → every completed analysis, including "normal" (nothing of concern) - for demos/simulator testing.
  * Decision Engine output is reused, never re-derived.
  */
 export function meetsAlertLevel(intelligence: MatanEventIntelligence, level: AlertLevel): boolean {

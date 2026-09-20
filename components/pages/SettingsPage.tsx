@@ -194,17 +194,18 @@ export function SettingsPage() {
               <Row
                 icon={<SlidersHorizontal />}
                 title="Alert level"
-                hint={{ high: "Email only high-priority decisions (recommended).", medium: "Email medium and high-priority decisions.", low: "Email low, medium and high-priority decisions." }[s.notifications.alertLevel ?? "high"]}
+                hint={{ high: "Email only high-priority decisions (recommended).", medium: "Email medium and high-priority decisions.", low: "Email low, medium and high-priority decisions.", all: "Email every completed analysis, even when nothing is of concern - for simulator testing." }[s.notifications.alertLevel ?? "high"]}
                 tone="primary"
                 control={
                   <Select
                     size="sm"
                     value={s.notifications.alertLevel ?? "high"}
-                    onChange={(v) => void update({ notifications: { alertLevel: v as "high" | "medium" | "low" } }, `Alert level: ${v}`)}
+                    onChange={(v) => void update({ notifications: { alertLevel: v as "high" | "medium" | "low" | "all" } }, `Alert level: ${v}`)}
                     options={[
                       { value: "high", label: "High", description: "High only" },
                       { value: "medium", label: "Medium", description: "Medium and high" },
                       { value: "low", label: "Low", description: "Low, medium and high" },
+                      { value: "all", label: "All", description: "Every analysis (testing)" },
                     ]}
                     align="end"
                     label="Alert level"

@@ -6,7 +6,7 @@ import { defaultSettings } from "../lib/mock/settings";
 import { buildEventEmail, emailPrefs, notifyByEmail, shouldEmail, type NotificationDeps, type NotificationRecord } from "../lib/matan/notification-email";
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
-const settingsWith = (address: string | undefined, enabled = true, level?: "high" | "medium" | "low"): SettingsData => {
+const settingsWith = (address: string | undefined, enabled = true, level?: "high" | "medium" | "low" | "all"): SettingsData => {
   const s = clone(defaultSettings);
   s.notifications.emailAddress = address;
   s.notifications.channels.email = enabled;
@@ -59,14 +59,15 @@ test("only the existing decision action 'email' emails; demo data never does", (
   assert.equal(shouldEmail(event, intel("email"), settingsWith(undefined)).send, false);
 });
 
-test("alert level is a minimum priority: low ⊇ medium ⊇ high; 'normal' never emails", () => {
+test("alert level is a minimum priority: all ⊇ low ⊇ medium ⊇ high", () => {
   const withPriority = (priority: "normal" | "low" | "medium" | "high") => ({ ...intel("review"), decision: { ...intel("review").decision, priority } });
-  const table: Record<"high" | "medium" | "low", Record<string, boolean>> = {
+  const table: Record<"high" | "medium" | "low" | "all", Record<string, boolean>> = {
     high: { normal: false, low: false, medium: false, high: true },
     medium: { normal: false, low: false, medium: true, high: true },
     low: { normal: false, low: true, medium: true, high: true },
+    all: { normal: true, low: true, medium: true, high: true },
   };
-  for (const level of ["high", "medium", "low"] as const)
+  for (const level of ["high", "medium", "low", "all"] as const)
     for (const priority of ["normal", "low", "medium", "high"] as const)
       assert.equal(shouldEmail(event, withPriority(priority), settingsWith("a@b.co", true, level)).send, table[level][priority], `${level}/${priority}`);
   assert.equal(shouldEmail({ ...event, source: "demo" }, withPriority("high"), settingsWith("a@b.co", true, "low")).send, false, "demo data still never emails");

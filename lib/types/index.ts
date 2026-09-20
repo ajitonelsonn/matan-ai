@@ -418,8 +418,8 @@ export interface SettingsData {
     channels: { push: boolean; email: boolean; sms: boolean };
     /** Where Matan AI email alerts go (server-side recipient; SES Sandbox requires a verified address). */
     emailAddress?: string;
-    /** Minimum decision priority that is emailed: "high" (default) · "medium" (medium+high) · "low" (low+medium+high). */
-    alertLevel?: "high" | "medium" | "low";
+    /** Minimum decision priority that is emailed: "high" (default) · "medium" · "low" · "all" (every completed analysis, incl. normal). */
+    alertLevel?: "high" | "medium" | "low" | "all";
   };
   privacy: {
     retentionDays: number;

@@ -10,7 +10,7 @@ import { isRingApiError } from "./errors";
 import type { RingSessionInfo } from "./types";
 import { getIntelligenceSync } from "@/lib/matan/store";
 import { applyIntelligence, currentUserSettings } from "@/lib/matan/analysis";
-import { markAnalyzingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
+import { overlayProcessingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
 import { runMatanPipeline } from "@/lib/matan/pipeline";
 import { currentUser, currentUserSub, withUser } from "@/lib/auth/server";
 import { SK, putIfAbsent, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
@@ -92,7 +92,7 @@ function chunk<T>(arr: T[], n: number) {
 
 /** Overlay any completed Matan AI intelligence onto raw Ring events (analysis: pending → done). */
 function withIntelligence(events: RingEvent[]) {
-  return markAnalyzingState(
+  return overlayProcessingState(
     events.map((e) => {
       const intel = getIntelligenceSync(e.id);
       return intel ? applyIntelligence(e, intel) : e;
@@ -216,9 +216,9 @@ export async function buildRingInsights(range: InsightRange): Promise<InsightsDa
   const data = buildInsights(events, range, names);
   // Never claim AI findings for un-analysed Ring events.
   data.summary = events.length
-    ? `Matan AI has ${events.length} Ring Simulator ${events.length === 1 ? "event" : "events"} on record across ${listConnected().length} connected ${listConnected().length === 1 ? "device" : "devices"}. AI analysis of Ring events starts with the Bedrock milestone - counts below are from Ring event history only.`
+    ? `Matan AI has ${events.length} Ring Simulator ${events.length === 1 ? "event" : "events"} on record across ${listConnected().length} connected ${listConnected().length === 1 ? "device" : "devices"}. New events are analyzed automatically (Nova Pro → Matan Decision Engine); counts below are from Ring event history.`
     : "No Ring events have been recorded yet. Trigger a Package, Vehicle or Motion simulation in the Ring Playground and refresh.";
-  data.findingNote = events.length ? `${events.length} Ring events recorded. Priority classification is pending Matan AI analysis.` : "Waiting for Ring events.";
+  data.findingNote = events.length ? `${events.length} Ring events recorded · ${events.filter((e) => e.analysis === "done").length} analyzed by Matan AI.` : "Waiting for Ring events.";
   data.recommendations = [
     { id: "r-ring-1", title: "Trigger a simulation in the Playground", description: "Package, Vehicle or Motion events appear here after refresh.", tone: "primary", icon: "Sparkles" },
     { id: "r-ring-2", title: "Keep the Playground session alive", description: "Tokens expire after 30 minutes; reconnect to keep syncing.", tone: "warning", icon: "Clock" },

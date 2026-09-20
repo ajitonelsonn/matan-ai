@@ -47,8 +47,14 @@ export interface RingEvent {
   reviewed?: boolean;
   /** Where this event came from. Undefined = demo dataset. */
   source?: "demo" | "ring";
-  /** Ring-derived events are "pending" until the Matan AI (Bedrock) pipeline has actually run; "analyzing" while a run is in flight. */
-  analysis?: "pending" | "analyzing" | "done";
+  /** Matan processing state (server-derived): pending → capturing → analyzing → done | failed. */
+  analysis?: "pending" | "capturing" | "analyzing" | "done" | "failed";
+  /** Set when the last analysis attempt failed (event itself is unaffected). */
+  analysisError?: { code: string; at: string };
+  /** Outcome of the notification step for this event's decision, when known. */
+  notification?: { status: "pending" | "sent" | "failed" | "skipped"; reason?: string; sentAt?: string; provider?: string; code?: string };
+  /** Real timestamps for the Matan processing timeline; never invented - fields are absent until the step actually happened. */
+  processing?: { receivedAt: string; capturedAt?: string; analyzedAt?: string; notifiedAt?: string };
   /** Raw Ring event type (motion | ding | on_demand) for Ring-derived events. */
   ringEventType?: string;
   /** Matan AI intelligence (Nova analysis + deterministic decision) once analysis completed. */

@@ -89,16 +89,49 @@ export function stripAnalysisItem(item: Record<string, unknown>) {
   return stripKeys<{ eventId: string; intelligence: MatanEventIntelligence }>(item);
 }
 
-/** In-flight guard so a double click never triggers two Bedrock invocations. */
-const inFlight = new Set<string>();
+/**
+ * In-flight guard + processing stage so a double click never triggers two Bedrock
+ * invocations and the UI can show capturing → analyzing. Failures are remembered
+ * (per event) until the next successful analysis so the dashboard can show "failed".
+ */
+export type AnalysisStage = "capturing" | "analyzing";
+interface InFlight {
+  stage: AnalysisStage;
+  startedAt: string;
+}
+declare global {
+  // eslint-disable-next-line no-var
+  var __matanInFlight: Map<string, InFlight> | undefined;
+  // eslint-disable-next-line no-var
+  var __matanAnalysisFailures: Map<string, { code: string; at: string }> | undefined;
+}
+const inFlight = () => (globalThis.__matanInFlight ??= new Map());
+const failures = () => (globalThis.__matanAnalysisFailures ??= new Map());
+
 export function beginAnalysis(eventId: string) {
-  if (inFlight.has(eventId)) return false;
-  inFlight.add(eventId);
+  if (inFlight().has(eventId)) return false;
+  inFlight().set(eventId, { stage: "capturing", startedAt: new Date().toISOString() });
   return true;
 }
+export function setAnalysisStage(eventId: string, stage: AnalysisStage) {
+  const f = inFlight().get(eventId);
+  if (f) f.stage = stage;
+}
 export function endAnalysis(eventId: string) {
-  inFlight.delete(eventId);
+  inFlight().delete(eventId);
 }
 export function isAnalyzing(eventId: string) {
-  return inFlight.has(eventId);
+  return inFlight().has(eventId);
+}
+export function analysisStage(eventId: string): AnalysisStage | null {
+  return inFlight().get(eventId)?.stage ?? null;
+}
+export function markAnalysisFailed(eventId: string, code: string) {
+  failures().set(eventId, { code, at: new Date().toISOString() });
+}
+export function clearAnalysisFailure(eventId: string) {
+  failures().delete(eventId);
+}
+export function analysisFailure(eventId: string) {
+  return failures().get(eventId) ?? null;
 }

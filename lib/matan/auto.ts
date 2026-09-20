@@ -2,7 +2,9 @@ import "server-only";
 import type { RingEvent } from "@/lib/types";
 import { getUserSettings } from "./user-settings";
 import { budgetSnapshot } from "./budget";
-import { getIntelligenceSync, isAnalyzing } from "./store";
+import { analysisFailure, analysisStage, getIntelligenceSync, isAnalyzing } from "./store";
+import { getMediaMetaSync } from "./media-store";
+import { getNotificationSync } from "./notifications";
 import { currentUserSettings, relatedRecent, shouldAnalyze } from "./analysis";
 import { currentUser } from "@/lib/auth/server";
 
@@ -126,6 +128,21 @@ async function pump(analyze: Analyzer, media: "auto" | "snapshot") {
   }
 }
 
-export function markAnalyzingState(events: RingEvent[]) {
-  return events.map((e) => (isAnalyzing(e.id) && e.analysis !== "done" ? { ...e, analysis: "analyzing" as const } : e));
+/**
+ * Overlay live processing state onto events for the UI: stage (capturing/analyzing),
+ * last failure, notification outcome and real timeline timestamps.
+ */
+export function overlayProcessingState(events: RingEvent[]) {
+  return events.map((e) => {
+    const stage = analysisStage(e.id);
+    const failure = analysisFailure(e.id);
+    const notification = getNotificationSync(e.id) ?? undefined;
+    const snapshot = getMediaMetaSync(e.id, "snapshot");
+    const processing: NonNullable<RingEvent["processing"]> = { receivedAt: e.timestamp };
+    if (snapshot?.createdAt) processing.capturedAt = snapshot.capturedAt ?? snapshot.createdAt;
+    if (e.intelligence?.analyzedAt) processing.analyzedAt = e.intelligence.analyzedAt;
+    if (notification?.sentAt) processing.notifiedAt = notification.sentAt;
+    const analysis: RingEvent["analysis"] = stage ? stage : e.analysis === "done" ? "done" : failure ? "failed" : (e.analysis ?? "pending");
+    return { ...e, analysis, analysisError: !stage && analysis === "failed" && failure ? failure : undefined, notification, processing };
+  });
 }

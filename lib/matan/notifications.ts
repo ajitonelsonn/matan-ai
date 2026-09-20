@@ -4,7 +4,7 @@ import { emailPrefs } from "./notification-email";
 import type { MatanEventIntelligence } from "./schema";
 import { getUserSettings } from "./user-settings";
 import { currentUser, currentUserSub } from "@/lib/auth/server";
-import { getItem, putIfAbsent, putItem, userPK } from "@/lib/aws/dynamodb";
+import { getItem, putIfAbsent, putItem, queryPrefix, userPK } from "@/lib/aws/dynamodb";
 import { APP_BASE_URL, isSesConfigured } from "@/lib/aws/ses";
 import { isSmtpConfigured, sendWithFallback } from "./email-transport";
 import { notifyByEmail, type NotificationDeps, type NotificationKind, type NotificationMedia, type NotificationOutcome, type NotificationRecord } from "./notification-email";
@@ -23,6 +23,44 @@ import path from "node:path";
  * from the request - only from USER#{sub}/SETTINGS.
  */
 const sk = (eventId: string, kind: NotificationKind) => `NOTIFICATION#${eventId}#${kind}`;
+
+/* ---- Per-user notification status (for the event UI) ------------------------ */
+
+export type NotificationStatus = { status: "pending" | "sent" | "failed" | "skipped"; reason?: string; sentAt?: string; provider?: string; code?: string };
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __matanNotificationStatus: Map<string, Map<string, NotificationStatus>> | undefined;
+  // eslint-disable-next-line no-var
+  var __matanNotificationHydrated: Set<string> | undefined;
+}
+const statusCache = (sub: string) => {
+  const all = (globalThis.__matanNotificationStatus ??= new Map());
+  let m = all.get(sub);
+  if (!m) all.set(sub, (m = new Map()));
+  return m;
+};
+const hydratedSet = () => (globalThis.__matanNotificationHydrated ??= new Set());
+
+/** Load the user's NOTIFICATION# records into the cache (once per process). */
+export async function hydrateNotifications(sub: string, force = false) {
+  if (!force && hydratedSet().has(sub)) return;
+  const items = await queryPrefix<NotificationRecord & { eventId?: string; kind?: string }>(userPK(sub), "NOTIFICATION#");
+  const m = statusCache(sub);
+  for (const it of items) if (it.eventId && it.kind === "EMAIL" && !it.eventId.startsWith("TEST-")) m.set(it.eventId, { status: it.status, sentAt: it.sentAt, provider: it.provider, code: it.code });
+  hydratedSet().add(sub);
+  console.info({ event: "dynamodb_hydrated", kind: "notifications", count: items.length });
+}
+
+/** Notification outcome for an event from the current user's cache (skips are process-local). */
+export function getNotificationSync(eventId: string): NotificationStatus | null {
+  const u = currentUser();
+  return u ? statusCache(u.sub).get(eventId) ?? null : null;
+}
+
+function remember(sub: string, eventId: string, record: NotificationRecord) {
+  statusCache(sub).set(eventId, { status: record.status, sentAt: record.sentAt, provider: record.provider, code: record.code });
+}
 
 const MAX_INLINE_SNAPSHOT_BYTES = 2_500_000;
 let logoCache: { bytes: Uint8Array; contentType: string } | null | undefined;
@@ -58,8 +96,15 @@ function deps(sub: string): NotificationDeps {
     appBaseUrl: APP_BASE_URL,
     media: emailMedia,
     read: async (eventId, kind) => (await getItem<NotificationRecord & { PK: string; SK: string }>(userPK(sub), sk(eventId, kind))) ?? null,
-    claim: (eventId, kind, record) => putIfAbsent({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),
-    write: (eventId, kind, record) => putItem({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),
+    claim: async (eventId, kind, record) => {
+      const ok = await putIfAbsent({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record });
+      if (ok) remember(sub, eventId, record);
+      return ok;
+    },
+    write: async (eventId, kind, record) => {
+      await putItem({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record });
+      remember(sub, eventId, record);
+    },
     send: (n) => sendWithFallback(n),
     log: (entry) => (entry.event === "email_notification_failed" ? console.error(entry) : console.info(entry)),
   };
@@ -69,8 +114,12 @@ function deps(sub: string): NotificationDeps {
 export async function notifyForIntelligence(event: RingEvent, intelligence: MatanEventIntelligence): Promise<NotificationOutcome> {
   if (!currentUser()) return { status: "skipped", reason: "no authenticated user in scope" };
   if (!isSesConfigured() && !isSmtpConfigured()) return { status: "skipped", reason: "no email provider configured (SES_FROM_EMAIL or SMTP_*)" };
-  const outcome = await notifyByEmail(event, intelligence, deps(currentUserSub()));
-  if (outcome.status === "skipped") console.info({ event: "email_notification_skipped", eventId: event.id, reason: outcome.reason });
+  const sub = currentUserSub();
+  const outcome = await notifyByEmail(event, intelligence, deps(sub));
+  if (outcome.status === "skipped") {
+    console.info({ event: "email_notification_skipped", eventId: event.id, reason: outcome.reason });
+    if (!statusCache(sub).has(event.id)) statusCache(sub).set(event.id, { status: "skipped", reason: outcome.reason });
+  }
   return outcome;
 }
 

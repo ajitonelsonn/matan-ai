@@ -6,7 +6,7 @@ import type { NovaMedia } from "@/lib/bedrock/nova";
 import { analyzeEvent, buildMatanContext, type UserSettingsForAnalysis } from "./analysis";
 import { shouldEscalateToVideo } from "./escalation";
 import { budgetSnapshot } from "./budget";
-import { beginAnalysis, endAnalysis, dynamoIntelligenceStore } from "./store";
+import { beginAnalysis, clearAnalysisFailure, endAnalysis, dynamoIntelligenceStore, markAnalysisFailed, setAnalysisStage } from "./store";
 import { putMedia } from "./media-store";
 import { MatanAiError } from "./errors";
 import { autoSettings, noteOwnMediaRequest } from "./auto";
@@ -86,7 +86,9 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
     const w = mediaWindow(event, pad);
 
     if (mode !== "video") {
+      setAnalysisStage(event.id, "capturing");
       const { media, note } = hasRingMedia ? await obtainRingMedia(event, pad) : { media: null, note: "No media supplied - context-only analysis" };
+      setAnalysisStage(event.id, "analyzing");
       intelligence = await analyzeEvent(event, recent, settings, { media, mediaNote: note, store: dynamoIntelligenceStore });
     }
 
@@ -104,7 +106,9 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
       });
       escalation = { attempted: gate.ok, reason: gate.reason, applied: false };
       if (gate.ok) {
+        setAnalysisStage(event.id, "capturing");
         const clip = await obtainRingClip(event, pad);
+        setAnalysisStage(event.id, "analyzing");
         if (clip) {
           intelligence = await analyzeEvent(event, recent, settings, {
             media: { kind: "video", video: clip.bytes, format: "mp4", durationSeconds: (clip.actualLengthMs ?? w.durationMs) / 1000 },
@@ -126,8 +130,13 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
     console.info({ event: "matan_ai_escalation", eventId: event.id, auto: Boolean(opts.auto), padSeconds: pad, ...escalation, budgetUsedPct: budget.usedPct });
     // Decision is final here (manual and automatic paths alike) → notification service. Fire-and-forget,
     // never throws, so SES problems can't fail the analysis response or Ring sync.
+    clearAnalysisFailure(event.id);
     void notifyForIntelligence(event, intelligence);
     return { intelligence, escalation };
+  } catch (e) {
+    const code = (e as { code?: string })?.code ?? "MATAN_AI_UNAVAILABLE";
+    if (code !== "MATAN_AI_THROTTLED") markAnalysisFailed(event.id, code);
+    throw e;
   } finally {
     endAnalysis(event.id);
   }

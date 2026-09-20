@@ -1,5 +1,7 @@
 "use client";
 
+import { useNewItems } from "@/hooks/useNewItems";
+
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -78,6 +80,7 @@ export function HomeDashboard() {
   const featuredRing = isRing ? ring.connected.find((d) => d.id === data?.featuredCameraId) ?? ring.connected[0] : undefined;
   const { hour } = useClock();
   const router = useRouter();
+  const newIds = useNewItems(mode === "ring" && data ? data.latestEvents.map((e) => e.id) : []);
   const toast = useToast();
   const [search, setSearch] = React.useState("");
   const [paused, setPaused] = React.useState(false);
@@ -210,7 +213,7 @@ export function HomeDashboard() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {data.latestEvents.map((e) => (
-                      <EventCard key={e.id} event={e} onClick={(ev) => router.push(`/events/${ev.id}`)} />
+                      <EventCard key={e.id} event={e} isNew={newIds.has(e.id)} onClick={(ev) => router.push(`/events/${ev.id}`)} />
                     ))}
                   </div>
                 )}
@@ -234,7 +237,7 @@ export function HomeDashboard() {
                         </h2>
                         <p className="mt-0.5 text-[14px] text-text-2">
                           {isRing ? (
-                            <>{data.latestEvents.length} Ring {data.latestEvents.length === 1 ? "event" : "events"} on record. Matan AI analysis of Ring events starts with the Bedrock milestone.</>
+                            <>{data.latestEvents.length} Ring {data.latestEvents.length === 1 ? "event" : "events"} on record. New Ring events are analyzed automatically by Matan AI (Nova Pro → Matan Decision Engine).</>
                           ) : (
                             <>
                               Matan AI has analyzed your home activity.

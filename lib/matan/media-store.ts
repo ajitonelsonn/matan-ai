@@ -135,6 +135,13 @@ export async function getMediaMeta(eventId: string, type: MediaType): Promise<Me
   return item?.media?.[type] ?? null;
 }
 
+/** Synchronous metadata read from the per-user cache (timeline timestamps). */
+export function getMediaMetaSync(eventId: string, type: MediaType = "snapshot"): MediaMeta | null {
+  const u = currentUser();
+  if (!u || !isS3Configured()) return null;
+  return metaCache(u.sub).get(eventId)?.media[type] ?? null;
+}
+
 /** Synchronous "does media exist" for the read model (URL construction). */
 export function hasMediaSync(eventId: string, type: MediaType = "snapshot") {
   const u = currentUser();

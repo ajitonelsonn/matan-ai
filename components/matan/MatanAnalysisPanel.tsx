@@ -11,10 +11,13 @@ import { matanApi, matanErrorFrom, type MatanAiErrorPayload } from "@/lib/api/ma
 import type { RingEvent } from "@/lib/types";
 import type { AnalysisStatus, MatanPriority } from "@/lib/matan/schema";
 import { formatDate, formatTime } from "@/lib/utils/format";
+import { eventStage, notificationText, notificationTone, stageView } from "@/lib/matan/event-state";
+import { EventTimeline } from "./EventTimeline";
+import { Bell, BellOff, Camera } from "lucide-react";
 
 const priorityTone: Record<MatanPriority, "success" | "warning" | "danger" | "neutral"> = { normal: "success", low: "success", medium: "warning", high: "danger" };
 const priorityLabel: Record<MatanPriority, string> = { normal: "Normal", low: "Low", medium: "Medium", high: "High" };
-const actionLabel = { none: "No action required", review: "Review recommended", notify: "Notification sent", email: "Email alert queued" } as const;
+const actionLabel = { none: "No action required", review: "Review recommended", notify: "Notify", email: "Email alert" } as const;
 
 /**
  * MATAN AI panel for Ring events: pending → analyzing → complete | failed.
@@ -22,16 +25,22 @@ const actionLabel = { none: "No action required", review: "Review recommended", 
  */
 export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: RingEvent; onAnalyzed: (e: RingEvent) => void; onReview?: () => void }) {
   const toast = useToast();
-  const [status, setStatus] = React.useState<AnalysisStatus>(event.intelligence ? "complete" : "pending");
+  const serverStage = eventStage(event);
+  const [status, setStatus] = React.useState<AnalysisStatus>(serverStage === "complete" ? "complete" : serverStage === "capturing" || serverStage === "analyzing" ? "analyzing" : serverStage === "failed" ? "failed" : "pending");
   const [error, setError] = React.useState<MatanAiErrorPayload | null>(null);
   const [lastRun, setLastRun] = React.useState<{ escalation?: { attempted: boolean; reason: string; applied: boolean }; budget?: { usedPct: number; estimatedUsd: number; videoAllowed: boolean } } | null>(null);
   const [runningMode, setRunningMode] = React.useState<"auto" | "video">("auto");
   const inFlight = React.useRef(false);
 
+  // Follow the server's state (auto-analysis, polling) unless a manual run is in flight here.
   React.useEffect(() => {
-    setStatus(event.intelligence ? "complete" : event.analysis === "analyzing" ? "analyzing" : "pending");
-    setError(null);
-  }, [event.id, event.intelligence, event.analysis]);
+    if (inFlight.current) return;
+    const st = eventStage(event);
+    setStatus(st === "complete" ? "complete" : st === "capturing" || st === "analyzing" ? "analyzing" : st === "failed" ? "failed" : "pending");
+    if (st === "failed" && event.analysisError && !error) setError({ code: event.analysisError.code, title: "AI analysis failed", message: "The Ring event was saved, but AI analysis could not be completed." });
+    if (st !== "failed") setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id, event.intelligence, event.analysis, event.analysisError?.at]);
 
   const run = async (media: "auto" | "video" = "auto") => {
     if (inFlight.current) return;
@@ -95,10 +104,14 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
           {/* ANALYZING */}
           {status === "analyzing" && (
             <div className="mt-1 flex items-center gap-4">
-              <MatanLoader size="sm" wordmark={false} messages={false} label="Analyzing with Matan AI" />
+              {serverStage === "capturing" && !inFlight.current ? (
+                <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary"><Camera className="size-5 motion-safe:animate-pulse" /></span>
+              ) : (
+                <MatanLoader size="sm" wordmark={false} messages={false} label="Analyzing with Matan AI" />
+              )}
               <div>
-                <p className="text-[15px] font-semibold text-text">Analyzing with Matan AI…</p>
-                <p className="text-[13px] text-text-3">{event.analysis === "analyzing" && !inFlight.current ? "Automatic analysis in progress (padded media window) → Nova Pro → Matan Decision Engine" : runningMode === "video" ? "Fetching the Ring clip → Nova Pro (video) → Matan Decision Engine" : "Ring snapshot → Nova Pro → Matan Decision Engine (video only if needed)"}</p>
+                <p className="text-[15px] font-semibold text-text">{serverStage === "capturing" && !inFlight.current ? "Capturing evidence" : "Matan AI analyzing"}</p>
+                <p className="text-[13px] text-text-3">{serverStage === "capturing" && !inFlight.current ? "Getting the latest Ring snapshot for the event window…" : !inFlight.current ? "Nova Pro is analyzing the Ring evidence → Matan Decision Engine" : runningMode === "video" ? "Fetching the Ring clip → Nova Pro (video) → Matan Decision Engine" : "Ring snapshot → Nova Pro → Matan Decision Engine (video only if needed)"}</p>
               </div>
             </div>
           )}
@@ -106,9 +119,9 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
           {/* FAILED */}
           {status === "failed" && error && (
             <>
-              <p className="text-[15px] font-semibold text-text">{error.title}</p>
+              <p className="text-[15px] font-semibold text-text">Analysis unavailable</p>
               <p className="mt-1 text-[13.5px] leading-relaxed text-text-2">{error.message}</p>
-              <p className="mt-1 text-[12px] text-text-3">The original Ring event is unchanged. Code: {error.code}</p>
+              <p className="mt-1 text-[12px] text-text-3">The Ring event is saved and unchanged. Code: {error.code}</p>
               <Button className="mt-3" variant="secondary" leftIcon={<RefreshCw className="size-4" />} onClick={() => void run()}>
                 Retry
               </Button>
@@ -126,6 +139,12 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
                 <Badge tone={intel.decision.action === "none" ? "success" : "warning"} size="md">{actionLabel[intel.decision.action]}</Badge>
                 {intel.analysis.confidence < 0.55 && <Badge tone="warning" size="md" icon={<Info className="size-3" />}>Low confidence - not escalated</Badge>}
               </div>
+              {notificationText(event) && (
+                <p className={cn("mt-2 flex items-center gap-1.5 text-[13px]", notificationTone(event) === "success" ? "text-success" : notificationTone(event) === "danger" ? "text-danger" : notificationTone(event) === "primary" ? "text-primary" : "text-text-3")} aria-live="polite">
+                  {notificationTone(event) === "success" ? <Bell className="size-3.5" aria-hidden /> : notificationTone(event) === "danger" ? <TriangleAlert className="size-3.5" aria-hidden /> : <BellOff className="size-3.5" aria-hidden />}
+                  {notificationText(event)}
+                </p>
+              )}
 
               <div className="mt-3 rounded-xl border border-border bg-bg/40 p-3">
                 <p className="text-[11px] uppercase tracking-wide text-text-3">Matan decision</p>
@@ -197,6 +216,12 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
           )}
         </div>
       </div>
+      {event.source === "ring" && (
+        <details className="mt-3 border-t border-border pt-3" open={status !== "complete"}>
+          <summary className="cursor-pointer select-none text-[11px] uppercase tracking-wide text-text-3 hover:text-text-2">Processing timeline · {stageView(event).label}</summary>
+          <EventTimeline event={event} className="mt-2.5" />
+        </details>
+      )}
     </section>
   );
 }

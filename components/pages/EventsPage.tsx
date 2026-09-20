@@ -1,5 +1,8 @@
 "use client";
 
+import { isProcessing } from "@/lib/matan/event-state";
+import { useNewItems } from "@/hooks/useNewItems";
+
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Filter, LayoutGrid, Users, Package, Car, PawPrint, Bell, MoreHorizontal, ListFilter, Inbox } from "lucide-react";
@@ -88,7 +91,8 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
   }, [ds.mode]);
 
   // Real Mode: poll Ring history so new events and automatic analyses land without a click.
-  const anyAnalyzing = items.some((e) => e.analysis === "analyzing");
+  const anyAnalyzing = items.some((e) => isProcessing(e));
+  const newIds = useNewItems(isRing ? items.map((e) => e.id) : []);
   React.useEffect(() => {
     if (!isRing) return;
     const id = setInterval(() => {
@@ -238,7 +242,7 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
               <ul className={cn("space-y-3", q.loading && "opacity-70 transition-opacity")} role="listbox" aria-label="Events" aria-activedescendant={selectedId ?? undefined}>
                 {items.map((e) => (
                   <li key={e.id} id={e.id} role="option" aria-selected={e.id === selectedId}>
-                    <EventRow event={e} selected={e.id === selectedId} onSelect={select} data-row />
+                    <EventRow event={e} selected={e.id === selectedId} onSelect={select} isNew={newIds.has(e.id)} data-row />
                   </li>
                 ))}
               </ul>

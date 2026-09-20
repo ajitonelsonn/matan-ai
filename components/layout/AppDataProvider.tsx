@@ -8,6 +8,7 @@ import { getDataSource } from "@/lib/data/get-data-source";
 import type { RingSessionInfo } from "@/lib/ring/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { firstNameOf, type MatanUser } from "@/lib/auth/user";
+import { isProcessing } from "@/lib/matan/event-state";
 
 interface AppDataContextValue {
   data: (DashboardData & { stale?: boolean; ringSession?: RingSessionInfo | null }) | null;
@@ -55,11 +56,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   // Real Mode: poll so new Ring events and automatic analyses show up on Home without a click.
+  // 6 s while Matan is capturing/analyzing something, 30 s otherwise (same cadence as the Events page).
+  const busy = mode === "ring" && Boolean(data?.latestEvents.some((e) => isProcessing(e)));
   React.useEffect(() => {
     if (mode !== "ring") return;
-    const id = setInterval(() => void refresh(), 30_000);
+    const id = setInterval(() => void refresh(), busy ? 6_000 : 30_000);
     return () => clearInterval(id);
-  }, [mode, refresh]);
+  }, [mode, refresh, busy]);
 
   const markAllRead = React.useCallback(async () => {
     setData((d) => (d ? { ...d, unreadNotifications: 0, notifications: d.notifications.map((n) => ({ ...n, read: true })) } : d));

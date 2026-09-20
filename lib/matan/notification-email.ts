@@ -13,9 +13,12 @@ export interface EmailContent {
   html: string;
 }
 
+export type AlertLevel = "high" | "medium" | "low";
+
 export interface NotificationPrefs {
   enabled: boolean;
   address: string | null;
+  level: AlertLevel;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,21 +27,35 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function emailPrefs(settings: SettingsData): NotificationPrefs {
   const n = settings.notifications;
   const address = (n.emailAddress ?? "").trim().toLowerCase();
-  return { enabled: Boolean(n.channels?.email), address: EMAIL_RE.test(address) ? address : null };
+  const level: AlertLevel = n.alertLevel === "low" || n.alertLevel === "medium" ? n.alertLevel : "high";
+  return { enabled: Boolean(n.channels?.email), address: EMAIL_RE.test(address) ? address : null, level };
 }
 
 export type EmailGate = { send: true } | { send: false; reason: string };
 
+const PRIORITY_RANK: Record<MatanEventIntelligence["decision"]["priority"], number> = { normal: 0, low: 1, medium: 2, high: 3 };
+const LEVEL_RANK: Record<AlertLevel, number> = { low: 1, medium: 2, high: 3 };
+
 /**
- * Reuses the existing Decision Engine output: only `action: "email"` emails.
- * ("notify" = in-app; "review"/"none" never email.) Demo/mock events never email.
+ * Does this finalized decision clear the user's minimum alert level?
+ * "low" → low/medium/high are emailed · "medium" → medium/high · "high" → high only.
+ * "normal" decisions (nothing of concern, e.g. a live-view session) are never emailed.
+ * Decision Engine output is reused, never re-derived.
+ */
+export function meetsAlertLevel(intelligence: MatanEventIntelligence, level: AlertLevel): boolean {
+  return PRIORITY_RANK[intelligence.decision.priority] >= LEVEL_RANK[level];
+}
+
+/**
+ * Reuses the existing Decision Engine output. Default level "high" emails only high-priority
+ * decisions; the user can lower the threshold to "medium" or "low" in Settings. Demo/mock events never email.
  */
 export function shouldEmail(event: RingEvent, intelligence: MatanEventIntelligence, settings: SettingsData): EmailGate {
   if (event.source !== "ring") return { send: false, reason: "not a Ring event (demo/mock data never emails)" };
-  if (intelligence.decision.action !== "email") return { send: false, reason: `decision action is "${intelligence.decision.action}"` };
   const prefs = emailPrefs(settings);
   if (!prefs.enabled) return { send: false, reason: "email channel disabled in user settings" };
   if (!prefs.address) return { send: false, reason: "no valid notification email address in user settings" };
+  if (!meetsAlertLevel(intelligence, prefs.level)) return { send: false, reason: `decision (${intelligence.decision.priority}/${intelligence.decision.action}) is below alert level "${prefs.level}"` };
   return { send: true };
 }
 
@@ -52,7 +69,8 @@ export function buildEventEmail(event: RingEvent, intelligence: MatanEventIntell
   const link = `${base}/events/${encodeURIComponent(event.id)}`;
   const time = `${fmt.format(new Date(event.timestamp))} (Asia/Dili)`;
   const priority = cap(intelligence.decision.priority);
-  const subject = `Matan AI Alert — ${event.title}`;
+  const urgent = intelligence.decision.priority === "high" || intelligence.decision.action === "email";
+  const subject = `${urgent ? "Matan AI Alert" : "Matan AI Update"} — ${event.title}`;
   const reason = intelligence.analysis.summary || intelligence.decision.explanation;
   const observations = intelligence.analysis.observations.slice(0, 3);
 

@@ -192,6 +192,28 @@ export function SettingsPage() {
             <Row icon={<Mail />} title="Alert email address" hint={s.notifications.emailAddress ? `Matan AI email alerts go to ${s.notifications.emailAddress}` : "Set where high-priority Matan AI alerts are emailed."} tone="primary" onClick={() => { setAlertEmail(s.notifications.emailAddress ?? (auth.user?.email ?? "")); setModal("alertEmail"); }} control={<ChevronRight className="size-4 text-text-3" />} />
             {s.notifications.emailAddress && (
               <Row
+                icon={<SlidersHorizontal />}
+                title="Alert level"
+                hint={{ high: "Email only high-priority decisions (recommended).", medium: "Email medium and high-priority decisions.", low: "Email low, medium and high-priority decisions." }[s.notifications.alertLevel ?? "high"]}
+                tone="primary"
+                control={
+                  <Select
+                    size="sm"
+                    value={s.notifications.alertLevel ?? "high"}
+                    onChange={(v) => void update({ notifications: { alertLevel: v as "high" | "medium" | "low" } }, `Alert level: ${v}`)}
+                    options={[
+                      { value: "high", label: "High", description: "High only" },
+                      { value: "medium", label: "Medium", description: "Medium and high" },
+                      { value: "low", label: "Low", description: "Low, medium and high" },
+                    ]}
+                    align="end"
+                    label="Alert level"
+                  />
+                }
+              />
+            )}
+            {s.notifications.emailAddress && (
+              <Row
                 icon={<Sparkles />}
                 title="Send test alert"
                 hint="Emails a sample high-priority alert to the address above via Amazon SES."

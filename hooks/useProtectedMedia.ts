@@ -52,3 +52,22 @@ export function useProtectedMedia(src?: string | null): { url: string | undefine
 
   return { url, error, loading };
 }
+
+/**
+ * Download a protected media object (clip or snapshot stored by Matan) with the
+ * signed-in user's token and hand it to the browser as a file. Throws on failure.
+ */
+export async function downloadProtectedMedia(src: string, filename: string): Promise<number> {
+  const session = await fetchAuthSession();
+  const token = session.tokens?.accessToken?.toString();
+  const res = await fetch(src, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+  if (!res.ok) throw new Error(String(res.status));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return blob.size;
+}

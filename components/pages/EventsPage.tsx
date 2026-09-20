@@ -158,7 +158,7 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
     <>
       <Topbar
         title={<span className="flex flex-wrap items-center gap-3">Events <SourceBadge source={isRing ? (ring.state === "connected" || ring.state === "expiring" ? "ring" : "ring-expired") : "demo"} short /></span>}
-        subtitle={isRing ? "Events recorded by the Ring Developer Playground. Matan AI analysis runs with the Bedrock milestone." : "Intelligent events, not just motion. Matan AI understands the full story."}
+        subtitle={isRing ? "Events recorded by the Ring Developer Playground, analyzed automatically by Matan AI (Amazon Nova)." : "Intelligent events, not just motion. Matan AI understands the full story."}
         search={{ value: search, onChange: setSearch, placeholder: "Search events…" }}
         actions={
           <>

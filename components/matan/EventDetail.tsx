@@ -41,7 +41,7 @@ import { formatDate, formatDuration, formatTime, formatTimeWithSeconds, relative
 import type { RingEvent } from "@/lib/types";
 import { SourceBadge } from "@/components/experience/source-badge";
 import { MatanAnalysisPanel } from "./MatanAnalysisPanel";
-import { useProtectedMedia } from "@/hooks/useProtectedMedia";
+import { useProtectedMedia, downloadProtectedMedia } from "@/hooks/useProtectedMedia";
 
 function useMockPlayer(duration = 15) {
   const [playing, setPlaying] = React.useState(false);
@@ -148,6 +148,21 @@ export function EventDetail({
   const actions = event.recommendedActions ?? [];
   const isRing = event.source === "ring";
   const pending = event.analysis === "pending";
+  const ringMedia = event.videoUrl ?? event.imageUrl ?? null;
+  const [downloading, setDownloading] = React.useState(false);
+  const downloadRing = async () => {
+    if (!ringMedia) return;
+    setDownloading(true);
+    try {
+      const ext = event.videoUrl ? "mp4" : "jpg";
+      const size = await downloadProtectedMedia(ringMedia, `matan-${event.id}.${ext}`);
+      toast.success("Download started", `matan-${event.id}.${ext} · ${(size / 1024 / 1024).toFixed(1)} MB`);
+    } catch {
+      toast.error("Download failed", "The stored media could not be fetched. Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (isRing) {
     return (
@@ -233,8 +248,14 @@ export function EventDetail({
           <Button variant="secondary" leftIcon={<Video className="size-4" />} onClick={() => router.push(`/devices/${event.cameraId}`)} className="flex-1 min-w-[140px]">
             Device details
           </Button>
+          <Button variant="secondary" leftIcon={<Download className="size-4" />} onClick={() => void downloadRing()} loading={downloading} disabled={!ringMedia} className="flex-1 min-w-[120px]" title={ringMedia ? "Download the media Matan stored for this event" : "No stored media for this event yet"}>
+            {event.videoUrl ? "Download clip" : "Download"}
+          </Button>
+          <Button variant="secondary" leftIcon={<Share2 className="size-4" />} onClick={() => void share()} className="flex-1 min-w-[100px]">
+            Share
+          </Button>
         </div>
-        <p className="text-[12px] text-text-3">Clip download, sharing and edits are not available for Ring history events in this preview.</p>
+        <p className="text-[12px] text-text-3">Download and Share use the clip/snapshot Matan stored for this event and its link in Matan. Renaming or deleting Ring history is a future integration - Ring keeps the record.</p>
       </div>
     );
   }

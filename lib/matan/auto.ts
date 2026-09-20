@@ -18,8 +18,8 @@ interface AutoState {
   watermarkMs: number | null;
   /** Event ids already queued/handled. */
   seen: Set<string>;
-  /** Timestamps (ms) of media requests Matan itself made - the on_demand entries they create are skipped. */
-  ownMediaRequests: number[];
+  /** Media requests Matan itself made (ms) - the on_demand entry each one creates on Ring is skipped, at most one event per request. */
+  ownMediaRequests: { at: number; claimedBy?: string }[];
   /** Sliding-window rate limit. */
   runs: number[];
   running: number;
@@ -34,7 +34,10 @@ declare global {
 const MAX_PER_HOUR = 30;
 const MAX_PER_SYNC = 5;
 const CONCURRENCY = 2;
-const OWN_REQUEST_WINDOW_MS = 3 * 60 * 1000;
+/** Ring records Matan's own snapshot/clip request as an on_demand session starting within seconds of the request. */
+const OWN_REQUEST_BEFORE_MS = 5_000;
+const OWN_REQUEST_AFTER_MS = 20_000;
+const OWN_REQUEST_KEEP_MS = 10 * 60 * 1000;
 
 /** Auto-analysis bookkeeping is per user (watermark, queue, rate limit). */
 function state(): AutoState {
@@ -52,13 +55,23 @@ function state(): AutoState {
 export function noteOwnMediaRequest() {
   const s = state();
   const now = Date.now();
-  s.ownMediaRequests = [...s.ownMediaRequests.filter((t) => now - t < OWN_REQUEST_WINDOW_MS * 2), now];
+  s.ownMediaRequests = [...s.ownMediaRequests.filter((r) => now - r.at < OWN_REQUEST_KEEP_MS), { at: now }];
 }
 
+/**
+ * An on_demand event is Matan's own footprint only if it starts within a few seconds of a
+ * media request Matan made, and that request hasn't already been matched to another event.
+ * A user-triggered Playground scenario minutes later is therefore never swallowed.
+ */
 function isOwnOnDemand(e: RingEvent) {
   if (e.ringEventType !== "on_demand") return false;
   const start = new Date(e.timestamp).getTime();
-  return state().ownMediaRequests.some((t) => start >= t - 5_000 && start <= t + OWN_REQUEST_WINDOW_MS);
+  const reqs = state().ownMediaRequests;
+  if (reqs.some((r) => r.claimedBy === e.id)) return true;
+  const match = reqs.find((r) => !r.claimedBy && start >= r.at - OWN_REQUEST_BEFORE_MS && start <= r.at + OWN_REQUEST_AFTER_MS);
+  if (!match) return false;
+  match.claimedBy = e.id;
+  return true;
 }
 
 export function autoSettings() {
@@ -87,15 +100,26 @@ export function scheduleAutoAnalysis(events: RingEvent[], analyze: Analyzer) {
   if (budgetSnapshot().exhausted) return { queued: 0, reason: "budget exhausted" };
 
   const settings = currentUserSettings();
-  const candidates = events
-    .filter((e) => new Date(e.timestamp).getTime() > (s.watermarkMs ?? 0))
-    .filter((e) => !s.seen.has(e.id) && !getIntelligenceSync(e.id) && !isAnalyzing(e.id))
-    .filter((e) => !isOwnOnDemand(e))
-    .filter((e) => (e.ringEventType === "on_demand" ? cfg.includeLiveView : shouldAnalyze(e, relatedRecent(e, events), settings).ok))
+  // Explain why fresh events were not queued (visible in the server log per sync).
+  const skipped: Record<string, number> = {};
+  const skip = (reason: string) => {
+    skipped[reason] = (skipped[reason] ?? 0) + 1;
+    return false;
+  };
+  const fresh = events.filter((e) => new Date(e.timestamp).getTime() > (s.watermarkMs ?? 0));
+  const candidates = fresh
+    .filter((e) => (s.seen.has(e.id) ? skip("already queued") : getIntelligenceSync(e.id) ? skip("already analyzed") : isAnalyzing(e.id) ? skip("in progress") : true))
+    .filter((e) => (isOwnOnDemand(e) ? skip("own media request (on_demand)") : true))
+    .filter((e) => {
+      if (e.ringEventType === "on_demand") return cfg.includeLiveView ? true : skip("live view sessions excluded by settings");
+      const gate = shouldAnalyze(e, relatedRecent(e, events), settings);
+      return gate.ok ? true : skip(`gate: ${gate.reason}`);
+    })
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     .slice(0, MAX_PER_SYNC);
 
   s.watermarkMs = Math.max(s.watermarkMs, newest);
+  if (fresh.length && Object.keys(skipped).length) console.info({ event: "matan_auto_skipped", fresh: fresh.length, skipped });
   if (!candidates.length) return { queued: 0, reason: "no new candidates" };
 
   const now = Date.now();

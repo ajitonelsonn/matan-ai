@@ -69,6 +69,8 @@ import { useRingCountdown } from "@/components/devices/use-ring-session";
 import { RingBadge as RingSourceBadge } from "@/components/matan/Brand";
 import { useExperience } from "@/components/experience/experience-provider";
 import { DemoMarker, SourceBadge } from "@/components/experience/source-badge";
+import { RingCameraSettings, RingLiveControls, RingQuickActions, SnapshotViewer } from "@/components/devices/ring-live-tools";
+import { getDataSource } from "@/lib/data/get-data-source";
 
 const quickReplies = ["We'll be right there.", "Please leave the package at the door.", "We can't come to the door right now.", "Thanks! Have a great day."];
 
@@ -145,7 +147,9 @@ export function LivePage() {
 
   const cam = cameras.find((c) => c.id === camId) ?? cameras[0];
 
-  const eventsQ = useApi(() => eventsApi.list({ range: "today", pageSize: 100 }), []);
+  // Real Mode: today's real Ring events (with Matan priorities); Demo Mode: the sample dataset.
+  const eventsQ = useApi(() => (isRingMode ? getDataSource("ring").getEvents({ range: "today", pageSize: 100 }) : eventsApi.list({ range: "today", pageSize: 100 })), [isRingMode]);
+  const [snap, setSnap] = React.useState<{ src: string; capturedAt?: string } | null>(null);
   const todays = eventsQ.data?.items ?? [];
   const camEvents = todays.filter((e) => e.cameraId === cam?.id);
   const latest = camEvents[0];
@@ -198,7 +202,8 @@ export function LivePage() {
 
   const online = cameras.filter((c) => c.status === "online").length;
   const counts = { normal: todays.filter((e) => e.priority === "normal").length, attention: todays.filter((e) => e.priority === "attention").length, important: todays.filter((e) => e.priority === "important").length };
-  const nowFrac = hourFraction(MOCK_NOW);
+  const nowIso = isRingMode ? new Date().toISOString() : MOCK_NOW;
+  const nowFrac = hourFraction(nowIso);
   const important = shell?.todayCounts.important ?? 0;
 
   const loading = devicesQ.loading || !cam;
@@ -214,7 +219,9 @@ export function LivePage() {
           {/* Left */}
           <div className="space-y-5 xl:col-span-8">
             {ringCam ? (
-              <RingLivePlayer key={ringCam.id} device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} autoStart={params.get("autoplay") === "1"} />
+              <div ref={frameRef}>
+                <RingLivePlayer key={ringCam.id} device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} autoStart={params.get("autoplay") === "1"} />
+              </div>
             ) : loading ? (
               <div className="relative">
                 <Skeleton className="aspect-video w-full rounded-hero" />
@@ -275,10 +282,12 @@ export function LivePage() {
                         <RingSourceBadge size="xs" /> {ringDevices.length} Ring
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1.5 text-success">
-                      <span className="size-1.5 rounded-full bg-success" aria-hidden />
-                      {online}/{cameras.length} demo online
-                    </span>
+                    {!isRingMode && (
+                      <span className="inline-flex items-center gap-1.5 text-success">
+                        <span className="size-1.5 rounded-full bg-success" aria-hidden />
+                        {online}/{cameras.length} demo online
+                      </span>
+                    )}
                   </span>
                 }
               />
@@ -293,7 +302,10 @@ export function LivePage() {
                       <span className="pointer-events-none absolute right-2 top-2"><RingSourceBadge size="xs" /></span>
                     </div>
                   ))}
-                  {loading
+                  {isRingMode && ringDevices.length === 0 && !ringQ.loading && <p className="self-center text-[13px] text-text-3">No Ring devices connected yet - connect the Playground to add one.</p>}
+                  {isRingMode
+                    ? null
+                    : loading
                     ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[92px] w-[150px] shrink-0 rounded-2xl" />)
                     : cameras.map((c) => (
                         <div key={c.id} className="relative w-[150px] shrink-0 snap-start">
@@ -328,7 +340,7 @@ export function LivePage() {
                 <div className="absolute left-2 right-2 top-4 h-1.5 rounded-full bg-gradient-to-r from-primary/20 via-surface-3 to-primary/20" aria-hidden />
                 <div className="absolute top-[13px] h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-primary ring-4 ring-primary/25" style={{ left: `calc(${nowFrac * 100}% )` }} aria-hidden />
                 <div className="absolute -top-3 -translate-x-1/2 rounded-md bg-primary px-1.5 py-0.5 text-[10.5px] font-bold text-white" style={{ left: `calc(${nowFrac * 100}% )` }}>
-                  {formatTime(MOCK_NOW)}
+                  {formatTime(nowIso)}
                 </div>
                 {todays.map((e) => {
                   const f = hourFraction(e.timestamp);
@@ -439,9 +451,12 @@ export function LivePage() {
             )}
 
             {/* Live controls */}
+            {ringCam ? (
+              <RingLiveControls device={ringCam} live={ringLive} onSnapshot={(src, capturedAt) => setSnap({ src, capturedAt })} />
+            ) : (
             <section className="card p-5" aria-labelledby="controls-title">
-              <SectionHeader icon={<Video />} title={<span id="controls-title">Live Controls</span>} subtitle={ringCam ? "Device controls for Ring devices need verified Ring endpoints - next milestone." : undefined} />
-              <div className={cn("grid grid-cols-5 gap-2", ringCam && "opacity-50 pointer-events-none")} aria-disabled={Boolean(ringCam)}>
+              <SectionHeader icon={<Video />} title={<span id="controls-title">Live Controls</span>} />
+              <div className="grid grid-cols-5 gap-2">
                 {[
                   { label: "Siren", icon: <Siren />, tone: "danger", onClick: () => void siren(), active: false },
                   { label: "Lights", icon: <Lightbulb />, tone: "warning", onClick: () => { setLights((l) => !l); toast.success(lights ? "Lights turned off" : "Lights turned on", "Smart lights near the front door"); }, active: lights },
@@ -468,8 +483,12 @@ export function LivePage() {
                 })}
               </div>
             </section>
+            )}
 
             <div className="grid gap-5 sm:grid-cols-2">
+              {ringCam ? (
+                <RingQuickActions device={ringCam} frameRef={frameRef} live={ringLive} />
+              ) : (
               <section className="card p-5" aria-labelledby="qa-title">
                 <SectionHeader icon={<Zap />} title={<span id="qa-title">Quick Actions</span>} iconTone="warning" />
                 <div className="grid grid-cols-2 gap-2">
@@ -486,7 +505,11 @@ export function LivePage() {
                   ))}
                 </div>
               </section>
+              )}
 
+              {ringCam ? (
+                <RingCameraSettings device={ringCam} onChange={(d) => ringQ.setData((prev) => (prev ? { ...prev, connected: prev.connected.map((x) => (x.id === d.id ? d : x)) } : prev))} />
+              ) : (
               <section className="card p-5" aria-labelledby="cs-title">
                 <SectionHeader icon={<Settings />} title={<span id="cs-title">Camera Settings</span>} />
                 <ul className="space-y-3">
@@ -508,11 +531,13 @@ export function LivePage() {
                   Manage Settings
                 </Button>
               </section>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {ringCam && <SnapshotViewer src={snap?.src ?? null} capturedAt={snap?.capturedAt} device={ringCam} onClose={() => setSnap(null)} />}
       <AddRingDeviceModal open={reconnectOpen} onClose={() => setReconnectOpen(false)} existingSession={ringSession} alreadyConnectedIds={(ringQ.data?.connected ?? []).map((d) => d.ringDeviceId)} onConnected={(connected, session) => ringQ.setData({ connected, session })} />
     </>
   );

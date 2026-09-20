@@ -114,23 +114,29 @@ Authentication and authorization reuse `userRoute()` (Cognito JWT → `sub`); al
 
 ## Real Ring Playground Verification
 
-**Status: NOT YET PERFORMED for this milestone.** The pipeline path is the same one verified live on 2026-09-21 for the Live Event Experience (real Playground events → snapshot → Nova → decision → persistence → notification); the rule stage is inserted between decision and persistence and is covered by unit + integration tests. The acceptance run below is required before this milestone is declared complete and will be recorded here with real values (no fabrication):
+**Test date: 2026-09-21** (Dili, UTC+9). Real Mode, Playground token, Playground device `ava1.ring.device.NME52IQRABJHETTBPLAUP4BYQ637KNWAVLVL2HRK…` (one synthetic doorbell). Scenarios triggered in the Ring Developer Playground; every value below is copied from the server log (`matan_ai_analysis`, `matan_rules_evaluated`, `email_notification_*`). Analysis ids = the Ring event ids (`ANALYSIS#<eventId>`). Notifications via SMTP fallback (SES still in Sandbox).
 
-| Field | Motion ×3 | Package | Vehicle |
-| --- | --- | --- | --- |
-| Test date | — | — | — |
-| Ring event id(s) | — | — | — |
-| Event type | — | — | — |
-| Device id | — | — | — |
-| Analysis (category / confidence / risk) | — | — | — |
-| Matched rule(s) | expected `rule-repeated` | expected `rule-package` (or `rule-quiet-hours` at night) | expected sensitivity low → MONITOR |
-| Final decision | — | — | — |
-| Notification result | — | — | — |
+| # | Scenario / settings | Ring event id | Nova (category / confidence via risk) | Matched rule(s) | Decision | Notification |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Motion — quiet hours **on** (03:xx), alert level still *All* (pre-fix) | `ring-HO6BUYQHNMCRP5QH` | animal / risk normal | — | **IGNORE** | sent (old *All* bypass; removed in `d41eae5`) |
+| 2 | Package — quiet hours on | `ring-526ZXFX7F44J3GDJ` | delivery / risk low | `rule-package` → NOTIFY, then `rule-quiet-hours` | **MONITOR** | sent (same pre-fix bypass) |
+| 3 | Vehicle — quiet hours on | `ring-5AHUMDZBJNWKNAW5` | vehicle / risk normal | — | **IGNORE** | sent (same pre-fix bypass) |
+| 4 | Motion — quiet hours on | `ring-FFFFISBJNHG4N7ZR` | animal / risk normal | — | **IGNORE** | sent (same pre-fix bypass) |
+| 5 | Package — quiet hours **off** (rules authoritative) | `ring-IQNRSAY6ZQYU7TEO` | delivery / risk low | `rule-package` | **NOTIFY** | **sent** ✅ |
+| 6 | Motion ×2 — quiet hours off | `ring-CYDUKUOGWEQRPK3U`, `ring-QMTC6NFAPOV54QU7` | animal / risk normal | — | **IGNORE** | **skipped** ✅ `smart rules decided IGNORE: No rule matched - default action…` |
+| 7 | Motion ×2 — after editing *Repeated Activity* to include `animal` (pre-fix `c3b0cc4`) | `ring-V3DFCZHCC257I4I4`, `ring-Z7J25LKJNT4QER43` | animal / risk normal | — (`repeated: 1`, history bug) | IGNORE | skipped |
+| 8 | Motion — after fix | `ring-7DVLPVW26UNH4TLG` | animal / risk normal | `rule-repeated` (**6** matching events within 10 min) | **ESCALATE** | **sent** ✅ |
 
-Procedure: Settings → Notifications → Alert level **High** (the *All* testing level bypasses rules) → Real Mode → trigger Package, Vehicle, then Motion three times ~1 min apart → open each event → paste server log lines `matan_rules_evaluated`, `matan_ai_analysis`, `email_notification_*`.
+Outcomes demonstrated on real events: **NOTIFY** (5), **MONITOR** via quiet-hours suppression (2), **IGNORE** with explicit skip reason (6), **ESCALATE** via repeated activity (8). High-risk escalation (`rule-high-risk`) was exercised in unit tests only — the Playground's snapshots never produced a *high* risk decision (its scenarios classify as delivery / vehicle / animal / motion at normal or low risk), so it is **not Playground-verified**.
+
+Observations and fixes made during the run:
+- The Playground's "Motion" scenario snapshot is classified by Nova as *animal*; the built-in *Repeated Activity* rule (motion/person/unusual) therefore did not fire until the user added `animal` to its event types via the Rules UI — a legitimate user configuration, not a code change.
+- Bug found: the automatic-analysis path passed raw synced events as history, so earlier events had no attached analysis and were excluded from the repeat count (`repeated: 1`). Fixed in `c3b0cc4` by attaching the latest stored analyses at evaluation time; the next event counted 6.
+- Design change: the *Alert level = All* testing mode used to bypass rules (rows 1–4 emailed despite IGNORE/MONITOR). Removed in `d41eae5`: with Care Context on, the rule decision alone governs email; the alert level applies only when Care Context is off.
 
 ## Limitations
 
+- `rule-high-risk` (risk = high → ESCALATE) is unit-tested but not Playground-verified: the simulator did not produce a high-risk analysis.
 - Repeated-event detection uses the persisted history available to the sync (Ring's history window + DynamoDB); it cannot see events Matan never received.
 - Rule conditions are intentionally small (type, device, time window, confidence, risk, repetition); no boolean expression language.
 - Care context and rules are per user, not per device group; `deviceIds` selects specific connected devices only.

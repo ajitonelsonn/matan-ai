@@ -2,6 +2,24 @@ import { getStore, delay, nextId } from "@/lib/mock/store";
 import { ok, badRequest, readJson } from "@/lib/api/http";
 import type { SecurityModeId } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/mock/clock";
+import { activateRingMode, ringSecurityPayload } from "@/lib/matan/security-modes";
+import { AuthRequiredError, authErrorResponse, requireUser, withUser } from "@/lib/auth/server";
+import { hydrateUserScope } from "@/lib/auth/scope";
+
+/** Real Mode ("ring"): the active mode belongs to the verified Cognito user and drives the Decision Engine. */
+async function ringScope(req: Request, fn: () => Promise<Response>): Promise<Response> {
+  try {
+    const user = await requireUser(req);
+    return await withUser(user, async () => {
+      await hydrateUserScope(user);
+      return fn();
+    });
+  } catch (e) {
+    if (e instanceof AuthRequiredError) return authErrorResponse(e);
+    throw e;
+  }
+}
+const isRing = (req: Request) => new URL(req.url).searchParams.get("mode") === "ring";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +44,8 @@ function payload() {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (isRing(req)) return ringScope(req, async () => ok(ringSecurityPayload()));
   await delay();
   return ok(payload());
 }
@@ -40,6 +59,19 @@ export async function PATCH(req: Request) {
     scheduleId?: string;
     scheduleEnabled?: boolean;
   }>(req);
+  if (isRing(req)) {
+    return ringScope(req, async () => {
+      if (body.activeModeId) {
+        try {
+          return ok(await activateRingMode(body.activeModeId));
+        } catch {
+          return badRequest("Unknown mode");
+        }
+      }
+      // Schedules and per-mode toggles have no real effect yet - refuse instead of pretending.
+      return badRequest("Schedules and per-mode settings are a future integration in Real Mode.");
+    });
+  }
   const s = getStore();
   if (body.activeModeId) {
     const mode = s.securityModes.find((m) => m.id === body.activeModeId);

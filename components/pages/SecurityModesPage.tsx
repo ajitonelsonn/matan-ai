@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Clock, Info, ExternalLink, Settings2, Video, Cctv, Bell, ShieldCheck, Pencil, Power, MoreHorizontal, CalendarDays } from "lucide-react";
+import { Clock, Info, ExternalLink, Settings2, Video, Cctv, Bell, ShieldCheck, Pencil, Power, MoreHorizontal, CalendarDays, Lock } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAppData } from "@/components/layout/AppDataProvider";
 import { Button } from "@/components/ui/Button";
@@ -34,8 +34,9 @@ export function SecurityModesPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { refresh: refreshShell, data: shell } = useAppData();
-  const q = useApi(() => securityModesApi.get(), []);
   const appMode = useAppMode();
+  const isRing = appMode === "ring";
+  const q = useApi(() => securityModesApi.get(isRing ? "ring" : "demo"), [isRing]);
   const [viewId, setViewId] = React.useState<SecurityModeId | null>(null);
   const [activating, setActivating] = React.useState<SecurityModeId | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -56,10 +57,10 @@ export function SecurityModesPage() {
     }
     setActivating(id);
     try {
-      const res = await securityModesApi.activate(id);
+      const res = await securityModesApi.activate(id, isRing ? "ring" : "demo");
       q.setData(res);
       setViewId(id);
-      toast.success(`${mode.name} activated`, `Alert level: ${mode.alertLevel}. Matan AI adapted your monitoring.`);
+      toast.success(`${mode.name} activated`, isRing ? `Alert level: ${mode.alertLevel}. New Ring events are now decided under ${mode.name}.` : `Alert level: ${mode.alertLevel}. Matan AI adapted your monitoring.`);
       void refreshShell();
     } catch {
       toast.error();
@@ -104,10 +105,11 @@ export function SecurityModesPage() {
   };
 
   const level = shell?.todayCounts.important ? "review" : "protected";
+  const nowIso = isRing ? new Date().toISOString() : undefined;
 
   return (
     <>
-      <Topbar title={<span className="flex flex-wrap items-center gap-3">Security Modes <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>} subtitle={appMode === "ring" ? "Matan-level policies applied to Ring-derived events. Choose the right mode for your lifestyle." : "Matan-level policies applied to simulated events. Choose the right mode for your lifestyle."} status={<ProtectionPill modeName={d?.status.activeModeName ?? shell?.activeModeName} level={level} className="hidden md:inline-flex" />} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">Security Modes <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>} subtitle={isRing ? "Your Matan security mode is a per-account policy the Decision Engine applies to every new Ring event." : "Matan-level policies applied to simulated events. Choose the right mode for your lifestyle."} status={<ProtectionPill modeName={d?.status.activeModeName ?? shell?.activeModeName} level={level} className="hidden md:inline-flex" />} />
 
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
@@ -163,14 +165,43 @@ export function SecurityModesPage() {
                         Activate
                       </Button>
                     )}
-                    <Button variant="secondary" leftIcon={<Settings2 className="size-4" />} onClick={() => setEditOpen(true)}>
-                      Edit Mode Settings
-                    </Button>
+                    {isRing ? (
+                      <Button variant="secondary" href="/settings?tab=care" leftIcon={<Settings2 className="size-4" />}>
+                        Care &amp; Rules
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" leftIcon={<Settings2 className="size-4" />} onClick={() => setEditOpen(true)}>
+                        Edit Mode Settings
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                <h3 className="mt-5 text-[16px] font-semibold text-text">Mode Settings</h3>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {isRing && d?.effects ? (
+                  <>
+                    <h3 className="mt-5 text-[16px] font-semibold text-text">What this mode changes in Matan</h3>
+                    <ul className="mt-3 space-y-2">
+                      {d.effects[view.id].effects.map((line) => (
+                        <li key={line} className="card-inset flex items-start gap-3 p-3.5 text-[14px] text-text-2">
+                          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                          {line}
+                        </li>
+                      ))}
+                      {d.effects[view.id].note && (
+                        <li className="card-inset flex items-start gap-3 p-3.5 text-[13.5px] text-text-3">
+                          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                          <span>
+                            <Badge tone="neutral" size="xs" className="mr-2">Future</Badge>
+                            {d.effects[view.id].note}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                    <p className="mt-3 text-[12px] text-text-3">Per-mode toggles (record all motion, per-type alerts…) are a future integration - Ring device settings are read-only through the Partner API. Sensitivity, quiet hours and notification rules live in Care &amp; Rules.</p>
+                  </>
+                ) : null}
+                <h3 className={cn("mt-5 text-[16px] font-semibold text-text", isRing && "hidden")}>Mode Settings</h3>
+                <div className={cn("mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4", isRing && "hidden")}>
                   {view.settings.map((s) => (
                     <div key={s.key} className={cn("card-inset flex items-center gap-3 p-3.5 transition-colors", !s.enabled && "opacity-75")}>
                       <span className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl border", s.enabled ? "bg-primary/12 border-primary/25 text-primary" : "bg-surface-3/60 border-border text-text-3")}>
@@ -204,8 +235,10 @@ export function SecurityModesPage() {
           {/* Right rail */}
           <div className="space-y-5 xl:col-span-3">
             <section className="card p-5" aria-labelledby="sched-title">
-              <SectionHeader icon={<Clock />} title={<span id="sched-title">Schedule & Automation</span>} subtitle="Let Matan AI switch modes automatically." action={d ? <Toggle checked={d.scheduleEnabled} onChange={(v) => void setScheduleMaster(v)} label="Automatic mode switching" /> : <Skeleton className="h-6 w-11 rounded-full" />} />
-              {q.loading || !d ? (
+              <SectionHeader icon={<Clock />} title={<span id="sched-title">Schedule & Automation</span>} subtitle={isRing ? "Automatic mode switching is a future integration." : "Let Matan AI switch modes automatically."} action={isRing ? <Badge tone="neutral" size="xs" icon={<Lock className="size-2.5" />}>Future</Badge> : d ? <Toggle checked={d.scheduleEnabled} onChange={(v) => void setScheduleMaster(v)} label="Automatic mode switching" /> : <Skeleton className="h-6 w-11 rounded-full" />} />
+              {isRing ? (
+                <p className="text-[13px] text-text-3">No scheduler runs in Real Mode, so nothing switches your mode behind your back. Quiet hours (Settings › Care &amp; Rules) already give Night-Mode behaviour on a daily window.</p>
+              ) : q.loading || !d ? (
                 <div className="space-y-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-14" />)}</div>
               ) : (
                 <ul className={cn("space-y-2 transition-opacity", !d.scheduleEnabled && "opacity-60")}>
@@ -278,10 +311,13 @@ export function SecurityModesPage() {
             </section>
 
             <section className="card p-5" aria-labelledby="recent-title">
-              <SectionHeader title={<span id="recent-title">Recent Mode Activity</span>} href="/events?category=others" />
+              <SectionHeader title={<span id="recent-title">Recent Mode Activity</span>} href={isRing ? undefined : "/events?category=others"} />
               {q.loading || !d ? (
                 <Skeleton className="h-40" />
               ) : (
+                d.activity.length === 0 ? (
+                  <p className="text-[13px] text-text-3">No mode changes yet. Your account starts in Home Mode.</p>
+                ) : (
                 <ActivityTimeline
                   compact
                   items={d.activity.slice(0, 5).map((a) => {
@@ -290,7 +326,7 @@ export function SecurityModesPage() {
                       id: a.id,
                       time: (
                         <>
-                          {relativeDay(a.timestamp) === "Today" || relativeDay(a.timestamp) === "Yesterday" ? relativeDay(a.timestamp) : formatDate(a.timestamp).slice(0, 6)}
+                          {relativeDay(a.timestamp, nowIso) === "Today" || relativeDay(a.timestamp, nowIso) === "Yesterday" ? relativeDay(a.timestamp, nowIso) : formatDate(a.timestamp).slice(0, 6)}
                           <br />
                           {formatTime(a.timestamp)}
                         </>
@@ -302,6 +338,7 @@ export function SecurityModesPage() {
                     };
                   })}
                 />
+                )
               )}
             </section>
           </div>
@@ -342,7 +379,7 @@ export function SecurityModesPage() {
             <p>
               <span className="font-semibold text-text">Alert level:</span> {view.alertLevel}. {view.alertLevel === "Normal" ? "Routine activity is summarised; only notable events notify you." : view.alertLevel === "Elevated" ? "Entrance activity and unknown people notify you quickly." : "Every detection is treated as potentially important."}
             </p>
-            <p className="text-text-3 text-[13px]">In this preview, modes change how Matan AI classifies mock events. Real Ring device settings are applied in a later phase.</p>
+            <p className="text-text-3 text-[13px]">{isRing ? "Modes change how Matan's Decision Engine scores your real Ring events (see \"What this mode changes\"). Ring device settings themselves are read-only through the Partner API." : "In this preview, modes change how Matan AI classifies mock events. Real Ring device settings are applied in a later phase."}</p>
           </div>
         )}
       </Modal>

@@ -451,6 +451,13 @@ export interface SettingsData {
     /** Seconds of media before/after the event window sent to Nova. */
     mediaPadSeconds: 5 | 10;
   };
+  /** Real Mode: the Matan security mode is a per-user policy read by the Decision Engine. */
+  security: {
+    activeModeId: SecurityModeId;
+    changedAt?: string;
+    /** Newest first, bounded. */
+    history: { modeId: SecurityModeId; at: string; source: ModeActivity["source"] }[];
+  };
   appearance: {
     theme: "Dark" | "Light" | "Auto";
     accent: "blue" | "green" | "purple" | "amber" | "red";

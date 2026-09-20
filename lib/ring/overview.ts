@@ -18,6 +18,7 @@ import { runMatanPipeline } from "@/lib/matan/pipeline";
 import { currentUser, currentUserSub, withUser } from "@/lib/auth/server";
 import { SK, putIfAbsent, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 import { buildInbox } from "./inbox";
+import { activeRingMode } from "@/lib/matan/security-modes";
 
 /**
  * Real-mode read model. Everything here is derived from the Ring Playground
@@ -154,8 +155,7 @@ export async function buildRingDashboard(): Promise<DashboardData & { stale: boo
   const yesterday = eventsInRange(events, "today", 1);
   const todayCounts: EventCounts = countEvents(today);
   const pct = yesterday.length ? Math.round(((today.length - yesterday.length) / yesterday.length) * 100) : 0;
-  const store = getStore();
-  const active = store.securityModes.find((m) => m.id === store.activeModeId)!;
+  const active = activeRingMode();
   const inbox = buildInbox(events);
   return {
     user,
@@ -167,7 +167,7 @@ export async function buildRingDashboard(): Promise<DashboardData & { stale: boo
     todayVsYesterdayPct: pct,
     latestEvents: events.slice(0, 4),
     devices,
-    activeModeId: store.activeModeId,
+    activeModeId: active.id,
     activeModeName: active.name,
     quickQuestions: realQuickQuestions,
     featuredCameraId: connected.find((d) => d.details.video !== false)?.id ?? connected[0]?.id ?? "",

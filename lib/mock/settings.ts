@@ -34,6 +34,7 @@ export const defaultSettings: SettingsData = {
     autoIncludeLiveView: true,
     mediaPadSeconds: 5,
   },
+  security: { activeModeId: "home", history: [] },
   appearance: {
     theme: "Dark",
     accent: "blue",

@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, qs } from "./client";
 import type { ModeActivity, ModeSchedule, SecurityMode, SecurityModeId } from "@/lib/types";
 
 export interface SecurityModesResponse {
@@ -15,11 +15,14 @@ export interface SecurityModesResponse {
     alertLevel: string;
     activeModeName: string;
   };
+  /** Real Mode only: what each mode really changes in Matan, and which demo features are future integrations. */
+  effects?: Record<SecurityModeId, { effects: string[]; note?: string }>;
+  future?: { schedules: boolean; modeSettings: boolean };
 }
 
 export const securityModesApi = {
-  get: () => request<SecurityModesResponse>("/api/security-modes"),
-  activate: (activeModeId: SecurityModeId) => request<SecurityModesResponse>("/api/security-modes", { method: "PATCH", json: { activeModeId } }),
+  get: (mode: "demo" | "ring" = "demo") => request<SecurityModesResponse>(`/api/security-modes${qs({ mode })}`),
+  activate: (activeModeId: SecurityModeId, mode: "demo" | "ring" = "demo") => request<SecurityModesResponse>(`/api/security-modes${qs({ mode })}`, { method: "PATCH", json: { activeModeId } }),
   setSetting: (modeId: SecurityModeId, settingKey: string, enabled: boolean) =>
     request<SecurityModesResponse>("/api/security-modes", { method: "PATCH", json: { modeId, settingKey, enabled } }),
   setSchedule: (scheduleId: string, enabled: boolean) =>

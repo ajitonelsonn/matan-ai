@@ -30,7 +30,9 @@ const MAX_RECENT = 15;
 /** Current Matan-level environment (security mode + quiet hours) from the app store. */
 export function currentUserSettings(): UserSettingsForAnalysis {
   const settings = getUserSettings();
-  return { securityMode: getStore().activeModeId, quietHours: { enabled: settings.notifications.quietHoursEnabled, window: settings.notifications.quietHours } };
+  // Real Mode: the signed-in user's stored mode; Demo: the shared sample store.
+  const securityMode = currentUser() ? (settings.security?.activeModeId ?? "home") : getStore().activeModeId;
+  return { securityMode, quietHours: { enabled: settings.notifications.quietHoursEnabled, window: settings.notifications.quietHours } };
 }
 
 function inQuietHours(iso: string, settings: UserSettingsForAnalysis) {

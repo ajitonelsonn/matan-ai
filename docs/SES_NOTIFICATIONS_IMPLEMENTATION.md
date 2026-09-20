@@ -82,6 +82,24 @@ No `NEXT_PUBLIC_*` additions.
 - Live: `pnpm ses:check` ✓ — SendEmail via `matan-ai` returned a MessageId and the mail was delivered to the verified Gmail.
 - Pending: the browser flow (Real Mode → high-priority event → email arrives → re-analyze → no duplicate).
 
+## Fallback transport: SMTP via nodemailer
+
+While SES production access is pending (Sandbox: only verified recipients), the app falls back to SMTP so real users still get alerts.
+
+```
+notifyByEmail → sendWithFallback()            lib/matan/email-transport.ts
+   1. Amazon SES  (SES_FROM_EMAIL, configuration set matan-ai)
+   2. SMTP        (SMTP_HOST/PORT/USER/PASSWORD/FROM via nodemailer)  ← only if SES fails with
+                   SES_MESSAGE_REJECTED / SES_ACCESS_DENIED / SES_CONFIGURATION_ERROR / SES_THROTTLED / SES_NETWORK / SES_ERROR
+```
+
+- `EMAIL_PROVIDER=auto` (default: SES then SMTP) · `ses` (SES only) · `smtp` (SMTP only).
+- Provider choice is a pure rule (`lib/matan/email-provider.ts`, unit-tested). The delivery record and the `email_notification_sent` log carry `provider: "ses" | "smtp"`; a fallback logs `email_provider_fallback { provider, code, next }`.
+- Content, gating, idempotency and the recipient rule are identical for both providers. SMTP errors map to `SMTP_AUTH / SMTP_REJECTED / SMTP_NETWORK / SMTP_CONFIGURATION_ERROR / SMTP_ERROR`; the password is never logged.
+- Gmail SMTP needs an **App Password** (2-step verification on) - `smtp.gmail.com:587`, `SMTP_FROM` must be that Gmail account or an alias it can send as. Gmail caps sending (~500/day) and is a stop-gap, not the production path.
+- `pnpm email:check [recipient]` walks the same chain and prints which provider delivered. Verified: SES → AccessDenied for an unverified recipient → SMTP → Gmail `250 OK`.
+- Once SES production access is granted, SES will succeed first and SMTP is simply never used; set `EMAIL_PROVIDER=ses` to retire it explicitly.
+
 ## Going to production (Sandbox → production access)
 
 What we learned setting this up:

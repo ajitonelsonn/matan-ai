@@ -25,7 +25,7 @@ export const matanApi = {
     request<AnalyzeResponse | { success: false; skipped: true; reason: string }>("/api/matan/analyze", { method: "POST", json: { eventId, force, media } }),
   get: (eventId: string) => request<{ eventId: string; intelligence: MatanEventIntelligence | null }>(`/api/matan/analyze?eventId=${encodeURIComponent(eventId)}`),
   /** Sends a sample alert email to the signed-in user's configured address (Settings → Notifications). */
-  sendTestAlert: () => request<{ status: "sent"; messageId: string } | { status: "skipped"; reason: string } | { status: "duplicate" } | { status: "failed"; code: string }>("/api/matan/notifications/test", { method: "POST", json: {} }),
+  sendTestAlert: () => request<{ status: "sent"; messageId: string; provider?: string } | { status: "skipped"; reason: string } | { status: "duplicate" } | { status: "failed"; code: string }>("/api/matan/notifications/test", { method: "POST", json: {} }),
 };
 
 export function matanErrorFrom(e: unknown): MatanAiErrorPayload | null {

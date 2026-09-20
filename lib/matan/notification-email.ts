@@ -106,6 +106,8 @@ export interface NotificationRecord {
   sentAt?: string;
   code?: string;
   to?: string;
+  /** Which transport delivered it (ses | smtp). */
+  provider?: string;
 }
 
 export interface NotificationDeps {
@@ -116,11 +118,11 @@ export interface NotificationDeps {
   /** Create-if-absent; returns false when a record already exists (another sync got there first). */
   claim: (eventId: string, kind: NotificationKind, record: NotificationRecord) => Promise<boolean>;
   write: (eventId: string, kind: NotificationKind, record: NotificationRecord) => Promise<void>;
-  send: (n: { to: string; subject: string; text: string; html?: string }) => Promise<{ messageId: string }>;
+  send: (n: { to: string; subject: string; text: string; html?: string }) => Promise<{ messageId: string; provider?: string }>;
   log?: (entry: Record<string, unknown>) => void;
 }
 
-export type NotificationOutcome = { status: "sent"; messageId: string } | { status: "skipped"; reason: string } | { status: "duplicate" } | { status: "failed"; code: string };
+export type NotificationOutcome = { status: "sent"; messageId: string; provider?: string } | { status: "skipped"; reason: string } | { status: "duplicate" } | { status: "failed"; code: string };
 
 /**
  * Finalized decision → (gate) → idempotency claim → SES. Never throws: SES/DB failures
@@ -144,10 +146,10 @@ export async function notifyByEmail(event: RingEvent, intelligence: MatanEventIn
 
     const content = buildEventEmail(event, intelligence, deps.appBaseUrl);
     try {
-      const { messageId } = await deps.send({ to, ...content });
-      await deps.write(event.id, "EMAIL", { status: "sent", messageId, sentAt: new Date().toISOString(), to });
-      log({ event: "email_notification_sent", eventId: event.id, messageId });
-      return { status: "sent", messageId };
+      const { messageId, provider } = await deps.send({ to, ...content });
+      await deps.write(event.id, "EMAIL", { status: "sent", messageId, sentAt: new Date().toISOString(), to, provider });
+      log({ event: "email_notification_sent", eventId: event.id, messageId, provider });
+      return provider ? { status: "sent", messageId, provider } : { status: "sent", messageId };
     } catch (e) {
       const code = (e as { code?: string })?.code ?? "SES_ERROR";
       await deps.write(event.id, "EMAIL", { status: "failed", code, to }).catch(() => undefined);

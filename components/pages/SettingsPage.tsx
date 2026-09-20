@@ -205,7 +205,7 @@ export function SettingsPage() {
                       setTestingEmail(true);
                       try {
                         const r = await matanApi.sendTestAlert();
-                        if (r.status === "sent") toast.success("Test alert sent", `Check ${s.notifications.emailAddress}. Message id ${r.messageId.slice(0, 12)}…`);
+                        if (r.status === "sent") toast.success("Test alert sent", `Check ${s.notifications.emailAddress} (via ${r.provider === "smtp" ? "SMTP" : "Amazon SES"}).`);
                         else if (r.status === "duplicate") toast.info("Please wait a minute", "Test alerts are limited to one per minute.");
                         else if (r.status === "skipped") toast.info("Not sent", r.reason);
                         else toast.error("Email failed", r.code === "SES_MESSAGE_REJECTED" ? "SES rejected the address - while SES is in Sandbox the recipient must be a verified identity." : r.code);

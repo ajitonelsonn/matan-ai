@@ -5,7 +5,8 @@ import type { MatanEventIntelligence } from "./schema";
 import { getUserSettings } from "./user-settings";
 import { currentUser, currentUserSub } from "@/lib/auth/server";
 import { getItem, putIfAbsent, putItem, userPK } from "@/lib/aws/dynamodb";
-import { APP_BASE_URL, isSesConfigured, sendEmail } from "@/lib/aws/ses";
+import { APP_BASE_URL, isSesConfigured } from "@/lib/aws/ses";
+import { isSmtpConfigured, sendWithFallback } from "./email-transport";
 import { notifyByEmail, type NotificationDeps, type NotificationKind, type NotificationOutcome, type NotificationRecord } from "./notification-email";
 
 /**
@@ -27,7 +28,7 @@ function deps(sub: string): NotificationDeps {
     read: async (eventId, kind) => (await getItem<NotificationRecord & { PK: string; SK: string }>(userPK(sub), sk(eventId, kind))) ?? null,
     claim: (eventId, kind, record) => putIfAbsent({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),
     write: (eventId, kind, record) => putItem({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),
-    send: sendEmail,
+    send: (n) => sendWithFallback(n),
     log: (entry) => (entry.event === "email_notification_failed" ? console.error(entry) : console.info(entry)),
   };
 }
@@ -35,7 +36,7 @@ function deps(sub: string): NotificationDeps {
 /** Fire after the decision is final. Never throws; returns what happened for logging/response. */
 export async function notifyForIntelligence(event: RingEvent, intelligence: MatanEventIntelligence): Promise<NotificationOutcome> {
   if (!currentUser()) return { status: "skipped", reason: "no authenticated user in scope" };
-  if (!isSesConfigured()) return { status: "skipped", reason: "SES not configured (SES_FROM_EMAIL missing)" };
+  if (!isSesConfigured() && !isSmtpConfigured()) return { status: "skipped", reason: "no email provider configured (SES_FROM_EMAIL or SMTP_*)" };
   const outcome = await notifyByEmail(event, intelligence, deps(currentUserSub()));
   if (outcome.status === "skipped") console.info({ event: "email_notification_skipped", eventId: event.id, reason: outcome.reason });
   return outcome;
@@ -49,7 +50,7 @@ const TEST_COOLDOWN_MS = 60_000;
  */
 export async function sendTestAlert(): Promise<NotificationOutcome> {
   if (!currentUser()) return { status: "skipped", reason: "no authenticated user in scope" };
-  if (!isSesConfigured()) return { status: "skipped", reason: "SES is not configured on the server" };
+  if (!isSesConfigured() && !isSmtpConfigured()) return { status: "skipped", reason: "No email provider is configured on the server" };
   const prefs = emailPrefs(getUserSettings());
   if (!prefs.enabled || !prefs.address) return { status: "skipped", reason: "Set an alert email address in Settings → Notifications first" };
   const now = Date.now();

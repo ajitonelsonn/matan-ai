@@ -75,7 +75,7 @@ test("alert level is a minimum priority: all ⊇ low ⊇ medium ⊇ high", () =>
   assert.ok(buildEventEmail(event, intel("email"), "http://x").subject.startsWith("Matan AI Alert —"));
 });
 
-test("smart-rule decisions drive notifications: NOTIFY/ESCALATE send, MONITOR/IGNORE don't, failures never send, 'all' still forces", async () => {
+test("smart-rule decisions drive notifications: NOTIFY/ESCALATE send, MONITOR/IGNORE don't, failures never send, alert level only when care is off", async () => {
   const s = settingsWith("a@b.co");
   const cd = (action: "IGNORE" | "MONITOR" | "NOTIFY" | "ESCALATE", careEnabled = true) => ({ ...intel("none"), careDecision: { action, matchedRuleIds: ["rule-x"], reason: `r-${action}`, confidence: 0.9, evaluatedAt: "x", facts: { quietHoursActive: false, risk: "normal" as const, eventType: "person" as const, careEnabled } } });
   assert.equal(shouldEmail(event, cd("ESCALATE"), s).send, true);
@@ -84,7 +84,8 @@ test("smart-rule decisions drive notifications: NOTIFY/ESCALATE send, MONITOR/IG
   assert.match((shouldEmail(event, cd("IGNORE"), s) as { reason: string }).reason, /smart rules decided IGNORE/);
   assert.equal(shouldEmail(event, cd("NOTIFY", false), s).send, false, "care off → falls back to alert level (normal < high)");
   assert.equal(shouldEmail(event, { ...intel("none"), careDecision: { failed: true, error: "x", evaluatedAt: "x" } }, s).send, false);
-  assert.equal(shouldEmail(event, cd("IGNORE"), settingsWith("a@b.co", true, "all")).send, true, "'all' testing level bypasses rules");
+  assert.equal(shouldEmail(event, cd("IGNORE"), settingsWith("a@b.co", true, "all")).send, false, "alert level never overrides an active care decision");
+  assert.equal(shouldEmail(event, cd("IGNORE", false), settingsWith("a@b.co", true, "all")).send, true, "care off → 'all' level applies");
   const f = fakeDeps(s);
   await notifyByEmail(event, cd("MONITOR"), f.deps);
   assert.equal(f.sent.length, 0);

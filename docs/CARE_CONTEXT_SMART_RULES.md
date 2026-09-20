@@ -2,7 +2,7 @@
 
 ## Implementation Summary
 
-Matan AI now interprets real Ring events through a **user-configurable care context** and a **deterministic smart-rule engine** layered on top of the existing pipeline. Nova Pro still only *interprets* (category, confidence, observations); the existing Decision Engine still sets the *risk*; the new rule engine turns risk + care context + rules into one of four actions — **IGNORE · MONITOR · NOTIFY · ESCALATE** — with an explanation the UI and the email show. Notifications are sent only for NOTIFY/ESCALATE through the existing SES/SMTP path with the existing one-email-per-event idempotency.
+Matan AI now interprets real Ring events through a **user-configurable care context** and a **deterministic smart-rule engine** layered on top of the existing pipeline. Nova Pro still only *interprets* (category, confidence, observations); the existing Decision Engine still sets the *risk*; the new rule engine turns risk + care context + rules into one of four actions — **IGNORE · MONITOR · NOTIFY · ESCALATE** — with an explanation the UI and the email show. Notifications are sent only for NOTIFY/ESCALATE through the existing SES/SMTP path with the existing one-email-per-event idempotency. While Care Context is on, the rule decision is authoritative for email; the older *Alert level* threshold (Settings → Notifications) applies only when Care Context is off.
 
 ```
 Ring event → normalize → snapshot → Nova Pro → Decision Engine (risk) → Care Context → Smart Rules → RuleDecision
@@ -107,7 +107,7 @@ Authentication and authorization reuse `userRoute()` (Cognito JWT → `sub`); al
 ## Tests
 
 - `tests/care-rules.test.ts` (11): quiet hours 21:59 ✗ / 22:00 ✓ / 23:59 ✓ / 00:00 ✓ / 05:59 ✓ / 06:00 ✗ in Asia/Dili incl. a UTC instant; high risk → ESCALATE during quiet hours; 0.54 → MONITOR, 0.55 → normal, opt-in; repeated 3/10 min → ESCALATE, 2 → no, live views excluded, preference off; quiet-hours suppression; package rule + user rule precedence + IGNORE rule; sensitivity up/down/never-escalate; care off → default; determinism; type mapping; validation matrix.
-- `tests/notifications.test.ts` (+1): NOTIFY/ESCALATE send, MONITOR/IGNORE don't, failed evaluation never sends, alert level *All* still forces, ESCALATE subject/body, one email per event.
+- `tests/notifications.test.ts` (+1): NOTIFY/ESCALATE send, MONITOR/IGNORE don't, failed evaluation never sends, alert level never overrides an active care decision (applies only when care is off), ESCALATE subject/body, one email per event.
 - `tests/event-state.test.ts` updated for the 7-step timeline (skipped / failed rule steps).
 - Integration (real DynamoDB, throwaway `USER#itest-…` partitions, cleaned up): defaults → save → invalid rejected → custom rule → built-in edited → built-in delete refused → **restart** (re-hydrate) keeps everything → **user B** sees defaults, cannot see/update/delete A's rule → cleanup. 15/15.
 - `pnpm test` **54/54** · `tsc --noEmit` ✓ · `pnpm build` ✓.

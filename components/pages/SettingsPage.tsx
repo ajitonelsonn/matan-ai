@@ -196,7 +196,7 @@ export function SettingsPage() {
               <Row
                 icon={<SlidersHorizontal />}
                 title="Alert level"
-                hint={{ high: "Email only high-priority decisions (recommended).", medium: "Email medium and high-priority decisions.", low: "Email low, medium and high-priority decisions.", all: "Email every completed analysis, even when nothing is of concern - for simulator testing." }[s.notifications.alertLevel ?? "high"]}
+                hint={`${{ high: "Email only high-priority decisions (recommended).", medium: "Email medium and high-priority decisions.", low: "Email low, medium and high-priority decisions.", all: "Email every completed analysis, even when nothing is of concern - for simulator testing." }[s.notifications.alertLevel ?? "high"]} Applies only while Care Context is off - with Care Context on, Smart Rules decide (Care & Rules tab).`}
                 tone="primary"
                 control={
                   <Select

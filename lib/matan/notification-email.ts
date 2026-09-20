@@ -55,14 +55,15 @@ export function shouldEmail(event: RingEvent, intelligence: MatanEventIntelligen
   const prefs = emailPrefs(settings);
   if (!prefs.enabled) return { send: false, reason: "email channel disabled in user settings" };
   if (!prefs.address) return { send: false, reason: "no valid notification email address in user settings" };
-  if (prefs.level === "all") return { send: true }; // testing mode: every completed analysis
   const cd = intelligence.careDecision;
   if (cd && "failed" in cd) return { send: false, reason: "rule evaluation failed - not sending without a deterministic decision" };
   if (cd && cd.facts.careEnabled) {
-    // Care Context + Smart Rules are authoritative: NOTIFY / ESCALATE send, MONITOR / IGNORE don't.
+    // Care Context + Smart Rules are authoritative (spec: IGNORE/MONITOR → no notification). Alert level does not apply.
     if (cd.action === "NOTIFY" || cd.action === "ESCALATE") return { send: true };
     return { send: false, reason: `smart rules decided ${cd.action}: ${cd.reason}` };
   }
+  // Care Context off (or analysis predates rules): the alert level threshold decides.
+  if (prefs.level === "all") return { send: true };
   if (!meetsAlertLevel(intelligence, prefs.level)) return { send: false, reason: `decision (${intelligence.decision.priority}/${intelligence.decision.action}) is below alert level "${prefs.level}"` };
   return { send: true };
 }

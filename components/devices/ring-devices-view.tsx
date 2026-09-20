@@ -35,6 +35,7 @@ import { RingConnectedDeviceCard } from "./ring-connected-device-card";
 import { ringKindIcon, ringKindLabel } from "./ring-device-card";
 import { useRingCountdown } from "./use-ring-session";
 import { SourceBadge } from "@/components/experience/source-badge";
+import { RingAccountCard, RingCapabilityMatrix, RingConfigurationSummary, RingFutureFeaturesCard, RingRegion } from "./ring-intelligence";
 
 type Tab = "all" | RingDeviceKind | "offline";
 type SortKey = "name" | "status" | "type" | "recent";
@@ -371,6 +372,9 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
               </>
             )}
 
+            <RingAccountCard account={session?.account} />
+            <RingFutureFeaturesCard devices={connected} />
+
             <section className="card p-5" aria-labelledby="ring-help">
               <SectionHeader icon={<CircleHelp />} title={<span id="ring-help">Need Help?</span>} />
               <ul className="space-y-1">
@@ -442,8 +446,6 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 function RingDeviceDetail({ device, live, onEdit, onRemove, onRefreshStatus, onEvents }: { device: ConnectedRingDevice; live: boolean; onEdit: () => void; onRemove: () => void; onRefreshStatus: () => void; onEvents: () => void }) {
   const Icon = ringKindIcon[device.deviceType];
-  const c = device.details;
-  const yesNo = (v: boolean | undefined) => (v === undefined ? undefined : v ? "Yes" : "No");
   return (
     <div className="space-y-5">
       <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-surface-2">
@@ -458,18 +460,22 @@ function RingDeviceDetail({ device, live, onEdit, onRemove, onRefreshStatus, onE
         <Fact label="Ring name" value={device.ringName} />
         <Fact label="Type" value={ringKindLabel[device.deviceType]} />
         <Fact label="Model" value={device.model ? `Ring ${device.model}` : undefined} />
-        <Fact label="Region" value={[device.region?.state, device.region?.country].filter(Boolean).join(", ") || undefined} />
-        <Fact label="Video" value={c.video ? `${c.maxResolution ? `${c.maxResolution}p` : "Yes"}${c.codecs?.length ? ` · ${c.codecs.join(", ")}` : ""}` : yesNo(c.video)} />
-        <Fact label="Motion detection" value={yesNo(c.motionDetection)} />
-        <Fact label="Snapshot" value={yesNo(c.snapshot)} />
-        <Fact label="Night vision" value={yesNo(c.nightVision)} />
-        <Fact label="Battery" value={yesNo(c.battery)} />
-        <Fact label="Firmware" value={undefined} />
+        <Fact label="Region (coarse)" value={[device.region?.country, device.region?.state].filter(Boolean).join(" / ") || undefined} />
         <Fact label="Status reported" value={device.statusReportedAt ? `${formatDate(device.statusReportedAt)} ${formatTime(device.statusReportedAt)}` : undefined} />
         <Fact label="Connected" value={`${formatDate(device.connectedAt)} · ${timeAgo(device.connectedAt, new Date().toISOString())}`} />
       </dl>
+      <section aria-labelledby="dev-caps">
+        <h3 id="dev-caps" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Capabilities (Ring)</h3>
+        <RingCapabilityMatrix device={device} />
+      </section>
+      <section aria-labelledby="dev-conf">
+        <h3 id="dev-conf" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Configuration (read-only)</h3>
+        <RingConfigurationSummary device={device} />
+      </section>
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-text-2">
         <MapPin className="size-4 text-text-3" /> {device.locationLabel ?? "Location not set"}
+        <span className="text-text-3">·</span>
+        <RingRegion device={device} />
         <span className="text-text-3">·</span>
         <span>{device.aiEnabled ? "Matan AI analysis on" : "Matan AI analysis off"}</span>
       </div>

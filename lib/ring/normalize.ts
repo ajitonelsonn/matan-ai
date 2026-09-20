@@ -2,6 +2,7 @@ import type {
   JsonApiDocument,
   JsonApiResource,
   RingDeviceAttributes,
+  RingAccount,
   RingDeviceKind,
   RingDiscoveredDevice,
   RingHistoryEvent,
@@ -74,6 +75,12 @@ export function normalizeDevice(res: JsonApiResource<RingDeviceAttributes>, look
 
   const confMotion = obj(conf?.motion_detection);
   const confEnh = obj(conf?.image_enhancements);
+  const confAudio = obj(conf?.audio);
+  const motionConfigurable = arr(motion?.configurations) as string[] | undefined;
+  const videoConfigurable = arr(video?.configurations) as string[] | undefined;
+  const sensor = (k: string): boolean | undefined => (caps ? caps[k] !== null && caps[k] !== undefined : undefined);
+  const snooze = obj(obj(status?.audio)?.snooze);
+  const enhValues = confEnh ? Object.fromEntries(Object.entries(confEnh).filter(([, v]) => typeof v === "string") as [string, string][]) : undefined;
 
   return {
     id: res.id,
@@ -88,6 +95,8 @@ export function normalizeDevice(res: JsonApiResource<RingDeviceAttributes>, look
       reportedAt: str(status?.reported_at),
       batteryPercentage: batteryPct !== undefined && batteryPct >= 0 && batteryPct <= 100 ? batteryPct : undefined,
       signalStrength: signal,
+      snoozeActive: snooze ? bool(snooze.active) : undefined,
+      state: status ? (str(status.state) ?? null) : undefined,
     },
     location: loc ? { country: str(loc.country), state: str(loc.state) } : undefined,
     capabilities: {
@@ -100,12 +109,22 @@ export function normalizeDevice(res: JsonApiResource<RingDeviceAttributes>, look
       battery: caps ? Boolean(caps.battery_status) : undefined,
       maxResolution: num(video?.max_resolution),
       codecs: arr(video?.codecs) as string[] | undefined,
+      ratio: str(video?.ratio),
+      supportedResolutions: (arr(video?.supported_resolutions) as number[] | undefined)?.filter((n) => typeof n === "number"),
+      configurable: caps ? { video: videoConfigurable, motion: motionConfigurable, imageEnhancements: enhancements } : undefined,
+      sensors: caps ? { co: sensor("co_detection_listener"), smoke: sensor("smoke_detection"), glassBreak: sensor("glass_break_detection"), tamper: sensor("tamper_detection"), flood: sensor("flood_detection"), freeze: sensor("freeze_detection"), contact: sensor("contact_detection") } : undefined,
+      audioSlots: audio ? (num(audio.customizable_slots) ?? null) : undefined,
+      audioActions: audio ? ((arr(audio.supported_actions) as string[] | undefined) ?? null) : undefined,
     },
     configuration: conf
       ? {
           motionEnabled: confMotion ? confMotion.enabled === "on" || confMotion.enabled === true : undefined,
           hasMotionZones: confMotion ? (arr(confMotion.motion_zones)?.length ?? 0) > 0 : undefined,
           hasPrivacyZones: confEnh ? (arr(confEnh.privacy_zones)?.length ?? 0) > 0 : undefined,
+          motionZonesCount: confMotion ? (arr(confMotion.motion_zones)?.length ?? 0) : undefined,
+          privacyZonesCount: confEnh ? (arr(confEnh.privacy_zones)?.length ?? 0) : undefined,
+          imageEnhancements: enhValues,
+          audioVolume: num(confAudio?.volume),
         }
       : undefined,
     source: "ring-playground",
@@ -129,6 +148,21 @@ export function capabilityLabels(c: RingDiscoveredDevice["capabilities"]): strin
   if (c.privacyZones) out.push("Privacy zones");
   if (c.battery) out.push("Battery");
   return out;
+}
+
+/** Mask an email for display: keep the first character and the domain. Raw addresses are never stored. */
+export function maskEmail(email?: string): string | undefined {
+  if (!email) return undefined;
+  const m = email.match(/^(.)(.*)(@.+)$/);
+  return m ? `${m[1]}${"*".repeat(Math.min(6, Math.max(2, m[2].length)))}${m[3]}` : undefined;
+}
+
+/** GET /v1/users/me → RingAccount. Returns null when the document carries no users resource. */
+export function normalizeAccount(doc: JsonApiDocument): RingAccount | null {
+  const res = Array.isArray(doc.data) ? doc.data[0] : doc.data;
+  if (!res || res.type !== "users" || !res.id) return null;
+  const a = (res.attributes ?? {}) as Attrs;
+  return { accountId: res.id, firstName: str(a.first_name), lastName: str(a.last_name), emailMasked: maskEmail(str(a.email)), fetchedAt: new Date().toISOString() };
 }
 
 export function normalizeHistory(doc: JsonApiDocument): RingHistoryEvent[] {

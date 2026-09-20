@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { RING_PLAYGROUND_TOKEN_LIFETIME_MS, RING_SESSION_COOKIE, RING_TOKEN_EXPIRING_THRESHOLD_MS } from "./constants";
-import type { ConnectedRingDevice, RingDiscoveredDevice, RingSessionInfo } from "./types";
+import type { ConnectedRingDevice, RingAccount, RingDiscoveredDevice, RingSessionInfo } from "./types";
 import { currentUserSub } from "@/lib/auth/server";
 import { SK, deleteItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 
@@ -22,6 +22,8 @@ interface RingSession {
   lastValidatedAt: number;
   invalidated: boolean;
   discovered: RingDiscoveredDevice[];
+  /** GET /v1/users/me result (no raw email). */
+  account?: RingAccount | null;
 }
 
 interface RingState {
@@ -54,7 +56,7 @@ function expFromJwt(token: string): number | undefined {
   return undefined;
 }
 
-export async function createRingSession(token: string, discovered: RingDiscoveredDevice[]): Promise<RingSession> {
+export async function createRingSession(token: string, discovered: RingDiscoveredDevice[], account?: RingAccount | null): Promise<RingSession> {
   const s = state();
   // One active session per browser: drop the previous one.
   const existing = await readSessionId();
@@ -70,6 +72,7 @@ export async function createRingSession(token: string, discovered: RingDiscovere
     lastValidatedAt: now,
     invalidated: false,
     discovered,
+    account: account ?? null,
   };
   s.sessions.set(session.id, session);
   const jar = await cookies();
@@ -104,6 +107,7 @@ export function sessionInfo(session: RingSession | null): RingSessionInfo | null
     connectedAt: new Date(session.createdAt).toISOString(),
     lastValidatedAt: new Date(session.lastValidatedAt).toISOString(),
     discoveredCount: session.discovered.length,
+    account: session.account ?? null,
   };
 }
 
@@ -210,6 +214,8 @@ export async function syncConnected(discovered: RingDiscoveredDevice[]) {
     d.status = fresh.status.online === null ? "unknown" : fresh.status.online ? "online" : "offline";
     d.statusReportedAt = fresh.status.reportedAt;
     d.details = fresh.capabilities;
+    d.configuration = fresh.configuration ?? d.configuration;
+    d.region = fresh.location ?? d.region;
     d.imageUrl = fresh.imageUrl ?? d.imageUrl;
     d.model = fresh.model ?? d.model;
     d.lastSyncedAt = now;
@@ -233,6 +239,7 @@ export function toConnected(dev: RingDiscoveredDevice, local: { displayName?: st
     statusReportedAt: dev.status.reportedAt,
     capabilities: capabilityLabels,
     details: dev.capabilities,
+    configuration: dev.configuration,
     region: dev.location,
     source: "ring-playground",
     connectedAt: now,

@@ -49,7 +49,7 @@ export function RealModeCare() {
           compact
           icon={<UserRound />}
           title="No verified family associations yet"
-          description="Matan never infers who a person is from a generic Ring detection. Family recognition arrives with a verified user mapping in a later milestone."
+          description="Coming in a future integration - the current Ring API/Playground does not provide household-member mapping. Matan never infers who a person is from a generic Ring detection, and never calls people you configure here Ring family members."
           action={
             <Button variant="secondary" leftIcon={<Plus className="size-4" />} onClick={() => toast.info("Verified family mapping is part of a later milestone", "In Real Mode, Matan shows 'Person detected' rather than guessing a name.")}>
               Add family member

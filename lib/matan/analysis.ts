@@ -7,6 +7,8 @@ import { hasMediaSync } from "./media-store";
 import type { MatanEventIntelligence } from "./schema";
 import { getStore } from "@/lib/mock/store";
 import { getUserSettings } from "./user-settings";
+import { currentUser } from "@/lib/auth/server";
+import { listConnected } from "@/lib/ring/session";
 import { emailPrefs } from "./notification-email";
 
 /* ---------------------------------------------------------------------------
@@ -56,6 +58,22 @@ export function relatedRecent(event: RingEvent, recent: RingEvent[]) {
     .slice(0, MAX_RECENT);
 }
 
+/** Real Ring device facts for the event's camera (from the connected-device record; never inferred). */
+export function deviceContextFor(event: RingEvent) {
+  const d = currentUser() ? listConnected().find((x) => x.id === event.cameraId) : undefined;
+  if (!d) return undefined;
+  return {
+    name: d.displayName,
+    ringName: d.ringName,
+    type: d.deviceType,
+    online: d.status === "online" ? true : d.status === "offline" ? false : null,
+    capabilities: d.capabilities,
+    region: [d.region?.state, d.region?.country].filter(Boolean).join(", ") || undefined,
+    motionDetectionEnabled: d.configuration?.motionEnabled,
+    motionZones: d.configuration?.motionZonesCount,
+  };
+}
+
 /** Build the (reduced) context sent to Nova. Only relevant fields; no tokens, no ids the model doesn't need. */
 export function buildMatanContext(event: RingEvent, recentEvents: RingEvent[], settings: UserSettingsForAnalysis) {
   const related = relatedRecent(event, recentEvents);
@@ -71,6 +89,7 @@ export function buildMatanContext(event: RingEvent, recentEvents: RingEvent[], s
         ringDetections: event.tags.filter((t) => !["Ring Simulator", "motion", "ding", "on demand"].includes(t)),
         source: "ring-simulator",
       },
+      device: deviceContextFor(event),
       environment: {
         securityMode: settings.securityMode,
         quietHours: settings.quietHours?.enabled ? settings.quietHours.window : "disabled",

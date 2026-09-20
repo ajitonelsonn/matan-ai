@@ -65,11 +65,20 @@ export interface RingDiscoveredDevice {
     reportedAt?: string;
     batteryPercentage?: number;
     signalStrength?: number;
+    /** Chime snooze (device-status.audio.snooze). null = not reported. */
+    snoozeActive?: boolean | null;
+    /** device-status.state as returned by Ring (often null). */
+    state?: string | null;
   };
   location?: {
     country?: string;
     state?: string;
   };
+  /**
+   * Read-only capability facts from GET /v1/devices/{id}/capabilities. `undefined` = the
+   * capabilities resource was not included; `false`/`null` = Ring reported it absent (null).
+   * Capability values are read-only and never indicate control functionality (Ring FAQ).
+   */
   capabilities: {
     video?: boolean;
     motionDetection?: boolean;
@@ -80,11 +89,26 @@ export interface RingDiscoveredDevice {
     battery?: boolean;
     maxResolution?: number;
     codecs?: string[];
+    ratio?: string;
+    supportedResolutions?: number[];
+    /** Which video / motion / image settings Ring says are configurable (e.g. resolution_mode, motion_zones). */
+    configurable?: { video?: string[]; motion?: string[]; imageEnhancements?: string[] };
+    /** Sensor-type capabilities Ring reports (null on cameras/doorbells = absent). */
+    sensors?: { co?: boolean; smoke?: boolean; glassBreak?: boolean; tamper?: boolean; flood?: boolean; freeze?: boolean; contact?: boolean };
+    /** Chime audio: customizable slot count / supported actions (null on non-chimes). */
+    audioSlots?: number | null;
+    audioActions?: string[] | null;
   };
+  /** Current settings from GET /v1/devices/{id}/configurations (read-only in this API). */
   configuration?: {
     motionEnabled?: boolean;
     hasMotionZones?: boolean;
     hasPrivacyZones?: boolean;
+    motionZonesCount?: number;
+    privacyZonesCount?: number;
+    /** image_enhancements values as reported (e.g. { color_night_vision: "off", hdr: "off" }). */
+    imageEnhancements?: Record<string, string>;
+    audioVolume?: number;
   };
   source: "ring-playground";
 }
@@ -102,12 +126,25 @@ export interface ConnectedRingDevice {
   statusReportedAt?: string;
   capabilities: string[];
   details: RingDiscoveredDevice["capabilities"];
+  /** Read-only configuration snapshot from Ring (refreshed on sync). */
+  configuration?: RingDiscoveredDevice["configuration"];
   region?: RingDiscoveredDevice["location"];
   source: "ring-playground";
   connectedAt: string;
   lastSyncedAt: string;
   aiEnabled: boolean;
   favorite: boolean;
+}
+
+/** GET /v1/users/me - the authenticated Ring account (Playground: synthetic "Playground User"). */
+export interface RingAccount {
+  /** Ring account identifier (resource id). */
+  accountId: string;
+  firstName?: string;
+  lastName?: string;
+  /** Masked for display (l***@domain); the raw address is never stored. */
+  emailMasked?: string;
+  fetchedAt: string;
 }
 
 export type TokenStatus = "missing" | "validating" | "valid" | "expiring" | "expired" | "invalid";
@@ -118,6 +155,8 @@ export interface RingSessionInfo {
   connectedAt: string;
   lastValidatedAt: string;
   discoveredCount: number;
+  /** Ring account behind the session, when GET /v1/users/me succeeded. */
+  account?: RingAccount | null;
 }
 
 export type RingErrorCode =

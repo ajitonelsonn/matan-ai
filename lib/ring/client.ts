@@ -1,8 +1,8 @@
 import "server-only";
 import { RING_API_BASE_URL, RING_DEVICES_INCLUDE, RING_REQUEST_TIMEOUT_MS } from "./constants";
 import { RingApiError, fromResponse } from "./errors";
-import { normalizeDevices, normalizeHistory } from "./normalize";
-import type { JsonApiDocument, JsonApiErrorDocument, RingDeviceAttributes, RingDiscoveredDevice, RingHistoryEvent } from "./types";
+import { normalizeAccount, normalizeDevices, normalizeHistory } from "./normalize";
+import type { JsonApiDocument, JsonApiErrorDocument, RingAccount, RingDeviceAttributes, RingDiscoveredDevice, RingHistoryEvent } from "./types";
 
 /**
  * Server-side Ring Partner API client.
@@ -92,10 +92,10 @@ export async function getRingDeviceEvents(token: string, deviceId: string): Prom
   return normalizeHistory(doc);
 }
 
-export async function getRingUser(token: string) {
+/** GET /v1/users/me → the authenticated Ring account (account id + display fields, email masked). */
+export async function getRingAccount(token: string): Promise<RingAccount | null> {
   const doc = await ringFetch<JsonApiDocument>(`/v1/users/me`, token);
-  const a = (Array.isArray(doc.data) ? doc.data[0] : doc.data)?.attributes ?? {};
-  return { firstName: typeof a.first_name === "string" ? a.first_name : undefined, email: typeof a.email === "string" ? a.email : undefined };
+  return normalizeAccount(doc);
 }
 
 /* ---- Live view (WebRTC / WHEP) ------------------------------------------- */

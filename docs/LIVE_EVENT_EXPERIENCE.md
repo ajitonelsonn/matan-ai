@@ -57,5 +57,37 @@ Also observed: two events synced together were analyzed concurrently and each no
 ### Bug found and fixed during the test
 The auto-analysis scheduler skips `on_demand` history entries that Matan's own snapshot/clip requests create on Ring (to avoid a feedback loop). That filter treated *any* `on_demand` event within **3 minutes** after a Matan media request as Matan's own, so a Playground scenario clicked shortly after an analysis was silently dropped (it showed "Awaiting AI"). Fix (`lib/matan/auto.ts`): an event is Matan's footprint only if it starts within −5 s … +20 s of a request **and** lasts ≤ 6 s (Playground sessions run ~20 s), and each request can claim at most one event. The scheduler now also logs `matan_auto_skipped { fresh, skipped }` per sync so any drop is explained.
 
+## Acceptance criteria (spec §29) — status
+
+| # | Criterion | Status | Where |
+| --- | --- | --- | --- |
+| 1 | Existing Ring Playground integration still works | ✅ | discover/devices/refresh/events unchanged; verified live 2026-09-21 |
+| 2 | Real Mode still receives actual Ring Playground events | ✅ | `lib/ring/overview.ts` history sync; 10 real events processed in the test |
+| 3 | No fake Ring events introduced into Real Mode | ✅ | fixtures exist only in `tests/`; the temporary visual preview route was deleted before commit |
+| 4 | New Ring events appear automatically | ✅ | existing 30 s history poll; **New** badge via `hooks/useNewItems.ts` |
+| 5 | User does not need to manually refresh | ✅ | Home/Events polling (6 s while working, 30 s idle) |
+| 6 | Existing automatic analysis scheduler is reused | ✅ | `lib/matan/auto.ts` (only the own-footprint filter + skip logging changed) |
+| 7 | Snapshot retrieval uses the existing Ring integration | ✅ | `obtainRingMedia` → `getRingSnapshot` unchanged |
+| 8 | Nova Pro analysis uses the existing pipeline | ✅ | `runMatanPipeline` unchanged except stage/failure bookkeeping |
+| 9 | Deterministic Decision Engine remains authoritative | ✅ | `lib/matan/decision.ts` untouched; UI only displays its output |
+| 10 | Event state is visible to the user | ✅ | stage badges, status lines, panel copy, timeline |
+| 11 | Analysis completion appears automatically | ✅ | server overlay + polling; `aria-live` on transitions |
+| 12 | Notification status visible where applicable | ✅ | "Notification sent via …" / "not required" / "could not be sent" / "off in Settings" |
+| 13 | Duplicate analysis prevented | ✅ | in-flight guard + `seen` set + intelligence check (unchanged) |
+| 14 | Duplicate notification prevented | ✅ | `NOTIFICATION#{eventId}#EMAIL` claim (unchanged); one email per event in the live test |
+| 15 | Ring tokens remain server-side only | ✅ | untouched memory session; no new fields carry it |
+| 16 | Cognito user isolation intact | ✅ | all new reads go through `userRoute` + per-user caches |
+| 17 | Demo Mode remains separate | ✅ | `eventStage()` treats non-Ring events as complete; no processing UI in Demo |
+| 18 | Accessibility preserved | ✅ | semantic buttons, focus styles, `aria-live` only on state changes, SR text per timeline step |
+| 19 | Mobile/responsive UI works | ✅ | status lines collapse into the row; cards stack (existing breakpoints) |
+| 20 | Existing tests pass | ✅ | 36/36 |
+| 21 | Type checking passes | ✅ | `tsc --noEmit` |
+| 22 | Production build passes | ✅ | `pnpm build` |
+| 23 | Actual Playground Motion scenario tested | ✅ PASS | see table above |
+| 24 | Actual Playground Package scenario tested | ✅ PASS | see table above |
+| 25 | Actual Playground Vehicle scenario tested | ✅ PASS | see table above |
+
+Non-goals respected: no Ring device control, no fake event generator, no webhooks, no token auto-refresh, no changes to the Decision Engine, Nova, DynamoDB, S3 or SES designs.
+
 ## Security
 Ring token: unchanged memory session; not in any new field. Cognito: all new data flows through the existing `userRoute` + per-user caches. S3: only metadata timestamps are exposed, never keys. No new `NEXT_PUBLIC_*`. Demo Mode: `eventStage()` treats non-Ring events as complete and shows no processing UI.

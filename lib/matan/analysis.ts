@@ -2,7 +2,7 @@ import "server-only";
 import type { RingEvent } from "@/lib/types";
 import { analyzeWithNova, type ConverseInvoker, type NovaMedia } from "@/lib/bedrock/nova";
 import { decide, type DecisionContext } from "./decision";
-import { dynamoIntelligenceStore, type MatanIntelligenceStore } from "./store";
+import { dynamoIntelligenceStore, getIntelligenceSync, type MatanIntelligenceStore } from "./store";
 import { hasMediaSync } from "./media-store";
 import type { MatanEventIntelligence } from "./schema";
 import { getStore } from "@/lib/mock/store";
@@ -166,7 +166,9 @@ export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], 
   const care = getCareContext();
   if (care) {
     try {
-      careDecision = evaluateMatanRules({ event, analysis: nova.analysis, decision, careContext: care, rules: listRules(), recentEvents, now: new Date() });
+      // Repeated-event detection must see the latest stored analyses (auto-analysis passes raw synced events).
+      const history = recentEvents.map((e) => (e.intelligence ? e : ((i) => (i ? { ...e, intelligence: i } : e))(getIntelligenceSync(e.id))));
+      careDecision = evaluateMatanRules({ event, analysis: nova.analysis, decision, careContext: care, rules: listRules(), recentEvents: history, now: new Date() });
     } catch (e) {
       careDecision = { failed: true, error: e instanceof Error ? e.message : "rule evaluation failed", evaluatedAt: new Date().toISOString() };
       console.error({ event: "matan_rules_failed", eventId: event.id, error: careDecision.error });

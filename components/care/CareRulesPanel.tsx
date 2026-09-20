@@ -182,7 +182,7 @@ function SettingRow({ icon, title, hint, control, tone = "primary" }: { icon: Re
 }
 
 /** Create / edit modal. Intentionally small: type, risk, time window, confidence, repetition, action. */
-function RuleEditor({ rule, open, onClose, onSaved }: { rule: MatanRule | null; open: boolean; onClose: () => void; onSaved: (rule: MatanRule, created: boolean) => void }) {
+export function RuleEditor({ rule, open, onClose, onSaved }: { rule: MatanRule | null; open: boolean; onClose: () => void; onSaved: (rule: MatanRule, created: boolean) => void }) {
   const toast = useToast();
   const [name, setName] = React.useState("");
   const [action, setAction] = React.useState<RuleAction>("NOTIFY");

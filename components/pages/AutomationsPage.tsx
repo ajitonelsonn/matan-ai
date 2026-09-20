@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils/cn";
 import type { Automation, AutomationCategory, SuggestedAutomation } from "@/lib/types";
 import { useAppMode } from "@/components/experience/experience-provider";
 import { SourceBadge } from "@/components/experience/source-badge";
+import { RingAutomationsView } from "@/components/automations/ring-automations-view";
 
 type Cat = "all" | AutomationCategory;
 
@@ -54,12 +55,19 @@ interface WizardState {
 const emptyWizard: WizardState = { name: "", trigger: null, condition: null, action: null, showCondition: false };
 
 export function AutomationsPage({ initialAutomationId }: { initialAutomationId?: string }) {
+  const appMode = useAppMode();
+  // Real Mode automations are Matan Smart Rules on real Ring events; the demo automations
+  // (shared sample store, simulated actions) are never shown there.
+  if (appMode === "ring") return <RingAutomationsView />;
+  return <DemoAutomationsPage initialAutomationId={initialAutomationId} />;
+}
+
+function DemoAutomationsPage({ initialAutomationId }: { initialAutomationId?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
   const confirm = useConfirm();
   const q = useApi(() => automationsApi.list(), []);
-  const appMode = useAppMode();
   const [cat, setCat] = React.useState<Cat>("all");
   const [search, setSearch] = React.useState("");
   const debounced = useDebounce(search, 200);
@@ -201,8 +209,8 @@ export function AutomationsPage({ initialAutomationId }: { initialAutomationId?:
   return (
     <>
       <Topbar
-        title={<span className="flex flex-wrap items-center gap-3">Automations <SourceBadge source={appMode === "ring" ? "ring" : "demo"} short /></span>}
-        subtitle={appMode === "ring" ? "Ring Simulator automations run on Ring-derived events. Turn Ring events into intelligent actions." : "Demo automations run on simulated events. Turn Ring events into intelligent actions."}
+        title={<span className="flex flex-wrap items-center gap-3">Automations <SourceBadge source="demo" short /></span>}
+        subtitle="Demo automations run on simulated events. Turn Ring events into intelligent actions."
         search={{ value: search, onChange: setSearch, placeholder: "Search automations…" }}
         actions={
           <Button

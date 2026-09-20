@@ -24,6 +24,7 @@ import { assistantApi } from "@/lib/api/assistant";
 import { useDataSource } from "@/lib/data/get-data-source";
 import { SourceBadge } from "@/components/experience/source-badge";
 import { automationsApi } from "@/lib/api/automations";
+import { careApi } from "@/lib/api/care";
 import { images } from "@/lib/mock/images";
 import { MOCK_NOW } from "@/lib/mock/clock";
 import { timeAgo } from "@/lib/utils/format";
@@ -69,7 +70,18 @@ export function AssistantPage() {
 
   const convQ = useApi(() => assistantApi.conversations(ds.mode), [ds.mode]);
   const eventsQ = useApi(() => ds.getEvents({ range: "30d", pageSize: 400 }), [ds.mode]);
-  const autoQ = useApi(() => automationsApi.list(), []);
+  const autoQ = useApi(() => (isRing ? Promise.resolve(null) : automationsApi.list()), [isRing]);
+  // Real Mode: the automations are Matan Smart Rules (per user, evaluated on real events).
+  const rulesQ = useApi(() => (isRing ? careApi.rules() : Promise.resolve(null)), [isRing]);
+  const toggleRule = async (id: string, enabled: boolean) => {
+    try {
+      const r = await careApi.updateRule(id, { enabled });
+      rulesQ.setData((d) => (d ? { rules: d.rules.map((x) => (x.id === id ? r.rule : x)) } : d));
+      toast.success(enabled ? "Rule enabled" : "Rule paused", r.rule.name);
+    } catch {
+      toast.error();
+    }
+  };
   const eventMap = React.useMemo(() => Object.fromEntries((eventsQ.data?.items ?? []).map((e) => [e.id, e])) as Record<string, RingEvent>, [eventsQ.data]);
 
   const [conversations, setConversations] = React.useState<AssistantConversation[]>([]);
@@ -356,8 +368,31 @@ export function AssistantPage() {
           </section>
 
           <section className="card p-4" aria-labelledby="auto-title">
-            <SectionHeader icon={<Zap />} title={<span id="auto-title">Automations</span>} subtitle="Manage AI-powered actions" href="/automations" iconTone="warning" />
-            {autoQ.loading ? (
+            <SectionHeader icon={<Zap />} title={<span id="auto-title">{isRing ? "Smart Rules" : "Automations"}</span>} subtitle={isRing ? "Decide what Matan does with each event" : "Manage AI-powered actions"} href="/automations" iconTone="warning" />
+            {isRing ? (
+              rulesQ.loading ? (
+                <div className="space-y-2">
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-12" />
+                  ))}
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {(rulesQ.data?.rules ?? []).slice(0, 4).map((r) => (
+                    <li key={r.id} className="card-inset flex items-center gap-2.5 px-3 py-2.5">
+                      <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-lg border", r.action.type === "ESCALATE" ? "border-danger/25 bg-danger/10 text-danger" : r.action.type === "NOTIFY" ? "border-warning/25 bg-warning/10 text-warning" : "border-primary/25 bg-primary/10 text-primary")}>
+                        <Zap className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13.5px] text-text">{r.name}</span>
+                        <span className="block text-[11px] text-text-3">{r.action.type.charAt(0) + r.action.type.slice(1).toLowerCase()}</span>
+                      </span>
+                      <Toggle size="sm" checked={r.enabled} onChange={(v) => void toggleRule(r.id, v)} label={r.name} />
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : autoQ.loading ? (
               <div className="space-y-2">
                 {[0, 1, 2].map((i) => (
                   <Skeleton key={i} className="h-12" />

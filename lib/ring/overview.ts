@@ -1,9 +1,12 @@
 import "server-only";
-import type { DashboardData, EventCounts, EventPriority, InsightRange, InsightsData, Paginated, RingEvent } from "@/lib/types";
+import type { DashboardData, EventCounts, EventPriority, Insight, InsightRange, InsightsData, Paginated, RingEvent } from "@/lib/types";
 import { getRingDeviceEvents } from "./client";
 import { getRingSession, listConnected, markInvalid, sessionInfo, usableToken } from "./session";
 import { ringEventToMatan, ringToDevice } from "./adapter";
-import { buildInsights, countEvents, eventsInRange } from "@/lib/mock/insights";
+import { buildInsights, countEvents, eventsInRange, type InsightWindow } from "@/lib/mock/insights";
+import { emailPrefs } from "@/lib/matan/notification-email";
+import { getUserSettings } from "@/lib/matan/user-settings";
+import { getCareContext } from "@/lib/matan/rules/store";
 import { getStore } from "@/lib/mock/store";
 import { user, weather } from "@/lib/mock/users";
 import { isRingApiError } from "./errors";
@@ -213,18 +216,42 @@ export async function findRingEvent(id: string) {
   return events.find((e) => e.id === id) ?? null;
 }
 
-export async function buildRingInsights(range: InsightRange): Promise<InsightsData & { stale: boolean; ringSession: RingSessionInfo | null; totalHistory: number }> {
+export async function buildRingInsights(range: InsightRange, window?: InsightWindow | null): Promise<InsightsData & { stale: boolean; ringSession: RingSessionInfo | null; totalHistory: number }> {
   const { events, session, stale } = await getRingEvents();
   const names = Object.fromEntries(listConnected().map((d) => [d.id, d.displayName]));
-  const data = buildInsights(events, range, names);
-  // Never claim AI findings for un-analysed Ring events.
-  data.summary = events.length
-    ? `Matan AI has ${events.length} Ring Simulator ${events.length === 1 ? "event" : "events"} on record across ${listConnected().length} connected ${listConnected().length === 1 ? "device" : "devices"}. New events are analyzed automatically (Nova Pro → Matan Decision Engine); counts below are from Ring event history.`
-    : "No Ring events have been recorded yet. Trigger a Package, Vehicle or Motion simulation in the Ring Playground and refresh.";
-  data.findingNote = events.length ? `${events.length} Ring events recorded · ${events.filter((e) => e.analysis === "done").length} analyzed by Matan AI.` : "Waiting for Ring events.";
-  data.recommendations = [
-    { id: "r-ring-1", title: "Trigger a simulation in the Playground", description: "Package, Vehicle or Motion events appear here after refresh.", tone: "primary", icon: "Sparkles" },
-    { id: "r-ring-2", title: "Keep the Playground session alive", description: "Tokens expire after 30 minutes; reconnect to keep syncing.", tone: "warning", icon: "Clock" },
-  ];
+  const data = buildInsights(events, range, names, window);
+  const current = eventsInRange(events, range, 0, window);
+  const analyzed = current.filter((e) => e.analysis === "done");
+  // The period summary is written on demand by Nova (POST /api/matan/insights/summary);
+  // until then show what the numbers are and never claim AI findings for un-analysed events.
+  data.summary = current.length
+    ? `${current.length} Ring ${current.length === 1 ? "event" : "events"} in this period across ${listConnected().length} connected ${listConnected().length === 1 ? "device" : "devices"}, ${analyzed.length} analyzed by Matan AI. Press Generate to have Matan AI write a summary of this period from the analyzed events.`
+    : "No Ring events in this period. Trigger a Package, Vehicle or Motion simulation in the Ring Playground and refresh.";
+  data.findingNote = current.length ? `${current.length} Ring events in this period · ${analyzed.length} analyzed by Matan AI.` : "Waiting for Ring events.";
+  data.recommendations = ringRecommendations(current, session);
   return { ...data, stale, ringSession: session, totalHistory: events.length };
+}
+
+/** Recommendations derived from the user's real events, settings and session - never generic filler. */
+export function ringRecommendations(current: RingEvent[], session: RingSessionInfo | null): Insight[] {
+  const out: Insight[] = [];
+  const prefs = emailPrefs(getUserSettings());
+  const care = getCareContext();
+  const pending = current.filter((e) => e.analysis === "pending" || e.analysis === "failed");
+  const alerts = current.filter((e) => e.intelligence?.careDecision && "action" in e.intelligence.careDecision && (e.intelligence.careDecision.action === "NOTIFY" || e.intelligence.careDecision.action === "ESCALATE"));
+  const failedMail = current.filter((e) => e.notification?.status === "failed");
+  const packages = current.filter((e) => e.type === "package");
+  const important = current.filter((e) => e.priority === "important");
+
+  if (!current.length) out.push({ id: "r-ring-empty", title: "Trigger a simulation in the Playground", description: "Package, Vehicle or Motion events appear here after refresh.", tone: "primary", icon: "Sparkles", href: "/live" });
+  if (alerts.length && !prefs.address) out.push({ id: "r-ring-email", title: "Add an alert email address", description: `${alerts.length} ${alerts.length === 1 ? "event" : "events"} reached NOTIFY/ESCALATE but no email address is set.`, tone: "warning", icon: "Mail", href: "/settings?tab=notifications" });
+  if (failedMail.length) out.push({ id: "r-ring-mailfail", title: "Some alert emails failed", description: `${failedMail.length} ${failedMail.length === 1 ? "notification" : "notifications"} could not be delivered. Check the alert address and provider.`, tone: "danger", icon: "TriangleAlert", href: "/settings?tab=notifications" });
+  if (pending.length) out.push({ id: "r-ring-pending", title: `${pending.length} ${pending.length === 1 ? "event" : "events"} without analysis`, description: "Open the event and use Analyze / Re-analyze to complete Matan AI's assessment.", tone: "warning", icon: "Sparkles", href: "/events" });
+  if (important.length) out.push({ id: "r-ring-important", title: `${important.length} important ${important.length === 1 ? "event" : "events"} this period`, description: "Review what Matan escalated and confirm the outcome.", tone: "danger", icon: "ShieldAlert", href: "/events?priority=important" });
+  if (packages.length && !care?.enabled) out.push({ id: "r-ring-care", title: "Turn on Care Context", description: `${packages.length} package ${packages.length === 1 ? "event" : "events"} detected. Smart Rules can notify you about deliveries and quiet-hours activity.`, tone: "primary", icon: "HeartHandshake", href: "/settings?tab=care" });
+  const expired = !session || session.status === "expired" || session.status === "invalid" || new Date(session.expiresAt).getTime() <= Date.now();
+  if (expired) out.push({ id: "r-ring-session", title: "Playground session expired", description: "New Ring events stop syncing until you reconnect with a fresh Playground token.", tone: "danger", icon: "Lock", href: "#connect-ring" });
+  else if (new Date(session.expiresAt).getTime() - Date.now() < 5 * 60_000) out.push({ id: "r-ring-session", title: "Playground session is expiring", description: "Tokens last 30 minutes; reconnect to keep new events syncing.", tone: "warning", icon: "Clock", href: "#connect-ring" });
+  if (!out.length) out.push({ id: "r-ring-ok", title: "No action needed", description: `${current.length} events analyzed, alerts configured and Care Context ${care?.enabled ? "on" : "off"}.`, tone: "success", icon: "CircleCheck", href: "/events" });
+  return out.slice(0, 4);
 }

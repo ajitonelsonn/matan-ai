@@ -8,9 +8,12 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export const GET = userRoute(async (req: Request) => {
-  const range = (new URL(req.url).searchParams.get("range") ?? "7d") as InsightRange;
+  const params = new URL(req.url).searchParams;
+  const range = (params.get("range") ?? "7d") as InsightRange;
+  const from = params.get("from");
+  const to = params.get("to");
   try {
-    return NextResponse.json(await buildRingInsights(range));
+    return NextResponse.json(await buildRingInsights(range, from && to ? { from, to } : null));
   } catch (e) {
     return ringError(e);
   }

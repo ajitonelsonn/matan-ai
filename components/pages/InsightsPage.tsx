@@ -29,6 +29,9 @@ import { chartColors } from "@/lib/utils/tones";
 import { cn } from "@/lib/utils/cn";
 import type { InsightRange } from "@/lib/types";
 import { isoDate, lastDaysLabel } from "@/lib/mock/clock";
+import { matanApi, matanErrorFrom } from "@/lib/api/matan";
+import { ApiError } from "@/lib/api/client";
+import { formatTime } from "@/lib/utils/format";
 
 const EventTrendsChart = dynamic(() => import("@/components/charts/StackedBarChart").then((m) => m.EventTrendsChart), { ssr: false, loading: () => <Skeleton className="h-[260px] w-full" /> });
 const DonutChart = dynamic(() => import("@/components/charts/DonutChart").then((m) => m.DonutChart), { ssr: false, loading: () => <Skeleton className="size-[168px] rounded-full" /> });
@@ -54,10 +57,13 @@ export function InsightsPage() {
   const [regenerated, setRegenerated] = React.useState(false);
 
   const ds = useDataSource();
-  const { ring } = useExperience();
+  const { ring, openConnect } = useExperience();
   const isRing = ds.mode === "ring";
-  const q = useApi(() => ds.getInsights(range), [range, ds.mode]);
+  const [applied, setApplied] = React.useState<{ from: string; to: string } | null>(null);
+  const q = useApi(() => ds.getInsights(range, range === "custom" && isRing && applied ? applied : undefined), [range, ds.mode, applied?.from, applied?.to]);
   const d = q.data;
+  const [aiSummary, setAiSummary] = React.useState<{ text: string; model: string | null; generatedAt: string; cached: boolean } | null>(null);
+  React.useEffect(() => setAiSummary(null), [range, ds.mode, applied?.from, applied?.to]);
   const thinHistory = isRing && d && (d.totalHistory ?? d.counts.total) < 10;
 
   React.useEffect(() => {
@@ -71,10 +77,26 @@ export function InsightsPage() {
 
   const generate = async () => {
     setGenerating(true);
-    await new Promise((res) => setTimeout(res, 1300));
-    setGenerating(false);
-    setRegenerated(true);
-    toast.success("Summary generated", "Matan AI refreshed the analysis for this period.");
+    if (!isRing) {
+      // Demo Mode has no AI behind it - make that explicit instead of pretending.
+      await new Promise((res) => setTimeout(res, 1300));
+      setGenerating(false);
+      setRegenerated(true);
+      toast.info("Demo summary simulated", "Switch to Real Mode to have Matan AI (Nova) write a summary of your Ring events.");
+      return;
+    }
+    try {
+      const r = await matanApi.insightsSummary(range, range === "custom" && applied ? applied : undefined);
+      setAiSummary({ text: r.summary, model: r.model, generatedAt: r.generatedAt, cached: r.cached });
+      setRegenerated(true);
+      if (r.model) toast.success(r.cached ? "Summary (cached)" : "Summary generated", `Matan AI (${r.model}) summarized ${r.analyzedCount} analyzed of ${r.eventCount} events.`);
+      else toast.info("Nothing to summarize yet", r.summary);
+    } catch (e) {
+      const m = matanErrorFrom(e);
+      toast.error(m?.title ?? "Summary failed", m?.message ?? (e instanceof ApiError ? e.message : "Please try again."));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const match = (s: string) => !search.trim() || s.toLowerCase().includes(search.trim().toLowerCase());
@@ -95,7 +117,7 @@ export function InsightsPage() {
     <>
       <Topbar
         title={<span className="flex flex-wrap items-center gap-3">AI Insights <SourceBadge source={isRing ? (ring.state === "connected" || ring.state === "expiring" ? "ring" : "ring-expired") : "demo"} short /></span>}
-        subtitle={isRing ? "Trends from your accumulated Ring Simulator events." : "From Ring events to meaningful insights."}
+        subtitle={isRing ? "Trends computed from your real Ring events and Matan AI analyses." : "From Ring events to meaningful insights."}
         search={{ value: search, onChange: setSearch, placeholder: "Search insights…" }}
         actions={
           <Button variant="secondary" leftIcon={<CalendarDays className="size-4" />} onClick={() => setCustomOpen(true)} className="font-medium">
@@ -245,11 +267,11 @@ export function InsightsPage() {
                   <Skeleton className="h-28" />
                 ) : (
                   <div className="relative min-h-[96px]">
-                    <p className={cn("text-[14px] leading-relaxed text-text-2 transition-opacity", generating && "opacity-30")}>{d.summary}</p>
+                    <p className={cn("text-[14px] leading-relaxed text-text-2 transition-opacity", generating && "opacity-30")}>{aiSummary?.text ?? d.summary}</p>
                     {generating && <LoadingOverlay size="sm" label="Generating summary" className="bg-transparent backdrop-blur-0" />}
                     {regenerated && !generating && (
                       <Badge tone="success" size="xs" className="mt-3">
-                        Regenerated just now
+                        {aiSummary?.model ? `Written by ${aiSummary.model}${aiSummary.cached ? " · cached" : ""} · ${formatTime(aiSummary.generatedAt)}` : isRing ? "Checked just now" : "Regenerated just now (demo)"}
                       </Badge>
                     )}
                   </div>
@@ -275,7 +297,7 @@ export function InsightsPage() {
                             title={r.title}
                             description={r.description}
                             tone={r.tone}
-                            onClick={() => router.push(r.id === "rec-1" ? "/events?range=today" : r.id === "rec-2" ? "/automations?create=1&trigger=Package%20detected" : "/settings?tab=notifications")}
+                            onClick={() => (r.href === "#connect-ring" ? openConnect() : router.push(r.href ?? (r.id === "rec-1" ? "/events?range=today" : r.id === "rec-2" ? "/automations?create=1&trigger=Package%20detected" : "/settings?tab=notifications")))}
                             trailing={<ChevronRight className="size-4 text-text-3" />}
                           />
                         </li>
@@ -304,6 +326,11 @@ export function InsightsPage() {
             </Button>
             <Button
               onClick={() => {
+                if (custom.from > custom.to) {
+                  toast.error("Invalid range", "The start date must be before the end date.");
+                  return;
+                }
+                setApplied({ from: custom.from, to: custom.to });
                 setRange("custom");
                 setCustomOpen(false);
                 toast.success("Range applied", `${custom.from} → ${custom.to}`);
@@ -322,7 +349,7 @@ export function InsightsPage() {
             <Input id="to" type="date" value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} />
           </Field>
         </div>
-        <p className="mt-3 text-xs text-text-3">Demo data covers {lastDaysLabel(30)}. Custom ranges use the last 14 days.</p>
+        <p className="mt-3 text-xs text-text-3">{isRing ? "Real Mode: the range is applied to your Ring event history (up to 90 days, ending today at the latest)." : `Demo data covers ${lastDaysLabel(30)}. Custom ranges use the last 14 days.`}</p>
       </Modal>
     </>
   );

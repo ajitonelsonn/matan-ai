@@ -13,5 +13,5 @@ export interface MatanDataSource {
   getDashboard(): Promise<DashboardData & { stale?: boolean; ringSession?: RingSessionInfo | null }>;
   getEvents(query: EventQuery): Promise<EventListResponse & { stale?: boolean }>;
   getEvent(id: string): Promise<RingEvent>;
-  getInsights(range: InsightRange): Promise<InsightsData & { stale?: boolean; totalHistory?: number }>;
+  getInsights(range: InsightRange, window?: { from: string; to: string }): Promise<InsightsData & { stale?: boolean; totalHistory?: number }>;
 }

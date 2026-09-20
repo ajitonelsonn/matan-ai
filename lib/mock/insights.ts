@@ -36,19 +36,48 @@ const hourFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: fals
 const weekdayFmt = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: TIME_ZONE });
 const shortFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: TIME_ZONE });
 
+/** Explicit day window ("YYYY-MM-DD" inclusive) for `range === "custom"`. */
+export interface InsightWindow {
+  from: string;
+  to: string;
+}
+
+const MS_DAY = 86_400_000;
+const utcDay = (key: string) => Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)));
+
+/**
+ * Resolve a range to `{ days, endOffset }`: the window covers `days` days ending on
+ * `isoDate(endOffset)` (0 = today). A custom window is clamped to today and 1..90 days.
+ */
+export function resolveWindow(range: InsightRange, window?: InsightWindow | null): { days: number; endOffset: number } {
+  if (range === "custom" && window && /^\d{4}-\d{2}-\d{2}$/.test(window.from) && /^\d{4}-\d{2}-\d{2}$/.test(window.to)) {
+    const today = utcDay(isoDate(0));
+    const to = Math.min(utcDay(window.to), today);
+    const from = Math.min(utcDay(window.from), to);
+    const days = Math.min(90, Math.max(1, Math.round((to - from) / MS_DAY) + 1));
+    return { days, endOffset: Math.round((to - today) / MS_DAY) };
+  }
+  return { days: rangeDays(range), endOffset: 0 };
+}
+
 function rangeDays(range: InsightRange) {
   return range === "today" ? 1 : range === "7d" ? 7 : range === "30d" ? 30 : 14;
 }
 
-export function eventsInRange(events: RingEvent[], range: InsightRange, offsetDays = 0) {
-  const days = rangeDays(range);
+export function eventsInRange(events: RingEvent[], range: InsightRange, offsetDays = 0, window?: InsightWindow | null) {
+  const { days, endOffset } = resolveWindow(range, window);
   const keys = new Set<string>();
-  for (let i = 0; i < days; i++) keys.add(isoDate(-i - offsetDays));
+  for (let i = 0; i < days; i++) keys.add(isoDate(endOffset - i - offsetDays));
   return events.filter((e) => keys.has(dayKey(e.timestamp)));
 }
 
-export function rangeLabel(range: InsightRange) {
-  const days = rangeDays(range);
+export function rangeLabel(range: InsightRange, window?: InsightWindow | null) {
+  const { days, endOffset } = resolveWindow(range, window);
+  if (endOffset !== 0) {
+    const from = shortFmt.format(new Date(isoDate(endOffset - days + 1) + "T12:00:00+09:00"));
+    const to = shortFmt.format(new Date(isoDate(endOffset) + "T12:00:00+09:00"));
+    return days === 1 ? `${to}, ${isoDate(endOffset).slice(0, 4)}` : `${from} – ${to}, ${isoDate(endOffset).slice(0, 4)}`;
+  }
   if (days === 1) return shortFmt.format(new Date(MOCK_NOW));
   return lastDaysLabel(days);
 }
@@ -61,10 +90,10 @@ const cameraNames: Record<string, string> = {
   "cam-indoor": "Living Room",
 };
 
-export function buildInsights(allEvents: RingEvent[], range: InsightRange, cameraNameOverride?: Record<string, string>): InsightsData {
-  const days = rangeDays(range);
-  const current = eventsInRange(allEvents, range);
-  const previous = eventsInRange(allEvents, range, days);
+export function buildInsights(allEvents: RingEvent[], range: InsightRange, cameraNameOverride?: Record<string, string>, window?: InsightWindow | null): InsightsData {
+  const { days, endOffset } = resolveWindow(range, window);
+  const current = eventsInRange(allEvents, range, 0, window);
+  const previous = eventsInRange(allEvents, range, days, window);
   const counts = countEvents(current);
   const prev = countEvents(previous);
 
@@ -83,7 +112,7 @@ export function buildInsights(allEvents: RingEvent[], range: InsightRange, camer
   const trendDays = Math.min(days, 30);
   const trends: DailyTrendPoint[] = [];
   for (let i = trendDays - 1; i >= 0; i--) {
-    const key = isoDate(-i);
+    const key = isoDate(endOffset - i);
     const dayEvents = current.filter((e) => dayKey(e.timestamp) === key);
     const c = countEvents(dayEvents);
     trends.push({
@@ -189,7 +218,7 @@ export function buildInsights(allEvents: RingEvent[], range: InsightRange, camer
 
   return {
     range,
-    rangeLabel: rangeLabel(range),
+    rangeLabel: rangeLabel(range, window),
     counts,
     deltas,
     trends,

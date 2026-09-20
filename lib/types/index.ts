@@ -275,6 +275,8 @@ export interface Insight {
   description: string;
   tone: "success" | "warning" | "primary" | "danger";
   icon: string;
+  /** Where the card navigates (Real Mode recommendations carry their own link). */
+  href?: string;
 }
 
 export interface Notification {

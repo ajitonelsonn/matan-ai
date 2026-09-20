@@ -22,7 +22,7 @@ export const ringDataSource: MatanDataSource = {
   getDashboard: () => request("/api/ring/overview"),
   getEvents: (q: EventQuery) => request(`/api/ring/overview/events${qs({ ...q, priority: q.priority?.join(",") })}`),
   getEvent: (id) => request(`/api/ring/overview/events${qs({ id })}`),
-  getInsights: (range) => request(`/api/ring/overview/insights${qs({ range })}`),
+  getInsights: (range, window) => request(`/api/ring/overview/insights${qs({ range, from: window?.from, to: window?.to })}`),
 };
 
 export function getDataSource(mode: DataMode): MatanDataSource {

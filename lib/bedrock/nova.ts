@@ -89,3 +89,40 @@ export async function analyzeWithNova(input: NovaAnalysisInput, invoke: Converse
     throw e;
   }
 }
+
+export interface NovaTextResult {
+  text: string;
+  model: string;
+  usage?: { inputTokens?: number; outputTokens?: number };
+  latencyMs: number;
+}
+
+/**
+ * Plain-text generation with Nova (no media, no JSON contract) - used for period
+ * summaries written from already-analyzed events. Throws MatanAiError on failure.
+ */
+export async function generateTextWithNova(system: string, user: string, opts: { maxTokens?: number; temperature?: number } = {}, invoke: ConverseInvoker = defaultInvoker): Promise<NovaTextResult> {
+  if (invoke === defaultInvoker && !isBedrockConfigured()) throw new MatanAiError("MATAN_AI_CONFIGURATION_ERROR");
+  const command: ConverseCommandInput = {
+    modelId: BEDROCK_MODEL_ID,
+    system: [{ text: system }],
+    messages: [{ role: "user", content: [{ text: user }] }],
+    inferenceConfig: { maxTokens: opts.maxTokens ?? 400, temperature: opts.temperature ?? 0.3, topP: 0.9 },
+  };
+  const started = Date.now();
+  let output: ConverseCommandOutput;
+  try {
+    output = await invoke(command);
+  } catch (e) {
+    const err = fromAwsError(e);
+    console.error({ event: "matan_ai_bedrock_error", model: BEDROCK_MODEL_ID, code: err.code, awsError: (e as { name?: string })?.name });
+    throw err;
+  }
+  recordUsage(output.usage?.inputTokens ?? 0, output.usage?.outputTokens ?? 0, false);
+  const text = (output.output?.message?.content ?? [])
+    .map((c) => ("text" in c && typeof c.text === "string" ? c.text : ""))
+    .join("\n")
+    .trim();
+  if (!text) throw new MatanAiError("MATAN_AI_INVALID_RESPONSE", "Nova returned an empty response.");
+  return { text, model: BEDROCK_MODEL_ID, usage: output.usage ? { inputTokens: output.usage.inputTokens, outputTokens: output.usage.outputTokens } : undefined, latencyMs: Date.now() - started };
+}

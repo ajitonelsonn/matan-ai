@@ -41,12 +41,21 @@ Status lines and the panel use `aria-live="polite"` and change only on real stat
 ## Tests
 `tests/event-state.test.ts` (5): state machine mapping incl. demo events never "processing"; stage copy/active flags; timeline transitions with real-timestamp-only rule; failed vs context-only rendering; notification status text incl. "nothing claimed before completion". Full suite **36/36**; `tsc` ✓; `pnpm build` ✓. Fixtures are unit-test only — nothing mocked reaches Real Mode.
 
-## Real Ring Playground acceptance test
-Requires a signed-in browser session with a Playground token (not runnable from the CLI):
-- Motion: **NOT TESTED in this session** — the code path is the existing auto-analysis pipeline, previously verified live (events synced, snapshot from Ring, Nova analysis, DynamoDB/S3 persisted, notification gate logged).
-- Package / Vehicle: **NOT TESTED in this session**. Note from earlier sessions: the Playground's Package/Vehicle/Motion buttons create `on_demand` live-view history entries (no detections), which the engine classifies *normal / no action*; to see a "Notification sent" state set Settings → Notifications → Alert level to **All**.
+## Real Ring Playground acceptance test (performed 2026-09-21)
 
-Procedure: sign in → Real Mode → connect Playground → select device → open Home or Events → trigger a scenario in the Playground → within ≤30 s the event appears with **New**, then Capturing… → Analyzing… → priority badge, status lines and timeline fill in; open the event for the panel/timeline; confirm `dynamodb_hydrated`/`media_persisted`/`email_notification_*` in the server log.
+Signed-in browser session, Real Mode, Playground token, one Playground device; scenarios triggered in the Ring Developer Playground while the Matan Events page was open. Verified from the server log (sync → snapshot → Nova → decision → DynamoDB/S3 → notification) and on screen (New → Capturing… → Analyzing… → badge + status lines + timeline).
+
+| Scenario | Result | Evidence (event ids) |
+| --- | --- | --- |
+| Motion | **PASS** | `ring-UCQZMVIYOFIEZWXQ`, `ring-HMCT65JC66PHIBCN` — snapshot 88 KB, Nova *motion* (5.5 s), priority medium, S3 + DynamoDB, email sent |
+| Package | **PASS** | `ring-OHEGT6UDBXVVLBIB`, `ring-NK62IIYRMR6Y4BF6`, `ring-4BEPYOSR2GGH3QFC`, `ring-Y6YKV5O2NVODWGU2` — Nova *delivery* (4.7–4.9 s), priority low, email sent |
+| Vehicle | **PASS** | `ring-TL6PIWPNWT5QSPXN`, `ring-KQLWRERRRKXPA7ZX` — snapshot 110–113 KB, Nova *vehicle* (5.2–5.6 s), priority normal, email sent |
+| (Animal, extra) | PASS | `ring-AWOK574WXZRUG45L`, `ring-KKD4XOCQY6X4DRJ5` — Nova *animal* |
+
+Also observed: two events synced together were analyzed concurrently and each notified exactly once; Ring's first snapshot attempt occasionally returns `422 GRECO_NO_VALID_KEY` and the `at_timestamp` fallback succeeds; a Playground token expiry surfaced as `refresh 401` → reconnect → sync resumed. Notifications used the SMTP fallback (SES still in Sandbox) with alert level **All**.
+
+### Bug found and fixed during the test
+The auto-analysis scheduler skips `on_demand` history entries that Matan's own snapshot/clip requests create on Ring (to avoid a feedback loop). That filter treated *any* `on_demand` event within **3 minutes** after a Matan media request as Matan's own, so a Playground scenario clicked shortly after an analysis was silently dropped (it showed "Awaiting AI"). Fix (`lib/matan/auto.ts`): an event is Matan's footprint only if it starts within −5 s … +20 s of a request **and** lasts ≤ 6 s (Playground sessions run ~20 s), and each request can claim at most one event. The scheduler now also logs `matan_auto_skipped { fresh, skipped }` per sync so any drop is explained.
 
 ## Security
 Ring token: unchanged memory session; not in any new field. Cognito: all new data flows through the existing `userRoute` + per-user caches. S3: only metadata timestamps are exposed, never keys. No new `NEXT_PUBLIC_*`. Demo Mode: `eventStage()` treats non-Ring events as complete and shows no processing UI.

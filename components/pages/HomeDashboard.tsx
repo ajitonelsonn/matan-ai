@@ -1,6 +1,8 @@
 "use client";
 
 import { useNewItems } from "@/hooks/useNewItems";
+import { matanApi } from "@/lib/api/matan";
+import { ApiError } from "@/lib/api/client";
 
 import * as React from "react";
 import Image from "next/image";
@@ -107,9 +109,26 @@ export function HomeDashboard() {
 
   const sendReport = async () => {
     setSendingReport(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setSendingReport(false);
-    toast.success("Report generated", "Today's summary was sent to ajito@example.com");
+    try {
+      if (!isRing) {
+        // Demo Mode: simulated only - no email is sent from demo data.
+        await new Promise((r) => setTimeout(r, 900));
+        toast.info("Demo report simulated", "In Real Mode this emails today's real Ring summary to your alert address.");
+        return;
+      }
+      const r = await matanApi.sendReport();
+      if (r.status === "sent") toast.success("Report sent", `Today's summary (${r.total ?? 0} events) was emailed via ${r.provider === "smtp" ? "email (SMTP)" : "Amazon SES"}.`);
+      else if (r.status === "duplicate") toast.info("Report already sent", "You can send another report in a few minutes.");
+      else if (r.status === "skipped") toast.info("Report not sent", r.reason);
+      else toast.error("Report failed", r.code);
+    } catch (e) {
+      const p = (e as ApiError).payload as { reason?: string; code?: string; status?: string } | undefined;
+      if (p?.status === "duplicate") toast.info("Report already sent", "You can send another report in a few minutes.");
+      else if (p?.status === "skipped") toast.info("Report not sent", p.reason);
+      else toast.error("Report failed", p?.code ?? "Please try again.");
+    } finally {
+      setSendingReport(false);
+    }
   };
 
   const firstName = data?.user.firstName ?? "";
@@ -237,7 +256,7 @@ export function HomeDashboard() {
                         </h2>
                         <p className="mt-0.5 text-[14px] text-text-2">
                           {isRing ? (
-                            <>{data.latestEvents.length} Ring {data.latestEvents.length === 1 ? "event" : "events"} on record. New Ring events are analyzed automatically by Matan AI (Nova Pro → Matan Decision Engine).</>
+                            <>{data.historyCount ?? data.latestEvents.length} Ring {(data.historyCount ?? data.latestEvents.length) === 1 ? "event" : "events"} on record. New Ring events are analyzed automatically by Matan AI (Nova Pro → Matan Decision Engine).</>
                           ) : (
                             <>
                               Matan AI has analyzed your home activity.
@@ -326,7 +345,7 @@ export function HomeDashboard() {
                     ask(question);
                   }}
                 >
-                  <IconButton label="Voice input" variant="primary" type="button" onClick={() => toast.info("Voice input isn't available in this preview")} className="rounded-xl">
+                  <IconButton label="Voice input (future integration)" variant="primary" type="button" onClick={() => toast.info("Voice input is a future integration", "Type your question for now - Matan AI answers from your real Ring events.")} className="rounded-xl">
                     <Mic />
                   </IconButton>
                   <input

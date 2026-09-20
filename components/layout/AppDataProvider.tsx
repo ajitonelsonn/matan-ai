@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { dashboardApi } from "@/lib/api/dashboard";
+import { request } from "@/lib/api/client";
 import type { DashboardData } from "@/lib/types";
 import { useAppMode } from "@/components/experience/experience-provider";
 import { getDataSource } from "@/lib/data/get-data-source";
@@ -66,8 +67,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const markAllRead = React.useCallback(async () => {
     setData((d) => (d ? { ...d, unreadNotifications: 0, notifications: d.notifications.map((n) => ({ ...n, read: true })) } : d));
-    await dashboardApi.markAllRead();
-  }, []);
+    if (mode === "ring") await request("/api/ring/notifications", { method: "POST", json: { all: true } });
+    else await dashboardApi.markAllRead();
+  }, [mode]);
 
   const markRead = React.useCallback(async (id: string) => {
     setData((d) => {
@@ -75,8 +77,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const notifications = d.notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
       return { ...d, notifications, unreadNotifications: notifications.filter((n) => !n.read).length };
     });
-    await dashboardApi.markRead(id);
-  }, []);
+    if (mode === "ring") await request("/api/ring/notifications", { method: "POST", json: { id } });
+    else await dashboardApi.markRead(id);
+  }, [mode]);
 
   const value = React.useMemo(() => ({ data, mode, loading, error, refresh, markAllRead, markRead }), [data, mode, loading, error, refresh, markAllRead, markRead]);
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

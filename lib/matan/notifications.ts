@@ -7,7 +7,9 @@ import { currentUser, currentUserSub } from "@/lib/auth/server";
 import { getItem, putIfAbsent, putItem, queryPrefix, userPK } from "@/lib/aws/dynamodb";
 import { APP_BASE_URL, isSesConfigured } from "@/lib/aws/ses";
 import { isSmtpConfigured, sendWithFallback } from "./email-transport";
-import { notifyByEmail, type NotificationDeps, type NotificationKind, type NotificationMedia, type NotificationOutcome, type NotificationRecord } from "./notification-email";
+import { buildReportEmail, emailPrefs as prefsOf, notifyByEmail, summarizeDay, type NotificationDeps, type NotificationKind, type NotificationMedia, type NotificationOutcome, type NotificationRecord } from "./notification-email";
+import { getRingEvents } from "@/lib/ring/overview";
+import { getCareContext } from "./rules/store";
 import { getMediaStream, hasMediaSync } from "./media-store";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -160,4 +162,40 @@ export async function sendTestAlert(): Promise<NotificationOutcome> {
   const outcome = await notifyByEmail(event, intelligence, deps(currentUserSub()));
   if (outcome.status === "duplicate") console.info({ event: "email_notification_skipped", eventId: event.id, reason: "test alert cooldown (1/min)" });
   return outcome;
+}
+
+const REPORT_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * Home → "Send Report": summarize today's real Ring events + Matan decisions and email them to the
+ * user's configured alert address through the normal transport. One per 10 minutes per user.
+ */
+export async function sendDailyReport(): Promise<NotificationOutcome & { total?: number }> {
+  if (!currentUser()) return { status: "skipped", reason: "no authenticated user in scope" };
+  if (!isSesConfigured() && !isSmtpConfigured()) return { status: "skipped", reason: "No email provider is configured on the server" };
+  const prefs = prefsOf(getUserSettings());
+  if (!prefs.address) return { status: "skipped", reason: "Set an alert email address in Settings → Notifications first" };
+  const sub = currentUserSub();
+  const { events } = await getRingEvents();
+  const tz = getCareContext()?.timezone ?? "Asia/Dili";
+  const now = new Date();
+  const summary = summarizeDay(events, now, tz);
+  const key = `REPORT-${Math.floor(now.getTime() / REPORT_COOLDOWN_MS)}`;
+  const d = deps(sub);
+  const existing = await d.read(key, "EMAIL");
+  if (existing?.status === "sent" || existing?.status === "pending") return { status: "duplicate", total: summary.total };
+  if (!(await d.claim(key, "EMAIL", { status: "pending" }))) return { status: "duplicate", total: summary.total };
+  const logo = await logoAsset();
+  const content = buildReportEmail(summary, APP_BASE_URL, { logoCid: logo ? "matan-logo" : undefined });
+  try {
+    const { messageId, provider } = await d.send({ to: prefs.address, ...content, attachments: logo ? [{ filename: "matan-ai-logo.png", content: logo.bytes, contentType: logo.contentType, cid: "matan-logo" }] : undefined });
+    await d.write(key, "EMAIL", { status: "sent", messageId, sentAt: now.toISOString(), to: prefs.address, provider });
+    console.info({ event: "daily_report_sent", messageId, provider, total: summary.total });
+    return { status: "sent", messageId, provider, total: summary.total };
+  } catch (e) {
+    const code = (e as { code?: string })?.code ?? "SES_ERROR";
+    await d.write(key, "EMAIL", { status: "failed", code, to: prefs.address }).catch(() => undefined);
+    console.error({ event: "daily_report_failed", code });
+    return { status: "failed", code, total: summary.total };
+  }
 }

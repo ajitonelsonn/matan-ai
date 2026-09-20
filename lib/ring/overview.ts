@@ -14,6 +14,7 @@ import { overlayProcessingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
 import { runMatanPipeline } from "@/lib/matan/pipeline";
 import { currentUser, currentUserSub, withUser } from "@/lib/auth/server";
 import { SK, putIfAbsent, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
+import { buildInbox } from "./inbox";
 
 /**
  * Real-mode read model. Everything here is derived from the Ring Playground
@@ -152,11 +153,13 @@ export async function buildRingDashboard(): Promise<DashboardData & { stale: boo
   const pct = yesterday.length ? Math.round(((today.length - yesterday.length) / yesterday.length) * 100) : 0;
   const store = getStore();
   const active = store.securityModes.find((m) => m.id === store.activeModeId)!;
+  const inbox = buildInbox(events);
   return {
     user,
     weather,
-    notifications: [],
-    unreadNotifications: 0,
+    notifications: inbox.notifications,
+    unreadNotifications: inbox.unread,
+    historyCount: events.length,
     todayCounts,
     todayVsYesterdayPct: pct,
     latestEvents: events.slice(0, 4),

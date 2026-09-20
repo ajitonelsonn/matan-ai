@@ -25,12 +25,27 @@ import { firstNameOf } from "@/lib/auth/user";
 
 const weatherIcons = { sun: Sun, "cloud-sun": CloudSun, cloud: Cloud, rain: CloudRain };
 
+/**
+ * Weather: real only in Demo Mode's sample dataset. There is no weather integration yet,
+ * so Real Mode shows an honest "future integration" chip instead of demo numbers.
+ */
 export function WeatherChip({ className }: { className?: string }) {
-  const { data } = useAppData();
+  const { data, mode } = useAppData();
   if (!data) return <Skeleton className={cn("h-10 w-32", className)} />;
+  if (mode === "ring") {
+    return (
+      <div className={cn("flex items-center gap-2.5 opacity-80", className)} title="Local weather is a future integration - not part of the Ring API and not connected yet." aria-label="Weather: future integration">
+        <CloudSun className="size-6 text-text-3" aria-hidden />
+        <div className="leading-tight">
+          <div className="text-[13px] font-semibold text-text-2">Weather</div>
+          <div className="text-[11px] text-text-3">Future integration</div>
+        </div>
+      </div>
+    );
+  }
   const Icon = weatherIcons[data.weather.icon];
   return (
-    <div className={cn("flex items-center gap-2.5", className)} title={data.weather.condition}>
+    <div className={cn("flex items-center gap-2.5", className)} title={`${data.weather.condition} · demo data`}>
       <Icon className="size-6 text-warning" aria-hidden />
       <div className="leading-tight">
         <div className="text-[15px] font-semibold text-text">{data.weather.tempC}°C</div>
@@ -51,7 +66,7 @@ export function ClockChip({ className }: { className?: string }) {
 }
 
 export function NotificationsButton() {
-  const { data, markAllRead, markRead } = useAppData();
+  const { data, mode, markAllRead, markRead } = useAppData();
   const { open, setOpen, rootRef, triggerRef } = usePopover();
   const router = useRouter();
   const unread = data?.unreadNotifications ?? 0;
@@ -85,6 +100,11 @@ export function NotificationsButton() {
           </Button>
         </div>
         <ul className="max-h-[22rem] overflow-y-auto p-1.5">
+          {data && data.notifications.length === 0 && (
+            <li className="px-3 py-6 text-center text-[13px] text-text-3">
+              {mode === "ring" ? "No Matan notifications yet. Notify / Escalate decisions on your Ring events will appear here." : "You're all caught up."}
+            </li>
+          )}
           {data?.notifications.map((n) => (
             <li key={n.id}>
               <button

@@ -344,3 +344,78 @@ export async function notifyByEmail(event: RingEvent, intelligence: MatanEventIn
     return { status: "failed", code };
   }
 }
+
+/* ---- Daily report (Home → Send Report) --------------------------------------- */
+
+export interface ReportSummary {
+  dateLabel: string;
+  total: number;
+  byType: { label: string; count: number }[];
+  decisions: { ESCALATE: number; NOTIFY: number; MONITOR: number; IGNORE: number };
+  highlights: { title: string; time: string; device: string; action?: string; summary?: string }[];
+}
+
+/** Summarize today's Ring events (already analyzed ones carry decisions) in the given timezone. */
+export function summarizeDay(events: RingEvent[], now: Date, timezone: string): ReportSummary {
+  const dayKey = (d: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: timezone }).format(d);
+  const today = dayKey(now);
+  const todays = events.filter((e) => dayKey(new Date(e.timestamp)) === today).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const counts = new Map<string, number>();
+  const decisions = { ESCALATE: 0, NOTIFY: 0, MONITOR: 0, IGNORE: 0 };
+  for (const e of todays) {
+    const cat = e.intelligence?.analysis.category ?? e.type;
+    counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    const cd = e.intelligence?.careDecision;
+    if (cd && !("failed" in cd)) decisions[cd.action] += 1;
+  }
+  const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: timezone });
+  const rank = { ESCALATE: 0, NOTIFY: 1, MONITOR: 2, IGNORE: 3 } as const;
+  const highlights = [...todays]
+    .sort((a, b) => {
+      const ca = a.intelligence?.careDecision, cb = b.intelligence?.careDecision;
+      const ra = ca && !("failed" in ca) ? rank[ca.action] : 4, rb = cb && !("failed" in cb) ? rank[cb.action] : 4;
+      return ra - rb || new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    })
+    .slice(0, 6)
+    .map((e) => { const cd = e.intelligence?.careDecision; return { title: e.title, time: timeFmt.format(new Date(e.timestamp)), device: e.location, action: cd && !("failed" in cd) ? cd.action : undefined, summary: e.intelligence?.analysis.summary }; });
+  return {
+    dateLabel: new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: timezone }).format(now),
+    total: todays.length,
+    byType: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k.replace(/_/g, " "), count: v })),
+    decisions,
+    highlights,
+  };
+}
+
+export function buildReportEmail(r: ReportSummary, appBaseUrl: string, assets: EmailAssets = {}): EmailContent {
+  const base = appBaseUrl.replace(/\/$/, "");
+  const subject = `Matan AI Daily Report — ${r.dateLabel}`;
+  const text = [
+    `Matan AI daily report for ${r.dateLabel}`,
+    "",
+    `Ring events today: ${r.total}`,
+    ...r.byType.map((t) => `- ${t.label}: ${t.count}`),
+    "",
+    `Decisions: ${r.decisions.ESCALATE} escalate · ${r.decisions.NOTIFY} notify · ${r.decisions.MONITOR} monitor · ${r.decisions.IGNORE} ignore`,
+    "",
+    ...(r.highlights.length ? ["Highlights:", ...r.highlights.map((h) => `- ${h.time} ${h.title} (${h.device})${h.action ? ` — ${h.action}` : ""}${h.summary ? `: ${h.summary}` : ""}`)] : ["No events recorded today."]),
+    "",
+    `Open Matan AI: ${base}/events`,
+  ].join("\n");
+  const logo = assets.logoCid ? `<img src="cid:${assets.logoCid}" width="44" height="44" alt="Matan AI" style="display:block;width:44px;height:44px;border-radius:50%">` : "";
+  const html = `<!doctype html><html><body style="margin:0;background:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif;color:#0b1a33">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#fff;border-radius:18px;overflow:hidden">
+  <tr><td style="background:#0b2a4a;background-image:linear-gradient(90deg,#071a33,#0d3a66);padding:22px 28px;color:#fff"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td>${logo}</td><td style="padding-left:12px"><div style="font-size:20px;font-weight:800;letter-spacing:.14em">MATAN AI</div><div style="font-size:11px;letter-spacing:.18em;color:#5ec8ff">DAILY REPORT</div></td></tr></table></td></tr>
+  <tr><td style="padding:24px 28px 8px"><div style="font-size:24px;font-weight:800">${esc(r.dateLabel)}</div><div style="margin-top:4px;color:#5b6b82">Summary of your Ring events and Matan decisions.</div></td></tr>
+  <tr><td style="padding:12px 28px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    ${[["Events", String(r.total)], ["Escalate", String(r.decisions.ESCALATE)], ["Notify", String(r.decisions.NOTIFY)], ["Monitor", String(r.decisions.MONITOR)]].map(([l, v]) => `<td style="padding:4px"><div style="background:#f4f7fb;border-radius:14px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800">${v}</div><div style="font-size:12px;color:#5b6b82">${l}</div></div></td>`).join("")}
+  </tr></table></td></tr>
+  <tr><td style="padding:8px 28px"><div style="font-size:13px;color:#5b6b82;font-weight:600">By type</div><div style="margin-top:6px;font-size:14px">${r.byType.length ? r.byType.map((t) => `${esc(t.label)} <b>${t.count}</b>`).join(" · ") : "No events today."}</div></td></tr>
+  <tr><td style="padding:12px 28px 4px"><div style="font-size:13px;color:#5b6b82;font-weight:600">Highlights</div>
+    ${r.highlights.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:6px;font-size:14px">${r.highlights.map((h) => `<tr><td style="padding:8px 0;border-bottom:1px solid #e3e9f2"><b>${esc(h.time)}</b> · ${esc(h.title)} <span style="color:#5b6b82">(${esc(h.device)})</span>${h.action ? ` <span style="display:inline-block;padding:1px 8px;border-radius:999px;background:${h.action === "ESCALATE" ? "#fde8e8;color:#b42318" : h.action === "NOTIFY" ? "#fff4e5;color:#b25e09" : "#e6f4ff;color:#0a66c2"};font-size:11px;font-weight:700">${esc(h.action)}</span>` : ""}${h.summary ? `<div style="color:#5b6b82;font-size:13px;margin-top:2px">${esc(h.summary)}</div>` : ""}</td></tr>`).join("")}</table>` : `<div style="margin-top:6px;font-size:14px;color:#5b6b82">No events recorded today.</div>`}
+  </td></tr>
+  <tr><td align="center" style="padding:20px 28px 26px"><a href="${esc(base)}/events" style="display:inline-block;background:#12a8ff;color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 26px;border-radius:12px">Open Matan AI</a><div style="margin-top:14px;font-size:11.5px;color:#7a8799">Sent on request from the Matan AI dashboard.</div></td></tr>
+</table></td></tr></table></body></html>`;
+  return { subject, text, html };
+}

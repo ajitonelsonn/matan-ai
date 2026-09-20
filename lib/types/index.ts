@@ -329,6 +329,8 @@ export interface DashboardData {
   activeModeName: string;
   quickQuestions: string[];
   featuredCameraId: string;
+  /** Real Mode: number of Ring events on record (all history), for copy that must not count only the preview list. */
+  historyCount?: number;
 }
 
 export interface DailyTrendPoint {

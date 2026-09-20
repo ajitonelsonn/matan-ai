@@ -55,6 +55,14 @@ export function shouldEmail(event: RingEvent, intelligence: MatanEventIntelligen
   const prefs = emailPrefs(settings);
   if (!prefs.enabled) return { send: false, reason: "email channel disabled in user settings" };
   if (!prefs.address) return { send: false, reason: "no valid notification email address in user settings" };
+  if (prefs.level === "all") return { send: true }; // testing mode: every completed analysis
+  const cd = intelligence.careDecision;
+  if (cd && "failed" in cd) return { send: false, reason: "rule evaluation failed - not sending without a deterministic decision" };
+  if (cd && cd.facts.careEnabled) {
+    // Care Context + Smart Rules are authoritative: NOTIFY / ESCALATE send, MONITOR / IGNORE don't.
+    if (cd.action === "NOTIFY" || cd.action === "ESCALATE") return { send: true };
+    return { send: false, reason: `smart rules decided ${cd.action}: ${cd.reason}` };
+  }
   if (!meetsAlertLevel(intelligence, prefs.level)) return { send: false, reason: `decision (${intelligence.decision.priority}/${intelligence.decision.action}) is below alert level "${prefs.level}"` };
   return { send: true };
 }
@@ -97,10 +105,12 @@ export function buildEventEmail(event: RingEvent, intelligence: MatanEventIntell
   const timeStr = timeFmt.format(d);
   const time = `${dateStr} at ${timeStr} (Asia/Dili)`;
   const priority = cap(intelligence.decision.priority);
-  const urgent = intelligence.decision.priority === "high" || intelligence.decision.action === "email";
+  const cd = intelligence.careDecision && !("failed" in intelligence.careDecision) ? intelligence.careDecision : undefined;
+  const urgent = cd ? cd.action === "ESCALATE" : intelligence.decision.priority === "high" || intelligence.decision.action === "email";
   const kicker = urgent ? "Security Alert" : intelligence.decision.priority === "normal" ? "Activity Update" : "Activity Alert";
   const subject = `${urgent ? "Matan AI Alert" : "Matan AI Update"} — ${event.title}`;
   const summary = intelligence.analysis.summary || intelligence.decision.explanation;
+  const ruleLine = cd ? `Matan decision: ${cd.action} — ${cd.reason}` : undefined;
   const observations = intelligence.analysis.observations.slice(0, 4);
   const icon = EVENT_ICON[event.type] ?? "👁️";
 
@@ -115,6 +125,7 @@ export function buildEventEmail(event: RingEvent, intelligence: MatanEventIntell
     "",
     "AI Summary:",
     summary,
+    ...(ruleLine ? ["", ruleLine] : []),
     ...(observations.length ? ["", "What Matan AI saw:", ...observations.map((o) => `- ${o}`)] : []),
     "",
     `Open Matan AI: ${link}`,
@@ -201,6 +212,7 @@ export function buildEventEmail(event: RingEvent, intelligence: MatanEventIntell
       <td width="38%" valign="top" style="padding:18px 20px;font-family:Inter,Segoe UI,Arial,sans-serif">
         <div style="font-size:15px;font-weight:700;color:#0a66c2">💡 AI Summary</div>
         <div style="margin-top:10px;background:#e6f4ff;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.55;color:#0b1a33">${esc(summary)}</div>
+        ${ruleLine ? `<div style="margin-top:10px;font-size:12.5px;line-height:1.5;color:#5b6b82"><b style="color:#0b1a33">Matan decision: ${esc(cd!.action)}</b><br>${esc(cd!.reason)}</div>` : ""}
       </td>
     </tr></table>
   </td></tr>

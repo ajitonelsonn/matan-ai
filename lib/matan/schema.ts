@@ -37,6 +37,8 @@ export interface MatanEventIntelligence {
   escalatedFrom?: "snapshot" | "context";
   usage?: { inputTokens?: number; outputTokens?: number };
   mediaNote?: string;
+  /** Matan Care Context + Smart Rules outcome (deterministic), or the evaluation failure. */
+  careDecision?: import("./rules/types").RuleDecision | import("./rules/types").RuleFailure;
 }
 
 export const CATEGORIES: readonly MatanEventCategory[] = ["delivery", "person", "vehicle", "motion", "animal", "doorbell", "unusual_activity", "unknown"];

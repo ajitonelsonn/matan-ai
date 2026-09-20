@@ -48,7 +48,7 @@ export const isProcessing = (event: Pick<RingEvent, "analysis">) => event.analys
 export type StepState = "pending" | "active" | "complete" | "failed" | "skipped";
 
 export interface TimelineStep {
-  key: "received" | "captured" | "analysis" | "decision" | "notification";
+  key: "received" | "captured" | "analysis" | "care" | "rules" | "decision" | "notification";
   label: string;
   state: StepState;
   /** Real timestamp (ISO) when known - never invented. */
@@ -82,12 +82,32 @@ export function timelineSteps(event: RingEvent): TimelineStep[] {
     note: stage === "failed" ? event.analysisError?.code : intel ? `${intel.model}${intel.mediaSource === "ring-clip" ? " · clip" : intel.mediaAnalyzed ? " · snapshot" : " · context only"}` : undefined,
   };
 
+  const cd = intel?.careDecision;
+  const ruleFailed = Boolean(cd && "failed" in cd);
+  const ruleOk = cd && !("failed" in cd) ? cd : undefined;
+
+  const care: TimelineStep = {
+    key: "care",
+    label: "Care context",
+    state: stage === "complete" ? (cd ? "complete" : "skipped") : stage === "failed" ? "failed" : "pending",
+    at: ruleOk?.evaluatedAt ?? cd?.evaluatedAt,
+    note: ruleOk ? (ruleOk.facts.careEnabled ? `${ruleOk.facts.quietHoursActive ? "quiet hours active" : "outside quiet hours"} · risk ${ruleOk.facts.risk}` : "care context off") : stage === "complete" && !cd ? "not evaluated for this analysis" : undefined,
+  };
+
+  const rules: TimelineStep = {
+    key: "rules",
+    label: "Rules evaluated",
+    state: stage === "complete" ? (ruleFailed ? "failed" : cd ? "complete" : "skipped") : stage === "failed" ? "failed" : "pending",
+    at: cd?.evaluatedAt,
+    note: ruleFailed ? `Rule evaluation failed: ${(cd as { error: string }).error}` : ruleOk ? (ruleOk.matchedRuleIds.length ? `matched ${ruleOk.matchedRuleIds.join(", ")}` : "no rule matched") : undefined,
+  };
+
   const decision: TimelineStep = {
     key: "decision",
     label: "Matan decision",
     state: stage === "complete" ? "complete" : stage === "failed" ? "failed" : "pending",
     at: p?.analyzedAt,
-    note: intel ? `${intel.decision.priority.toUpperCase()} · ${actionText(intel.decision.action)}` : undefined,
+    note: ruleOk ? `${ruleOk.action} · ${intel!.decision.priority.toUpperCase()} risk` : intel ? `${intel.decision.priority.toUpperCase()} · ${actionText(intel.decision.action)}` : undefined,
   };
 
   const notification: TimelineStep = {
@@ -98,7 +118,7 @@ export function timelineSteps(event: RingEvent): TimelineStep[] {
     note: notificationText(event),
   };
 
-  return [received, captured, analysis, decision, notification];
+  return [received, captured, analysis, care, rules, decision, notification];
 }
 
 function actionText(action: string) {

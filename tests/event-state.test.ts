@@ -25,19 +25,26 @@ test("stage copy follows the spec's status language and marks active stages", ()
 
 test("timeline uses only real timestamps and transitions pending → active → complete", () => {
   const capturing = timelineSteps({ ...base, analysis: "capturing", processing: { receivedAt: base.timestamp } });
-  assert.deepEqual(capturing.map((s) => s.state), ["complete", "active", "pending", "pending", "pending"]);
+  assert.deepEqual(capturing.map((s) => s.state), ["complete", "active", "pending", "pending", "pending", "pending", "pending"]);
   assert.equal(capturing[1].at, undefined, "no invented capture timestamp");
   const analyzing = timelineSteps({ ...base, analysis: "analyzing", processing: { receivedAt: base.timestamp, capturedAt: "2026-09-20T04:00:05.000Z" } });
-  assert.deepEqual(analyzing.map((s) => s.state), ["complete", "complete", "active", "pending", "pending"]);
+  assert.deepEqual(analyzing.map((s) => s.state), ["complete", "complete", "active", "pending", "pending", "pending", "pending"]);
   const done = timelineSteps({ ...base, analysis: "done", intelligence: intel, processing: { receivedAt: base.timestamp, capturedAt: "2026-09-20T04:00:05.000Z", analyzedAt: intel!.analyzedAt, notifiedAt: "2026-09-20T04:00:25.000Z" }, notification: { status: "sent", sentAt: "2026-09-20T04:00:25.000Z", provider: "ses" } });
-  assert.deepEqual(done.map((s) => s.state), ["complete", "complete", "complete", "complete", "complete"]);
-  assert.equal(done[4].at, "2026-09-20T04:00:25.000Z");
-  assert.ok(done[3].note?.startsWith("HIGH"));
+  assert.deepEqual(done.map((s) => s.state), ["complete", "complete", "complete", "skipped", "skipped", "complete", "complete"], "older analyses without a care decision show the rule steps as skipped");
+  assert.equal(done[6].at, "2026-09-20T04:00:25.000Z");
+  assert.ok(done[5].note?.startsWith("HIGH"));
+  const withRules = timelineSteps({ ...base, analysis: "done", intelligence: { ...intel!, careDecision: { action: "ESCALATE", matchedRuleIds: ["rule-high-risk"], reason: "High-risk event detected.", confidence: 0.9, evaluatedAt: "2026-09-20T04:00:21.000Z", facts: { quietHoursActive: false, risk: "high", eventType: "person", careEnabled: true } } } });
+  assert.deepEqual(withRules.slice(3, 6).map((s) => s.state), ["complete", "complete", "complete"]);
+  assert.equal(withRules[4].note, "matched rule-high-risk");
+  assert.ok(withRules[5].note?.startsWith("ESCALATE"));
+  const failedRules = timelineSteps({ ...base, analysis: "done", intelligence: { ...intel!, careDecision: { failed: true, error: "boom", evaluatedAt: "x" } } });
+  assert.equal(failedRules[4].state, "failed");
+  assert.match(failedRules[4].note ?? "", /Rule evaluation failed/);
 });
 
 test("failed analysis and context-only analysis render distinctly", () => {
   const failed = timelineSteps({ ...base, analysis: "failed", analysisError: { code: "MATAN_AI_UNAVAILABLE", at: "x" } });
-  assert.deepEqual(failed.map((s) => s.state), ["complete", "failed", "failed", "failed", "pending"]);
+  assert.deepEqual(failed.map((s) => s.state), ["complete", "failed", "failed", "failed", "failed", "failed", "pending"]);
   assert.equal(failed[2].note, "MATAN_AI_UNAVAILABLE");
   const contextOnly = timelineSteps({ ...base, analysis: "done", intelligence: { ...intel!, mediaAnalyzed: false, mediaSource: "none", mediaNote: "No media - Ring returned no snapshot" } });
   assert.equal(contextOnly[1].state, "skipped");

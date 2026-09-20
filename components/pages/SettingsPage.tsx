@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, Activity, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
+import { HeartHandshake, Mail, Settings, Bell, ShieldCheck, Brain, Monitor, Globe, Info, House, Clock, Activity, CalendarDays, Layers, TriangleAlert, Package, Users, Cog, Megaphone, ExternalLink, Database, Sparkles, EyeOff, Share2, SlidersHorizontal, UserRound, Lightbulb, Languages, Moon, Palette, Type, MapPin, Ruler, Download, Upload, RotateCcw, BookOpen, LifeBuoy, MessageSquare, ChevronRight, User, Lock, Link2, Crown, KeyRound, Check } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -31,12 +31,14 @@ import { ExperienceSettingsCard } from "@/components/experience/experience-setti
 import { useTheme } from "@/components/experience/theme-provider";
 import { ThemeToggle } from "@/components/experience/theme-toggle";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { CareRulesPanel } from "@/components/care/CareRulesPanel";
 import { AuthLoadingScreen } from "@/components/auth/AuthGuard";
 
-type Tab = "general" | "notifications" | "privacy" | "ai" | "appearance" | "region" | "about";
+type Tab = "general" | "notifications" | "care" | "privacy" | "ai" | "appearance" | "region" | "about";
 const tabs: { value: Tab; label: string; icon: React.ReactNode }[] = [
   { value: "general", label: "General", icon: <Settings /> },
   { value: "notifications", label: "Notifications", icon: <Bell /> },
+  { value: "care", label: "Care & Rules", icon: <HeartHandshake /> },
   { value: "privacy", label: "Privacy & Security", icon: <ShieldCheck /> },
   { value: "ai", label: "AI Preferences", icon: <Brain /> },
   { value: "appearance", label: "Appearance", icon: <Monitor /> },
@@ -461,6 +463,7 @@ export function SettingsPage() {
             )}
             {show("general") && generalCard}
             {show("notifications") && notificationsCard}
+            {tab === "care" && <CareRulesPanel match={match} />}
             {show("privacy") && privacyCard}
             {show("ai") && aiCard}
             {show("appearance") && appearanceCard}

@@ -9,6 +9,9 @@ import { getStore } from "@/lib/mock/store";
 import { getUserSettings } from "./user-settings";
 import { currentUser } from "@/lib/auth/server";
 import { listConnected } from "@/lib/ring/session";
+import { getCareContext, listRules } from "./rules/store";
+import { evaluateMatanRules } from "./rules/evaluate";
+import { quietHoursActive } from "./rules/context";
 import { emailPrefs } from "./notification-email";
 
 /* ---------------------------------------------------------------------------
@@ -74,6 +77,13 @@ export function deviceContextFor(event: RingEvent) {
   };
 }
 
+/** Matan care context facts for Nova (no personal data - just whether quiet hours apply and how sensitive the user is). */
+export function careContextForNova() {
+  const care = getCareContext();
+  if (!care) return undefined;
+  return { enabled: care.enabled, quietHoursActive: quietHoursActive(care, new Date()), sensitivity: care.sensitivity };
+}
+
 /** Build the (reduced) context sent to Nova. Only relevant fields; no tokens, no ids the model doesn't need. */
 export function buildMatanContext(event: RingEvent, recentEvents: RingEvent[], settings: UserSettingsForAnalysis) {
   const related = relatedRecent(event, recentEvents);
@@ -90,6 +100,7 @@ export function buildMatanContext(event: RingEvent, recentEvents: RingEvent[], s
         source: "ring-simulator",
       },
       device: deviceContextFor(event),
+      careContext: careContextForNova(),
       environment: {
         securityMode: settings.securityMode,
         quietHours: settings.quietHours?.enabled ? settings.quietHours.window : "disabled",
@@ -150,9 +161,21 @@ export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], 
   // High-priority events are emailed when the user has the email channel on with a valid address (SES milestone).
   const emailRule = opts.emailRule ?? emailRuleEnabled();
   const decision = decide(nova.analysis, { ...built.decision, detections, highPriorityEmailRule: emailRule });
+  // Care Context + Smart Rules (pure, deterministic). A failure here is recorded, never hidden.
+  let careDecision: MatanEventIntelligence["careDecision"];
+  const care = getCareContext();
+  if (care) {
+    try {
+      careDecision = evaluateMatanRules({ event, analysis: nova.analysis, decision, careContext: care, rules: listRules(), recentEvents, now: new Date() });
+    } catch (e) {
+      careDecision = { failed: true, error: e instanceof Error ? e.message : "rule evaluation failed", evaluatedAt: new Date().toISOString() };
+      console.error({ event: "matan_rules_failed", eventId: event.id, error: careDecision.error });
+    }
+  }
   const intelligence: MatanEventIntelligence = {
     analysis: nova.analysis,
     decision,
+    careDecision,
     analyzedAt: new Date().toISOString(),
     model: nova.model,
     mediaAnalyzed: nova.mediaAnalyzed,
@@ -163,6 +186,7 @@ export async function analyzeEvent(event: RingEvent, recentEvents: RingEvent[], 
   };
   await store.save(event.id, intelligence);
   console.info({ event: "matan_ai_analysis", eventId: event.id, model: nova.model, success: true, category: nova.analysis.category, priority: decision.priority, latencyMs: nova.latencyMs, inputTokens: nova.usage?.inputTokens, outputTokens: nova.usage?.outputTokens, mediaAnalyzed: nova.mediaAnalyzed });
+  if (careDecision && !("failed" in careDecision)) console.info({ event: "matan_rules_evaluated", eventId: event.id, action: careDecision.action, matchedRuleIds: careDecision.matchedRuleIds, quietHours: careDecision.facts.quietHoursActive, repeated: careDecision.facts.repeatedCount });
   return intelligence;
 }
 

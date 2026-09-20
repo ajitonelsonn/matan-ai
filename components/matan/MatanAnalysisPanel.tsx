@@ -13,6 +13,8 @@ import type { AnalysisStatus, MatanPriority } from "@/lib/matan/schema";
 import { formatDate, formatTime } from "@/lib/utils/format";
 import { eventStage, notificationText, notificationTone, stageView } from "@/lib/matan/event-state";
 import { EventTimeline } from "./EventTimeline";
+import { CareDecisionBlock } from "./CareDecisionBlock";
+import { defaultRules } from "@/lib/matan/rules/defaults";
 import { Bell, BellOff, Camera } from "lucide-react";
 
 const priorityTone: Record<MatanPriority, "success" | "warning" | "danger" | "neutral"> = { normal: "success", low: "success", medium: "warning", high: "danger" };
@@ -68,6 +70,7 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
   };
 
   const intel = event.intelligence;
+  const ruleNames = React.useMemo(() => Object.fromEntries(defaultRules().map((r) => [r.id, r.name])), []);
 
   return (
     <section className={cn("card-inset p-4", status === "complete" && intel?.decision.priority === "high" && "border-danger/40")} aria-live="polite" aria-busy={status === "analyzing"}>
@@ -146,8 +149,11 @@ export function MatanAnalysisPanel({ event, onAnalyzed, onReview }: { event: Rin
                 </p>
               )}
 
+              {intel.careDecision && (
+                <CareDecisionBlock decision={intel.careDecision} ruleNames={ruleNames} />
+              )}
               <div className="mt-3 rounded-xl border border-border bg-bg/40 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-text-3">Matan decision</p>
+                <p className="text-[11px] uppercase tracking-wide text-text-3">Risk assessment (Decision Engine)</p>
                 <p className="mt-0.5 text-[13.5px] text-text">{intel.decision.explanation}</p>
                 <ul className="mt-2 space-y-1 text-[12.5px] text-text-2">
                   {intel.decision.reasons.map((r, i) => (

@@ -75,6 +75,27 @@ test("alert level is a minimum priority: all ⊇ low ⊇ medium ⊇ high", () =>
   assert.ok(buildEventEmail(event, intel("email"), "http://x").subject.startsWith("Matan AI Alert —"));
 });
 
+test("smart-rule decisions drive notifications: NOTIFY/ESCALATE send, MONITOR/IGNORE don't, failures never send, 'all' still forces", async () => {
+  const s = settingsWith("a@b.co");
+  const cd = (action: "IGNORE" | "MONITOR" | "NOTIFY" | "ESCALATE", careEnabled = true) => ({ ...intel("none"), careDecision: { action, matchedRuleIds: ["rule-x"], reason: `r-${action}`, confidence: 0.9, evaluatedAt: "x", facts: { quietHoursActive: false, risk: "normal" as const, eventType: "person" as const, careEnabled } } });
+  assert.equal(shouldEmail(event, cd("ESCALATE"), s).send, true);
+  assert.equal(shouldEmail(event, cd("NOTIFY"), s).send, true);
+  assert.equal(shouldEmail(event, cd("MONITOR"), s).send, false);
+  assert.match((shouldEmail(event, cd("IGNORE"), s) as { reason: string }).reason, /smart rules decided IGNORE/);
+  assert.equal(shouldEmail(event, cd("NOTIFY", false), s).send, false, "care off → falls back to alert level (normal < high)");
+  assert.equal(shouldEmail(event, { ...intel("none"), careDecision: { failed: true, error: "x", evaluatedAt: "x" } }, s).send, false);
+  assert.equal(shouldEmail(event, cd("IGNORE"), settingsWith("a@b.co", true, "all")).send, true, "'all' testing level bypasses rules");
+  const f = fakeDeps(s);
+  await notifyByEmail(event, cd("MONITOR"), f.deps);
+  assert.equal(f.sent.length, 0);
+  await notifyByEmail(event, cd("ESCALATE"), f.deps);
+  assert.equal(f.sent.length, 1);
+  assert.ok(f.sent[0].subject.startsWith("Matan AI Alert"), "ESCALATE uses the alert subject");
+  assert.ok(f.sent[0].text.includes("Matan decision: ESCALATE"));
+  await notifyByEmail(event, cd("ESCALATE"), f.deps);
+  assert.equal(f.sent.length, 1, "still one email per event");
+});
+
 test("email content uses existing event/analysis fields and contains no secrets", () => {
   const m = buildEventEmail(event, intel("email"), "http://localhost:3000/");
   assert.equal(m.subject, "Matan AI Alert — Person detected");

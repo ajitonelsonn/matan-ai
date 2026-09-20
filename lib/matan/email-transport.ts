@@ -62,7 +62,15 @@ function mapSmtpError(e: unknown): SmtpError {
 export async function sendViaSmtp(n: EmailNotification): Promise<{ messageId: string }> {
   if (!isSmtpConfigured()) throw new SmtpError("SMTP_CONFIGURATION_ERROR", "SMTP_* variables are not set.");
   try {
-    const info = await transporter().sendMail({ from: `Matan AI <${SMTP.from}>`, to: n.to, replyTo: n.replyTo, subject: n.subject, text: n.text, html: n.html });
+    const info = await transporter().sendMail({
+      from: `Matan AI <${SMTP.from}>`,
+      to: n.to,
+      replyTo: n.replyTo,
+      subject: n.subject,
+      text: n.text,
+      html: n.html,
+      attachments: n.attachments?.map((a) => ({ filename: a.filename, content: Buffer.from(a.content), contentType: a.contentType, cid: a.cid, contentDisposition: a.cid ? ("inline" as const) : ("attachment" as const) })),
+    });
     return { messageId: info.messageId ?? "" };
   } catch (e) {
     throw mapSmtpError(e);

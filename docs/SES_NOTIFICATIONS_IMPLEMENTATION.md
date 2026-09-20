@@ -67,7 +67,10 @@ The Decision Engine's high-priority email rule (`ctx.highPriorityEmailRule`) was
 Settings → Notifications → **Send test alert** → `POST /api/matan/notifications/test` (authenticated, user-scoped, no recipient accepted, 1 per minute per user via the `NOTIFICATION#TEST-<minute>#EMAIL` idempotency record). It builds a synthetic high-priority Ring event and runs the *same* `notifyByEmail` path (gate, content, SES sender + `matan-ai` configuration set). Responses: `sent {messageId}` · `skipped {reason}` (400) · `duplicate` (429) · `failed {code}` (502). The UI explains `SES_MESSAGE_REJECTED` as the Sandbox verified-recipient rule.
 
 ## Email content
-Subject `Matan AI Alert — <event title>`; body lists Event, Device, Time (Asia/Dili), Priority, the analysis summary as "Reason", up to three observations, and an **Open Matan AI** link built from `APP_BASE_URL` (`/events/<id>`), never from request headers. HTML is escaped. No Ring/Cognito tokens, AWS values or storage URLs.
+Branded, table-based HTML (works in Gmail/Outlook) plus a plain-text part:
+header (logo, "MATAN AI · SEE A SAFER TOMORROW", "AI for Safer Communities") → kicker ("Security Alert" for high decisions, otherwise "Activity Alert/Update") + event title + time card → **the snapshot Matan AI analyzed** (inline) beside Device / Event / Time / Priority cards → "✨ What Matan AI saw" (observations) + "💡 AI Summary" → **Open Matan AI** and, when a clip exists, **View Full Clip** buttons (`APP_BASE_URL/events/<id>`, never from request headers) → footer ("Smarter Monitoring for a Safer Timor-Leste 🇹🇱", opt-out note).
+
+Inline images travel as `cid:` attachments (`matan-logo` = `public/brand/matan-ai-logo-160.png`, `matan-snapshot` = the S3 snapshot read through the user's own media store, ≤ 2.5 MB), so no storage URL or login link is ever exposed. With attachments SES is sent **raw MIME** (`Content.Raw`, composed with nodemailer's MailComposer, still through the `matan-ai` configuration set); SMTP passes the same attachments. If media can't be loaded the email still goes out with a placeholder. All text is HTML-escaped; no Ring/Cognito tokens or AWS values appear.
 
 ## Environment
 ```

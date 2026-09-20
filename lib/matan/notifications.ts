@@ -7,7 +7,10 @@ import { currentUser, currentUserSub } from "@/lib/auth/server";
 import { getItem, putIfAbsent, putItem, userPK } from "@/lib/aws/dynamodb";
 import { APP_BASE_URL, isSesConfigured } from "@/lib/aws/ses";
 import { isSmtpConfigured, sendWithFallback } from "./email-transport";
-import { notifyByEmail, type NotificationDeps, type NotificationKind, type NotificationOutcome, type NotificationRecord } from "./notification-email";
+import { notifyByEmail, type NotificationDeps, type NotificationKind, type NotificationMedia, type NotificationOutcome, type NotificationRecord } from "./notification-email";
+import { getMediaStream, hasMediaSync } from "./media-store";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 /**
  * Notification service: wires the pure notification flow to the signed-in user's
@@ -21,10 +24,39 @@ import { notifyByEmail, type NotificationDeps, type NotificationKind, type Notif
  */
 const sk = (eventId: string, kind: NotificationKind) => `NOTIFICATION#${eventId}#${kind}`;
 
+const MAX_INLINE_SNAPSHOT_BYTES = 2_500_000;
+let logoCache: { bytes: Uint8Array; contentType: string } | null | undefined;
+
+async function logoAsset() {
+  if (logoCache !== undefined) return logoCache ?? undefined;
+  try {
+    const bytes = new Uint8Array(await readFile(path.join(process.cwd(), "public", "brand", "matan-ai-logo-160.png")));
+    logoCache = { bytes, contentType: "image/png" };
+  } catch {
+    logoCache = null;
+  }
+  return logoCache ?? undefined;
+}
+
+/** Inline assets for the email: brand logo + the snapshot Matan analyzed (read through the user's own media store). */
+async function emailMedia(eventId: string): Promise<NotificationMedia> {
+  const out: NotificationMedia = { logo: await logoAsset(), hasClip: hasMediaSync(eventId, "clip") };
+  if (!hasMediaSync(eventId, "snapshot")) return out;
+  try {
+    const m = await getMediaStream(eventId, "snapshot");
+    const bytes = m.body instanceof Uint8Array ? m.body : new Uint8Array(await new Response(m.body).arrayBuffer());
+    if (bytes.byteLength <= MAX_INLINE_SNAPSHOT_BYTES) out.snapshot = { bytes, contentType: m.contentType || "image/jpeg", capturedAt: m.capturedAt };
+  } catch (e) {
+    console.warn({ event: "email_snapshot_unavailable", eventId, code: (e as { code?: string })?.code ?? "error" });
+  }
+  return out;
+}
+
 function deps(sub: string): NotificationDeps {
   return {
     settings: getUserSettings,
     appBaseUrl: APP_BASE_URL,
+    media: emailMedia,
     read: async (eventId, kind) => (await getItem<NotificationRecord & { PK: string; SK: string }>(userPK(sub), sk(eventId, kind))) ?? null,
     claim: (eventId, kind, record) => putIfAbsent({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),
     write: (eventId, kind, record) => putItem({ PK: userPK(sub), SK: sk(eventId, kind), type: "NOTIFICATION", eventId, kind, ...record }),

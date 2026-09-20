@@ -44,12 +44,34 @@ export interface EmailNotification {
   text: string;
   html?: string;
   replyTo?: string;
+  /** Inline images (cid:) or files. When present the message is sent as raw MIME. */
+  attachments?: { filename: string; content: Uint8Array; contentType: string; cid?: string }[];
+}
+
+/** Build a raw RFC 5322 message (multipart/related with inline images) using nodemailer's composer. */
+export async function composeRawMime(n: EmailNotification): Promise<Uint8Array> {
+  const { default: MailComposer } = await import("nodemailer/lib/mail-composer");
+  const composer = new MailComposer({
+    from: `Matan AI <${SES_FROM_EMAIL}>`,
+    to: n.to,
+    replyTo: n.replyTo,
+    subject: n.subject,
+    text: n.text,
+    html: n.html,
+    attachments: n.attachments?.map((a) => ({ filename: a.filename, content: Buffer.from(a.content), contentType: a.contentType, cid: a.cid, contentDisposition: a.cid ? "inline" : "attachment" })),
+  });
+  return new Uint8Array(await composer.compile().build());
 }
 
 /** SES v2 SendEmail with Content.Simple (text + optional HTML), always through the Matan configuration set. */
 export async function sendEmail(n: EmailNotification): Promise<{ messageId: string }> {
   if (!isSesConfigured()) throw new SesError("SES_CONFIGURATION_ERROR", "SES_FROM_EMAIL is not set.");
   try {
+    if (n.attachments?.length) {
+      const raw = await composeRawMime(n);
+      const r = await ses().send(new SendEmailCommand({ FromEmailAddress: SES_FROM_EMAIL, Destination: { ToAddresses: [n.to] }, ConfigurationSetName: SES_CONFIGURATION_SET, Content: { Raw: { Data: raw } } }));
+      return { messageId: r.MessageId ?? "" };
+    }
     const r = await ses().send(
       new SendEmailCommand({
         FromEmailAddress: SES_FROM_EMAIL,

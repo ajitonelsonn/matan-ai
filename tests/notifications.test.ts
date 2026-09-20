@@ -25,7 +25,7 @@ const intel = (action: MatanEventIntelligence["decision"]["action"]): MatanEvent
 /** In-memory stand-in for DynamoDB NOTIFICATION# records + a fake SES. */
 function fakeDeps(settings: SettingsData, opts: { fail?: boolean } = {}) {
   const records = new Map<string, NotificationRecord>();
-  const sent: { to: string; subject: string; text: string; html?: string }[] = [];
+  const sent: { to: string; subject: string; text: string; html?: string; attachments?: { cid: string; contentType: string }[] }[] = [];
   const logs: Record<string, unknown>[] = [];
   const deps: NotificationDeps = {
     settings: () => settings,
@@ -80,7 +80,12 @@ test("email content uses existing event/analysis fields and contains no secrets"
   assert.equal(m.subject, "Matan AI Alert — Person detected");
   for (const part of ["Event: Person detected", "Device: Front Door", "Priority: High", "Unknown person lingering", "Adult near the entrance", "Open Matan AI: http://localhost:3000/events/EVT-1"]) assert.ok(m.text.includes(part), part);
   assert.ok(m.html.includes("<!doctype html>") && m.html.includes("Front Door") && m.html.includes("http://localhost:3000/events/EVT-1"));
+  assert.ok(m.html.includes("Security Alert") && m.html.includes("What Matan AI saw") && m.html.includes("AI Summary"));
+  assert.ok(!m.html.includes("View Full Clip"), "no clip button without a clip");
   assert.doesNotMatch(m.text + m.html, /token|Bearer|AKIA|s3:\/\/|amazonaws\.com/i);
+  const withAssets = buildEventEmail(event, intel("email"), "http://localhost:3000", { logoCid: "matan-logo", snapshotCid: "matan-snapshot", snapshotAt: "2026-09-18T12:10:03.000Z", hasClip: true });
+  assert.ok(withAssets.html.includes('src="cid:matan-logo"') && withAssets.html.includes('src="cid:matan-snapshot"') && withAssets.html.includes("View Full Clip"));
+  assert.ok(withAssets.text.includes("View full clip: http://localhost:3000/events/EVT-1?media=clip"));
 });
 
 test("HTML escapes untrusted text", () => {
@@ -98,6 +103,18 @@ test("decision false → no SES call; decision true → one SES call to the user
   assert.equal(yes.sent[0].to, "a@b.co");
   assert.equal(yes.records.get("EVT-1#EMAIL")?.status, "sent");
   assert.ok(yes.logs.some((l) => l.event === "email_notification_sent"));
+});
+
+test("inline media: logo + snapshot become cid attachments; media failure still sends", async () => {
+  const f = fakeDeps(settingsWith("a@b.co"));
+  f.deps.media = async () => ({ logo: { bytes: new Uint8Array([1]), contentType: "image/png" }, snapshot: { bytes: new Uint8Array([2, 3]), contentType: "image/jpeg", capturedAt: "2026-09-18T12:10:03.000Z" }, hasClip: true });
+  assert.equal((await notifyByEmail(event, intel("email"), f.deps)).status, "sent");
+  assert.deepEqual(f.sent[0].attachments?.map((a) => a.cid), ["matan-logo", "matan-snapshot"]);
+  assert.ok(f.sent[0].html?.includes("cid:matan-snapshot") && f.sent[0].html?.includes("View Full Clip"));
+  const g = fakeDeps(settingsWith("a@b.co"));
+  g.deps.media = async () => { throw new Error("S3 down"); };
+  assert.equal((await notifyByEmail(event, intel("email"), g.deps)).status, "sent");
+  assert.equal(g.sent[0].attachments, undefined);
 });
 
 test("duplicate processing of the same event sends one email", async () => {

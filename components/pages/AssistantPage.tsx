@@ -43,10 +43,10 @@ const quickAsk = [
 const ringQuickAsk = [
   { q: "What happened today?", icon: Search },
   { q: "What happened while I was away?", icon: Activity },
-  { q: "Show unusual activity.", icon: Shield },
+  { q: "Was anything unusual or escalated this week?", icon: Shield },
   { q: "Which devices are online?", icon: Video },
-  { q: "How many deliveries happened?", icon: Package },
-  { q: "Why did I receive an alert?", icon: FileText },
+  { q: "How many deliveries happened and were they safe?", icon: Package },
+  { q: "Which alerts did you email me and why?", icon: FileText },
 ];
 
 const greeting = (name: string): AssistantMessage => ({
@@ -152,7 +152,7 @@ export function AssistantPage() {
     const ok = await confirm({ title: "Clear all chats?", description: "Your conversation history with Matan AI will be deleted. Your events and settings are not affected.", confirmLabel: "Clear all" });
     if (!ok) return;
     try {
-      await assistantApi.clear();
+      await assistantApi.clear(undefined, ds.mode);
       setConversations([]);
       newChat();
       toast.success("All chats cleared");
@@ -165,7 +165,7 @@ export function AssistantPage() {
     const ok = await confirm({ title: "Delete this chat?", confirmLabel: "Delete" });
     if (!ok) return;
     try {
-      await assistantApi.clear(id);
+      await assistantApi.clear(id, ds.mode);
       setConversations((list) => list.filter((c) => c.id !== id));
       if (activeId === id) newChat();
       toast.success("Chat deleted");
@@ -197,7 +197,7 @@ export function AssistantPage() {
 
   return (
     <>
-      <Topbar title={<span className="flex flex-wrap items-center gap-3">AI Assistant <SourceBadge source={isRing ? "ring" : "demo"} short /></span>} subtitle={isRing ? "Ask about your connected Ring Simulator devices and their event history." : "Ask anything about your home, business, or Ring devices."} search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
+      <Topbar title={<span className="flex flex-wrap items-center gap-3">AI Assistant <SourceBadge source={isRing ? "ring" : "demo"} short /></span>} subtitle={isRing ? "Matan AI (Amazon Nova) answers from your Ring devices, event history, analyses and Smart Rules." : "Ask anything about your home, business, or Ring devices."} search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
 
       <div className="grid gap-5 xl:grid-cols-12 xl:items-start">
         {/* Recent chats */}
@@ -240,7 +240,7 @@ export function AssistantPage() {
                         <MessageSquare className={cn("mt-0.5 size-4 shrink-0", isActive ? "text-primary" : "text-text-3")} aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13.5px] font-medium text-text">{c.title}</span>
-                          <span className="block text-[11.5px] text-text-3">{timeAgo(c.updatedAt)}</span>
+                          <span className="block text-[11.5px] text-text-3">{timeAgo(c.updatedAt, isRing ? new Date().toISOString() : undefined)}</span>
                         </span>
                       </button>
                       <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -261,7 +261,7 @@ export function AssistantPage() {
         <section className="card relative flex flex-col p-4 sm:p-5 xl:col-span-6 min-h-[560px] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]" aria-label="Conversation">
           <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
             <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-semibold ${isRing ? "border-primary/30 bg-primary/10 text-primary" : "border-purple/30 bg-purple/10 text-purple"}`}>
-              {isRing ? <><span className="size-2 rounded-full bg-current" /> Ring Simulator</> : <>✨ Demo AI</>}
+              {isRing ? <><span className="size-2 rounded-full bg-current" /> Matan AI · Nova · your Ring data</> : <>✨ Demo AI (scripted)</>}
             </span>
             <NovaBadge />
           </div>
@@ -282,7 +282,7 @@ export function AssistantPage() {
                     events={eventMap}
                     onSuggestion={(s) => void send(s)}
                     onOpenEvent={(id) => router.push(`/events/${id}`)}
-                    onFeedback={(k) => toast.success(k === "up" ? "Thanks for the feedback" : "Thanks — Matan will learn from this")}
+                    onFeedback={(k) => toast.info(k === "up" ? "Thanks for the feedback" : "Thanks for flagging this", "Storing feedback to improve answers is a future integration.")}
                     onCopy={() => {
                       void navigator.clipboard?.writeText(m.content);
                       toast.success("Copied to clipboard");
@@ -301,7 +301,7 @@ export function AssistantPage() {
             }}
             className="mt-4 flex items-end gap-2 rounded-2xl border border-primary/40 bg-bg/50 p-2 transition-[border-color,box-shadow] focus-within:border-primary/70 focus-within:shadow-[0_0_0_3px_rgba(18,168,255,0.15)]"
           >
-            <IconButton label="Attach" type="button" onClick={() => toast.info("Attachments aren't available in this preview")}>
+            <IconButton label="Attach" type="button" onClick={() => toast.info("Attachments are a future integration", "Matan already analyzes the Ring clip or snapshot of every event automatically.")}>
               <Paperclip />
             </IconButton>
             <textarea
@@ -314,7 +314,7 @@ export function AssistantPage() {
               aria-label="Message Matan AI"
               className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-[14.5px] text-text placeholder:text-text-3 outline-none"
             />
-            <IconButton label="Voice input" type="button" variant="primary" className="rounded-xl" onClick={() => toast.info("Voice input isn't available in this preview")}>
+            <IconButton label="Voice input" type="button" variant="primary" className="rounded-xl" onClick={() => toast.info("Voice input is a future integration", "Type your question for now.")}>
               <Mic />
             </IconButton>
             <IconButton label="Send message" type="submit" variant="primary" className="rounded-xl" disabled={!input.trim() || sending}>

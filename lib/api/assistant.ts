@@ -8,5 +8,5 @@ export const assistantApi = {
       method: "POST",
       json: { message, conversationId, mode },
     }),
-  clear: (id?: string) => request<{ conversations: AssistantConversation[] }>(`/api/assistant${qs({ id })}`, { method: "DELETE" }),
+  clear: (id?: string, mode: "demo" | "ring" = "demo") => request<{ conversations: AssistantConversation[] }>(`/api/assistant${qs({ id, mode })}`, { method: "DELETE" }),
 };

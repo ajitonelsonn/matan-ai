@@ -120,7 +120,7 @@ export function NotificationsButton() {
                 <span className="min-w-0 flex-1">
                   <span className={cn("block text-sm leading-snug", n.read ? "text-text-2" : "font-semibold text-text")}>{n.title}</span>
                   <span className="mt-0.5 block text-xs text-text-3 leading-relaxed line-clamp-2">{n.body}</span>
-                  <span className="mt-1 block text-[11px] text-text-3">{timeAgo(n.timestamp)}</span>
+                  <span className="mt-1 block text-[11px] text-text-3">{timeAgo(n.timestamp, mode === "ring" ? new Date().toISOString() : undefined)}</span>
                 </span>
               </button>
             </li>

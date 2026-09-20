@@ -1,118 +1,170 @@
-# Amazon SES Notifications — Implementation Notes
+# Email Notifications (Amazon SES + SMTP fallback) — Implementation Notes
 
-Matan AI emails the signed-in user when the **existing Decision Engine** says so (`decision.action === "email"`, i.e. the high-priority automation rule). Email is transactional only, sent server-side through **Amazon SES v2** with the `matan-ai` configuration set, and never for Demo/mock data.
+Matan AI emails the signed-in user when a Matan analysis finishes and the decision clears the user's chosen **alert level**. Email is transactional only, sent **server-side** through **Amazon SES v2** (configuration set `matan-ai`) with an **SMTP fallback** (nodemailer) while the SES account is still in Sandbox. Demo/mock data never emails.
 
-## Status
+```
+Ring event ─▶ Nova Pro analysis ─▶ Matan Decision Engine (final) ─▶ Notification service
+                                                                        ├─ gate: Ring event · email channel on · valid address · priority ≥ alert level
+                                                                        ├─ idempotency: DynamoDB NOTIFICATION#{eventId}#EMAIL
+                                                                        ├─ content: branded HTML + text, inline logo + analyzed snapshot (S3)
+                                                                        └─ transport: Amazon SES ──(sandbox/IAM/transient failure)──▶ SMTP
+```
 
-| Item | State |
+## Status (all implemented)
+
+| Area | State |
 | --- | --- |
-| `lib/aws/ses.ts` server-only SESv2 client, `Content.Simple` text + HTML, configuration set on every send | ✅ |
-| Notification service (`lib/matan/notifications.ts`) + pure flow (`lib/matan/notification-email.ts`) | ✅ |
-| Hooked at the single finalize point (`runMatanPipeline`) → manual and automatic analyses | ✅ |
-| Recipient from `USER#{sub}/SETTINGS` (`notifications.emailAddress`, `channels.email`) + Settings UI row | ✅ |
-| Idempotency `NOTIFICATION#{eventId}#EMAIL` in DynamoDB (claim → send → sent/failed) | ✅ |
-| Unit tests (`tests/notifications.test.ts`, 8) | ✅ 26/26 total |
-| `pnpm ses:check` | ✅ passes (MessageId returned, mail delivered) after adding the configuration-set ARN to IAM |
+| SES v2 client, `Content.Simple` (text + HTML) or `Content.Raw` (with inline images), always via configuration set `matan-ai` | ✅ `lib/aws/ses.ts` |
+| SMTP fallback via nodemailer, pure provider-selection rules | ✅ `lib/matan/email-transport.ts`, `lib/matan/email-provider.ts` |
+| Notification service + pure, unit-tested flow (gate, content, idempotency) | ✅ `lib/matan/notifications.ts`, `lib/matan/notification-email.ts` |
+| Hooked once at the analysis finalize point → manual **and** automatic analyses | ✅ `lib/matan/pipeline.ts` |
+| Decision Engine high-priority email rule wired to user settings | ✅ `lib/matan/analysis.ts` (`emailRuleEnabled`) |
+| Per-user recipient + alert level in `USER#{sub}/SETTINGS`; Settings UI (address modal, alert level, *Send test alert*) | ✅ `components/pages/SettingsPage.tsx` |
+| Test-alert endpoint (authenticated, user-scoped, 1/min) | ✅ `POST /api/matan/notifications/test` |
+| Branded email template with inline logo and the analyzed snapshot | ✅ matches `ilu-pages/email.png` |
+| Scripts `pnpm ses:check`, `pnpm email:check [recipient]` | ✅ |
+| Unit tests: `tests/notifications.test.ts` (10), `tests/email-provider.test.ts` (3) | ✅ 31/31 total |
+| Verified sending domain `matanai.<your-domain>` (DKIM), sender `alerts@…` | ✅ verified in SES |
+| SES production access | ⏳ requested (support case open); SMTP fallback covers unverified recipients meanwhile |
 
-### IAM note (resolved)
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `lib/aws/ses.ts` | Server-only SESv2 client. `sendEmail()` chooses `Simple` or `Raw` (attachments → MIME composed with nodemailer's MailComposer). Safe error codes `SES_ACCESS_DENIED / SES_MESSAGE_REJECTED / SES_THROTTLED / SES_NETWORK / SES_CONFIGURATION_ERROR / SES_ERROR`. |
+| `lib/matan/email-transport.ts` | `sendWithFallback()`: SES → SMTP. SMTP transporter (`SMTP_*`), error codes `SMTP_AUTH / SMTP_REJECTED / SMTP_NETWORK / SMTP_CONFIGURATION_ERROR / SMTP_ERROR`. |
+| `lib/matan/email-provider.ts` | Pure `chooseFallback(failed, code, order, configured)` — which provider to try next. |
+| `lib/matan/notification-email.ts` | Pure: `emailPrefs`, `meetsAlertLevel`, `shouldEmail`, `buildEventEmail` (HTML + text), `notifyByEmail` (orchestration with injected deps). No AWS imports → unit-testable. |
+| `lib/matan/notifications.ts` | Wires the flow to the signed-in user: settings, DynamoDB records, media loader (logo + snapshot), transport. `notifyForIntelligence()`, `sendTestAlert()`. |
+| `lib/matan/pipeline.ts` | Calls `notifyForIntelligence(event, intelligence)` after the decision is final (fire-and-forget). |
+| `lib/matan/analysis.ts` | `emailRuleEnabled()` feeds the Decision Engine's `highPriorityEmailRule`. |
+| `lib/types/index.ts` | `SettingsData.notifications.emailAddress?`, `alertLevel?`. |
+| `app/api/matan/notifications/test/route.ts` | Test alert endpoint. |
+| `components/pages/SettingsPage.tsx` | Notifications tab: *Alert email address*, *Alert level*, *Send test alert*. |
+| `scripts/ses-check.mjs`, `scripts/email-check.mjs` | Diagnostics (never print secrets). |
+| `public/brand/matan-ai-logo-160.png` | 28 KB logo embedded in emails. |
+
+## Environment
 
 ```
-✖ ses:SendEmail on resource arn:aws:ses:us-east-1:<account-id>:configuration-set/matan-ai
-  AccessDeniedException for the app IAM user
+# Amazon SES (primary) — server-only
+SES_FROM_EMAIL=alerts@<verified sending domain>
+SES_CONFIGURATION_SET=matan-ai
+APP_BASE_URL=http://localhost:3000        # links in emails; never derived from request headers
+
+# Fallback — server-only
+EMAIL_PROVIDER=auto                        # auto (SES → SMTP) | ses | smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<mailbox>
+SMTP_PASSWORD=<app password>
+SMTP_FROM=<mailbox or alias>
 ```
 
-This was the initial failure. SES v2 authorizes `SendEmail` against **both** the sender identity ARN **and** the configuration-set ARN when `ConfigurationSetName` is given. The current policy only lists the identity. A diagnostic send *without* the configuration set succeeded (MessageId returned, mail delivered), so credentials, verified sender and Sandbox recipient are fine.
+No `NEXT_PUBLIC_*` variables. `.env` is git-ignored; `.env.example` carries placeholders only.
 
-Fix — add the configuration set to the same statement (least privilege, no `AmazonSESFullAccess`):
+IAM (least privilege, no `AmazonSESFullAccess`):
 
 ```json
 {
   "Effect": "Allow",
   "Action": ["ses:SendEmail", "ses:SendRawEmail"],
   "Resource": [
-    "arn:aws:ses:us-east-1:<account-id>:identity/<verified-sender>",
+    "arn:aws:ses:us-east-1:<account-id>:identity/<verified-sender-or-domain>",
     "arn:aws:ses:us-east-1:<account-id>:configuration-set/matan-ai"
   ]
 }
 ```
 
-Then run `pnpm ses:check` (sends one test email to the verified sender) — it prints the SES MessageId.
+SES v2 authorizes `SendEmail` against **both** the identity **and** the configuration set; omitting the configuration-set ARN produced `AccessDeniedException … on resource …:configuration-set/matan-ai` (our first failure). In Sandbox the *recipient* is also evaluated as an identity (`… on resource …:identity/<recipient>`).
 
-## Flow
+## When an email is sent (gate)
+
+`shouldEmail(event, intelligence, settings)` — all must hold:
+
+1. `event.source === "ring"` — Demo/mock data never emails (Demo Mode also never runs the pipeline).
+2. `settings.notifications.channels.email` is on.
+3. `settings.notifications.emailAddress` is a valid address (normalized lower-case).
+4. `decision.priority` ≥ `settings.notifications.alertLevel`.
+
+**Alert level** (Settings → Notifications → Alert level) is a minimum decision priority; the Decision Engine itself is untouched:
+
+| Level | Emails these decision priorities | Typical use |
+| --- | --- | --- |
+| `high` (default) | high | real households — only when it matters |
+| `medium` | medium, high | more alerts |
+| `low` | low, medium, high | everything notable |
+| `all` | normal, low, medium, high — **every completed analysis** | Ring simulator / demos (Playground live-view sessions are "normal") |
+
+Decision priorities come from the engine: **normal** = nothing of concern (live-view sessions, single daytime motion, animals) · **low** (e.g. delivery) · **medium** (person/doorbell at night, repeated unusual activity) · **high** (repeated person/motion at night with good confidence). The engine's `action: "email"` (high + email rule) is produced only when the user has the email channel on with a valid address (`emailRuleEnabled()`); this rule was a `false` placeholder from the Bedrock milestone and is now live.
+
+Recipient and level are resolved **server-side from the caller's own partition** (`USER#{sub}/SETTINGS`); nothing in a request can choose another user's address. Background auto-analysis runs inside the same user scope, so it emails the right person.
+
+## Idempotency
 
 ```
-Ring event → Nova Pro analysis → Matan decision (final, in runMatanPipeline)
-   → notifyForIntelligence(event, intelligence)           (fire-and-forget, never throws)
-      → shouldEmail: event.source === "ring" && decision.action === "email"
-                     && settings.notifications.channels.email && valid settings.notifications.emailAddress
-      → DynamoDB claim  PK=USER#{sub} SK=NOTIFICATION#{eventId}#EMAIL  { status: "pending" }   (attribute_not_exists)
-      → SES SendEmail (from SES_FROM_EMAIL, ConfigurationSetName=matan-ai, text + HTML)
-      → record { status: "sent", messageId, sentAt, to }   |  { status: "failed", code }
+PK = USER#{sub}
+SK = NOTIFICATION#{eventId}#EMAIL
+{ status: "pending" | "sent" | "failed", messageId?, sentAt?, to?, provider?: "ses" | "smtp", code? }
 ```
 
-- **Decision reuse**: no second risk system. `"notify"` stays in-app; only `"email"` sends mail.
-- **Recipient**: resolved server-side from the caller's own settings partition; nothing in the request can choose it. Sandbox note: the address must be a verified identity (e.g. the same Gmail as the sender) until production access is granted.
-- **Idempotency**: `pending`/`sent` records short-circuit re-processing (re-sync, re-analysis, manual + auto racing); a `failed` record is retried on the next analysis.
-- **Failures**: `SES_ACCESS_DENIED / SES_MESSAGE_REJECTED / SES_THROTTLED / SES_NETWORK / SES_CONFIGURATION_ERROR / SES_ERROR` are logged as `{ event: "email_notification_failed", eventId, code }` and recorded; the analysis response and Ring sync are unaffected.
-- **Logging**: `email_notification_sent { eventId, messageId }`, `email_notification_skipped { eventId, reason }`, `email_notification_failed { eventId, code }`. No addresses in success logs beyond the masked script output; never tokens or bodies.
-- **Demo Mode**: `shouldEmail` rejects any event whose `source !== "ring"`; Demo Mode also never runs the pipeline. Unit tests use fakes — nothing in `pnpm test` talks to SES.
+`claim` = `PutItem` with `attribute_not_exists(PK)` → only one worker (manual click, auto-analysis, re-sync) can own an event. `pending`/`sent` → `duplicate`, nothing sent. `failed` → retried on the next analysis. Re-analysis of the same event therefore never emails twice.
 
-## Decision rule wiring
-The Decision Engine's high-priority email rule (`ctx.highPriorityEmailRule`) was a placeholder left `false` by the Bedrock milestone. It is now `emailRuleEnabled()` = the signed-in user's `channels.email` is on **and** a valid `emailAddress` is set — so a *high* decision (person/motion/unusual activity + Night Mode or quiet hours + ≥2 related events in 30 min, confidence not low) becomes `action: "email"` only for users who opted in.
+## Transport and fallback
 
-## Alert level (user setting)
-`settings.notifications.alertLevel` = `"high"` (default) · `"medium"` · `"low"` · `"all"` is the **minimum decision priority** that is emailed: *high* → high only, *medium* → medium+high, *low* → low+medium+high, *all* → every completed analysis including `"normal"` (nothing of concern, e.g. a live-view session) - intended for simulator/demo testing. The Decision Engine is untouched; only the threshold is user-configurable (Settings → Notifications → Alert level). Subjects read "Matan AI Alert — …" for high decisions and "Matan AI Update — …" otherwise.
+```
+sendWithFallback(n)
+  1. Amazon SES   — SES_FROM_EMAIL, ConfigurationSetName=matan-ai
+                    Simple (text+HTML) or Raw MIME when inline attachments are present
+  2. SMTP         — only when SES fails with SES_MESSAGE_REJECTED / SES_ACCESS_DENIED /
+                    SES_CONFIGURATION_ERROR / SES_THROTTLED / SES_NETWORK / SES_ERROR
+                    and SMTP_* is configured (EMAIL_PROVIDER=auto)
+```
 
-## Test alert
-Settings → Notifications → **Send test alert** → `POST /api/matan/notifications/test` (authenticated, user-scoped, no recipient accepted, 1 per minute per user via the `NOTIFICATION#TEST-<minute>#EMAIL` idempotency record). It builds a synthetic high-priority Ring event and runs the *same* `notifyByEmail` path (gate, content, SES sender + `matan-ai` configuration set). Responses: `sent {messageId}` · `skipped {reason}` (400) · `duplicate` (429) · `failed {code}` (502). The UI explains `SES_MESSAGE_REJECTED` as the Sandbox verified-recipient rule.
+- `EMAIL_PROVIDER=ses` or `smtp` forces one provider; SMTP is always the last link, its failure ends the chain.
+- Logs: `email_provider_fallback { provider, code, next }` on fallback, `email_provider_failed` when nothing is left. The delivery record and `email_notification_sent` carry `provider`.
+- Gmail SMTP needs an App Password (2-step verification), `smtp.gmail.com:587`; Gmail caps ~500 mails/day and sends from the Gmail identity — a stop-gap until SES leaves Sandbox, after which SES simply succeeds first.
 
 ## Email content
-Branded, table-based HTML (works in Gmail/Outlook) plus a plain-text part:
-header (logo, "MATAN AI · SEE A SAFER TOMORROW", "AI for Safer Communities") → kicker ("Security Alert" for high decisions, otherwise "Activity Alert/Update") + event title + time card → **the snapshot Matan AI analyzed** (inline) beside Device / Event / Time / Priority cards → "✨ What Matan AI saw" (observations) + "💡 AI Summary" → **Open Matan AI** and, when a clip exists, **View Full Clip** buttons (`APP_BASE_URL/events/<id>`, never from request headers) → footer ("Smarter Monitoring for a Safer Timor-Leste 🇹🇱", opt-out note).
 
-Inline images travel as `cid:` attachments (`matan-logo` = `public/brand/matan-ai-logo-160.png`, `matan-snapshot` = the S3 snapshot read through the user's own media store, ≤ 2.5 MB), so no storage URL or login link is ever exposed. With attachments SES is sent **raw MIME** (`Content.Raw`, composed with nodemailer's MailComposer, still through the `matan-ai` configuration set); SMTP passes the same attachments. If media can't be loaded the email still goes out with a placeholder. All text is HTML-escaped; no Ring/Cognito tokens or AWS values appear.
+Branded, table-based HTML (renders in Gmail/Outlook) plus a plain-text alternative. Structure, top to bottom:
 
-## Environment
-```
-SES_FROM_EMAIL=<address on the verified sending domain>   # server-only
-SES_CONFIGURATION_SET=matan-ai
-APP_BASE_URL=http://localhost:3000
-```
-No `NEXT_PUBLIC_*` additions.
+1. **Header** — logo · MATAN AI / SEE A SAFER TOMORROW · "AI for Safer Communities".
+2. **Kicker + title + time card** — "Security Alert" (high) / "Activity Alert" (low–medium) / "Activity Update" (normal); event title; date/time in Asia/Dili.
+3. **Snapshot Matan AI analyzed** (inline, with capture time and device caption) beside **Device / Event / Time / Priority** cards (priority colour-coded).
+4. **✨ What Matan AI saw** (up to 4 observations) and **💡 AI Summary**.
+5. **Open Matan AI** button (`APP_BASE_URL/events/<id>`) and **View Full Clip** when a clip exists (`?media=clip`).
+6. **Footer** — logo, "Smarter Monitoring for a Safer Timor-Leste 🇹🇱", opt-out note, copyright.
 
-## Settings
-`SettingsData.notifications.emailAddress?: string` (new, optional) alongside the existing `channels.email` toggle. Settings → Notifications → **Alert email address** row opens a small modal (prefilled with the Cognito email); saving sets the address and turns the email channel on (empty = off). Stored per user in `SETTINGS`.
+Subjects: `Matan AI Alert — <title>` for high decisions, `Matan AI Update — <title>` otherwise.
+
+Inline images are `cid:` attachments — `matan-logo` (the 160 px PNG) and `matan-snapshot` (the S3 snapshot read through the user's own media store, ≤ 2.5 MB). No storage URL, login link, Ring/Cognito token or AWS value ever appears; all text is HTML-escaped. If media can't be loaded the email still goes out with a placeholder panel.
+
+## Test alert
+
+Settings → Notifications → **Send test alert** → `POST /api/matan/notifications/test` (Cognito-authenticated via `userRoute`, no recipient accepted, 1 per minute per user through the `NOTIFICATION#TEST-<minute>#EMAIL` record). Builds a synthetic high-priority Ring event and runs the exact production path (gate, template with logo, idempotency, SES → SMTP). Responses: `sent {messageId, provider}` · `skipped {reason}` 400 · `duplicate` 429 · `failed {code}` 502; the UI names the provider that delivered and explains Sandbox rejections.
+
+## Error handling and logging
+
+- SES/SMTP failures never affect the analysis response or Ring sync: `notifyForIntelligence` is fire-and-forget and `notifyByEmail` never throws.
+- `email_notification_sent { eventId, messageId, provider }` · `email_notification_skipped { eventId, reason }` · `email_notification_failed { eventId, code }` · `email_snapshot_unavailable { eventId, code }`.
+- Never logged: AWS keys, SMTP password, Ring/Cognito tokens, email bodies; script output masks addresses.
 
 ## Verification
-- `tsc --noEmit` ✓ · `pnpm build` ✓ · `pnpm test` 26/26 ✓ (recipient validation, decision gating incl. demo, content + escaping, false→no send, true→one send to the user's address, duplicate→one email, per-user deps, SES failure recorded/retried without throwing).
-- Live: `pnpm ses:check` ✓ — SendEmail via `matan-ai` returned a MessageId and the mail was delivered to the verified Gmail.
-- Pending: the browser flow (Real Mode → high-priority event → email arrives → re-analyze → no duplicate).
 
-## Fallback transport: SMTP via nodemailer
+- `tsc --noEmit` ✓ · `pnpm build` ✓ · `pnpm test` **31/31** — recipient validation; gating per alert level (full priority × level matrix, demo never emails); template content, escaping, cid references, clip button; false → no send; true → one send to the user's address; duplicate → one email; per-user deps; SES failure recorded and retried without throwing; media failure still sends; provider fallback rules.
+- Live: `pnpm ses:check` ✓ (SES via `matan-ai`, MessageId returned, delivered from the domain sender) · `pnpm email:check <unverified recipient>` ✓ (SES `AccessDenied` in Sandbox → SMTP → Gmail `250 OK`) · branded template with inline logo + snapshot delivered via SMTP · in-app *Send test alert* → `email_notification_sent … provider: "smtp"`.
+- Real Mode: analyses run and the gate logs the correct outcome (`email_notification_skipped: decision (normal/none) is below alert level "high"` for a Playground live-view session). With alert level **All**, every completed analysis is emailed.
 
-While SES production access is pending (Sandbox: only verified recipients), the app falls back to SMTP so real users still get alerts.
+## Sandbox → production (what we learned)
 
-```
-notifyByEmail → sendWithFallback()            lib/matan/email-transport.ts
-   1. Amazon SES  (SES_FROM_EMAIL, configuration set matan-ai)
-   2. SMTP        (SMTP_HOST/PORT/USER/PASSWORD/FROM via nodemailer)  ← only if SES fails with
-                   SES_MESSAGE_REJECTED / SES_ACCESS_DENIED / SES_CONFIGURATION_ERROR / SES_THROTTLED / SES_NETWORK / SES_ERROR
-```
+- **Sandbox**: 200 emails/day, 1/s, recipients must be verified identities (also enforced through IAM as `identity/<recipient>`). Hence the SMTP fallback for real users until approval.
+- **Request production access** is disabled in the console until a **sending domain** is verified — a verified email address alone is not enough.
+- Domain identity: SES → Get set up → *Verify sending domain* → a subdomain is fine (`matanai.<your-domain>`) → Easy DKIM → 3 CNAME records at the DNS host → *Verified* / DKIM *Successful*. Then set `SES_FROM_EMAIL=alerts@<domain>` and add `…:identity/<domain>` to the IAM statement (no code change).
+- Production request form: Transactional, website URL, acknowledgement; AWS follows up in a support case asking for volume, list management, bounce/complaint handling and a sample email — answered with the details above (hackathon context, opt-in per user, one email per event, `matan-ai` configuration set metrics).
+- Optional deliverability records: `TXT <domain> "v=spf1 include:amazonses.com ~all"`, `TXT _dmarc.<domain> "v=DMARC1; p=none;"`.
+- After approval: recipients no longer need verification; set `EMAIL_PROVIDER=ses` to retire SMTP explicitly.
 
-- `EMAIL_PROVIDER=auto` (default: SES then SMTP) · `ses` (SES only) · `smtp` (SMTP only).
-- Provider choice is a pure rule (`lib/matan/email-provider.ts`, unit-tested). The delivery record and the `email_notification_sent` log carry `provider: "ses" | "smtp"`; a fallback logs `email_provider_fallback { provider, code, next }`.
-- Content, gating, idempotency and the recipient rule are identical for both providers. SMTP errors map to `SMTP_AUTH / SMTP_REJECTED / SMTP_NETWORK / SMTP_CONFIGURATION_ERROR / SMTP_ERROR`; the password is never logged.
-- Gmail SMTP needs an **App Password** (2-step verification on) - `smtp.gmail.com:587`, `SMTP_FROM` must be that Gmail account or an alias it can send as. Gmail caps sending (~500/day) and is a stop-gap, not the production path.
-- `pnpm email:check [recipient]` walks the same chain and prints which provider delivered. Verified: SES → AccessDenied for an unverified recipient → SMTP → Gmail `250 OK`.
-- Once SES production access is granted, SES will succeed first and SMTP is simply never used; set `EMAIL_PROVIDER=ses` to retire it explicitly.
+## Not implemented (later milestones)
 
-## Going to production (Sandbox → production access)
-
-What we learned setting this up:
-
-- **Sandbox** (default for new accounts): 200 emails/day, 1/s, and *recipients must be verified identities*. IAM is even evaluated against the recipient identity ARN (`ses:SendEmail … on resource identity/<recipient>`), so unverified users simply can't be emailed. The app records these as `SES_MESSAGE_REJECTED` / `SES_ACCESS_DENIED` and carries on.
-- The console's **Request production access** button stays disabled until a **sending domain** is verified. Verifying an email address alone is not enough.
-- Domain identity: SES → Get set up → *Verify sending domain* → Domain (a subdomain is fine, e.g. `matanai.<your-domain>`) → Easy DKIM → publish the 3 CNAMEs at the DNS host → status *Verified*, DKIM *Successful*. Then request production access (Transactional, app URL, use case, bounce/complaint handling).
-- After the domain is verified, set `SES_FROM_EMAIL` to any address on it (e.g. `alerts@matanai.<your-domain>`) and add `arn:aws:ses:<region>:<account-id>:identity/<domain>` to the IAM statement next to the configuration set. No code change - `pnpm ses:check` confirms.
-- Optional deliverability records: `TXT <domain> "v=spf1 include:amazonses.com ~all"` and `TXT _dmarc.<domain> "v=DMARC1; p=none;"`.
-- Once production access is granted the recipient restrictions disappear; each user's alert address just needs to be a real mailbox.
+Bounce/complaint event publishing from the configuration set (auto-disable an address), SNS/SQS/EventBridge/Lambda, inbound email, custom MAIL FROM, templates stored in SES, bulk/marketing mail.

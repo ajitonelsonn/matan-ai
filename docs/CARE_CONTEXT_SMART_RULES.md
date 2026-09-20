@@ -143,6 +143,44 @@ Observations and fixes made during the run:
 - The explanation shows built-in rule names; custom rule names appear inside the reason text ("Rule "…" matched") rather than in the matched-rules list.
 - Rule evaluation runs only when an analysis runs (existing `shouldAnalyze()` and cost guards unchanged); events that are never analyzed get no rule decision.
 
+## Acceptance criteria (spec §24) — status
+
+| # | Criterion | Status | Evidence |
+| --- | --- | --- | --- |
+| 1 | Care Context persisted per Cognito user | ✅ | `CARE_CONTEXT` item; integration test (save → restart → present) |
+| 2 | Rules persisted per Cognito user | ✅ | `RULE#{id}` items; custom + edited built-in survive restart |
+| 3 | User isolation tested | ✅ | integration: user B sees defaults, cannot read/update/delete A's rule (404/false) |
+| 4 | Quiet hours work across midnight | ✅ | unit matrix 21:59 ✗ / 22:00 ✓ / 00:00 ✓ / 05:59 ✓ / 06:00 ✗ in Asia/Dili; live rows 1–4 (`quietHours: true`) |
+| 5 | High-risk escalation overrides quiet hours | ✅ (unit) | `HIGH + quiet → ESCALATE` test; not producible on the Playground |
+| 6 | Low-confidence behaviour deterministic | ✅ | 0.54 → MONITOR, 0.55 → normal, opt-in path |
+| 7 | Repeated-event detection uses real persisted events | ✅ | live row 8: 6 real events in window → ESCALATE (after fix `c3b0cc4`) |
+| 8 | Rule evaluation deterministic and testable | ✅ | pure `evaluateMatanRules`, determinism test, 11 unit tests |
+| 9 | Nova remains an interpretation layer | ✅ | Nova supplies category/confidence only; "Likely normal package delivery" still yields the user's rule |
+| 10 | Existing Decision Engine remains authoritative for risk/actions | ✅ | `decide()` untouched; rules consume its priority/action |
+| 11 | SES remains the notification system | ✅ | `notifyForIntelligence` unchanged; gate reads `careDecision` |
+| 12 | Duplicate notifications prevented | ✅ | existing `NOTIFICATION#` claim; test "still one email per event" |
+| 13 | UI allows viewing and configuring rules | ✅ | Settings → Care & Rules: create / edit / enable-disable / delete with confirmation |
+| 14 | Event UI explains the resulting action | ✅ | Matan decision block (action, reason, matched rules, confidence) + timeline steps |
+| 15 | Existing Live Event Experience functional | ✅ | states unchanged; timeline extended, tests updated |
+| 16 | Existing Ring Account & Device Intelligence functional | ✅ | untouched; device context still sent to Nova |
+| 17 | Real Playground Motion test passes | ✅ | rows 6–8 (IGNORE → ESCALATE via repeated rule) |
+| 18 | Real Playground Package test passes | ✅ | row 5 (NOTIFY), row 2 (MONITOR during quiet hours) |
+| 19 | Real Playground Vehicle test passes | ✅ | row 3 (IGNORE) |
+| 20 | No fake Ring functionality added | ✅ | care/rules are Matan configuration; labelled as such |
+| 21 | No unsupported Ring API claimed | ✅ | no new Ring calls |
+| 22 | `pnpm tsc --noEmit` passes | ✅ | |
+| 23 | `pnpm build` passes | ✅ | |
+| 24 | Full test suite passes | ✅ | 54/54 |
+
+## Commits
+
+| Hash | Change |
+| --- | --- |
+| `9c897f2` | Rule engine, persistence, APIs, UI, pipeline integration, tests |
+| `d41eae5` | Rule decision authoritative for email while Care Context is on (alert level only when off) |
+| `c3b0cc4` | Attach stored analyses to history before repeated-event counting (auto-analysis path) |
+| `8ff4fea`, `eaf3335` | This report; real Playground verification results |
+
 ## Non-Goals (intentionally not implemented)
 
 Ring family/household API, Ring device/siren/lock/camera control, Ring webhooks (real or fake), fake event generators, invented Ring APIs/subscription data/household members, LLM-triggered arbitrary actions, autonomous physical actions.

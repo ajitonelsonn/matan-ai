@@ -19,7 +19,7 @@ export const POST = userRoute(async (_req: Request) => {
   if (!token) return ringCodeError(session ? "RING_TOKEN_EXPIRED" : "RING_NO_SESSION", 401);
   try {
     const devices = await discoverRingDevices(token);
-    markValidated(session!, devices);
+    await markValidated(session!, devices);
     await syncConnected(devices);
     // Also resync Ring event history (bypassing the 60 s cache) so new events + auto-analysis run now.
     const { events } = await getRingEvents(true);

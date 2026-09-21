@@ -2,8 +2,9 @@ import "server-only";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 /** Server-only S3 access for the private Matan media bucket. Credentials come from the server environment. */
-export const S3_MEDIA_BUCKET = process.env.S3_MEDIA_BUCKET ?? "";
-export const isS3Configured = () => Boolean(S3_MEDIA_BUCKET);
+/** Read lazily so a runtime that injects env after module load (or .env.production on Amplify) is honoured. */
+const bucket = () => process.env.S3_MEDIA_BUCKET ?? "";
+export const isS3Configured = () => Boolean(bucket());
 
 declare global {
   // eslint-disable-next-line no-var
@@ -47,7 +48,7 @@ async function run<T>(op: string, fn: () => Promise<T>): Promise<T> {
 }
 
 export async function putObject(key: string, body: Uint8Array, contentType: string, metadata?: Record<string, string>) {
-  await run("PutObject", () => s3().send(new PutObjectCommand({ Bucket: S3_MEDIA_BUCKET, Key: key, Body: body, ContentType: contentType, ContentLength: body.byteLength, Metadata: metadata })));
+  await run("PutObject", () => s3().send(new PutObjectCommand({ Bucket: bucket(), Key: key, Body: body, ContentType: contentType, ContentLength: body.byteLength, Metadata: metadata })));
 }
 
 export interface S3ObjectStream {
@@ -58,17 +59,17 @@ export interface S3ObjectStream {
 
 /** Streamed read - clips can be several MB; snapshots are small. */
 export async function getObjectStream(key: string): Promise<S3ObjectStream> {
-  const r = await run("GetObject", () => s3().send(new GetObjectCommand({ Bucket: S3_MEDIA_BUCKET, Key: key })));
+  const r = await run("GetObject", () => s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key })));
   if (!r.Body) throw new S3Error("MEDIA_NOT_FOUND", "Media not found.", 404);
   return { stream: r.Body.transformToWebStream() as ReadableStream<Uint8Array>, contentType: r.ContentType, contentLength: r.ContentLength };
 }
 
 export async function getObjectBytes(key: string): Promise<{ bytes: Uint8Array; contentType?: string }> {
-  const r = await run("GetObject", () => s3().send(new GetObjectCommand({ Bucket: S3_MEDIA_BUCKET, Key: key })));
+  const r = await run("GetObject", () => s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key })));
   if (!r.Body) throw new S3Error("MEDIA_NOT_FOUND", "Media not found.", 404);
   return { bytes: await r.Body.transformToByteArray(), contentType: r.ContentType };
 }
 
 export async function deleteObject(key: string) {
-  await run("DeleteObject", () => s3().send(new DeleteObjectCommand({ Bucket: S3_MEDIA_BUCKET, Key: key })));
+  await run("DeleteObject", () => s3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key })));
 }

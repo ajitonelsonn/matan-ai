@@ -2,17 +2,23 @@ import "server-only";
 import { cookies } from "next/headers";
 import { RING_PLAYGROUND_TOKEN_LIFETIME_MS, RING_SESSION_COOKIE, RING_TOKEN_EXPIRING_THRESHOLD_MS } from "./constants";
 import type { ConnectedRingDevice, RingAccount, RingDiscoveredDevice, RingSessionInfo } from "./types";
-import { currentUserSub } from "@/lib/auth/server";
-import { SK, deleteItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
+import { chunk, seal, sealKeyFrom, unseal } from "./session-seal";
+import { currentUser, currentUserSub } from "@/lib/auth/server";
+import { SK, deleteItem, getItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 
 /**
- * Server-side Ring Playground session + connected-device store (hackathon Option A).
- * - The raw token lives ONLY here, in server memory, keyed by a random session id.
- * - The browser holds an HttpOnly cookie with the session id - never the token.
+ * Server-side Ring Playground session + connected-device store.
+ * - The raw token is held in server memory keyed by a random session id AND, when
+ *   RING_SESSION_SECRET is set, sealed (AES-256-GCM) into HttpOnly/Secure cookies so a
+ *   stateless runtime (Amplify SSR compute = several short-lived Lambda instances) can
+ *   restore the session on any instance. Browser JavaScript can never read the token;
+ *   it is never written to DynamoDB, S3, logs or responses.
+ * - Discovered-device metadata (no token) is persisted per user (SK=RING_DISCOVERED) so the
+ *   Add-device dialog works on any instance.
  * - Connected devices are per Cognito user, persisted in DynamoDB
  *   (PK=USER#{sub}, SK=DEVICE#{id}) with a per-user in-memory cache, and never
  *   contain the token.
- * Token sessions survive hot reloads via globalThis and are intentionally lost on restart.
+ * Without the secret, sessions live in process memory only (local dev behaviour).
  */
 interface RingSession {
   id: string;
@@ -41,6 +47,78 @@ declare global {
 function state(): RingState {
   if (!globalThis.__matanRing) globalThis.__matanRing = { sessions: new Map(), connected: new Map(), hydrated: new Set() };
   return globalThis.__matanRing;
+}
+
+/* ---- Sealed cookie (stateless runtimes) ---------------------------------- */
+
+const SEAL_COOKIE_PREFIX = `${RING_SESSION_COOKIE}_s`;
+const SEAL_CHUNK = 3500; // stay well under the 4 KB per-cookie limit
+const SEAL_MAX_CHUNKS = 4;
+const DISCOVERED_SK = "RING_DISCOVERED";
+let warnedNoSecret = false;
+
+function sealKey(): Buffer | null {
+  const key = sealKeyFrom(process.env.RING_SESSION_SECRET);
+  if (!key) {
+    if (!warnedNoSecret) {
+      warnedNoSecret = true;
+      console.warn({ event: "ring_session_secret_missing", note: "Ring sessions live in process memory only; set RING_SESSION_SECRET (32+ random chars) for stateless hosting." });
+    }
+    return null;
+  }
+  return key;
+}
+
+/** Write (or clear) the sealed session cookies. No-op without a secret. */
+async function writeSealedCookies(session: RingSession | null) {
+  const key = sealKey();
+  const jar = await cookies();
+  const clear = () => {
+    for (let i = 0; i < SEAL_MAX_CHUNKS; i++) if (jar.get(`${SEAL_COOKIE_PREFIX}${i}`)) jar.delete(`${SEAL_COOKIE_PREFIX}${i}`);
+  };
+  if (!key || !session) return clear();
+  const sealed = seal({ v: 1, id: session.id, token: session.token, createdAt: session.createdAt, expiresAt: session.expiresAt, lastValidatedAt: session.lastValidatedAt, invalidated: session.invalidated, account: session.account ?? null }, key);
+  const chunks = chunk(sealed, SEAL_CHUNK, SEAL_MAX_CHUNKS);
+  if (!chunks) {
+    console.warn({ event: "ring_session_cookie_too_large", bytes: sealed.length });
+    return clear();
+  }
+  const maxAge = Math.ceil((session.expiresAt - Date.now()) / 1000) + 60 * 60;
+  chunks.forEach((c, i) => jar.set(`${SEAL_COOKIE_PREFIX}${i}`, c, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge }));
+  for (let i = chunks.length; i < SEAL_MAX_CHUNKS; i++) if (jar.get(`${SEAL_COOKIE_PREFIX}${i}`)) jar.delete(`${SEAL_COOKIE_PREFIX}${i}`);
+}
+
+async function readSealedSession(id: string): Promise<RingSession | null> {
+  const key = sealKey();
+  if (!key) return null;
+  const jar = await cookies();
+  let sealed = "";
+  for (let i = 0; i < SEAL_MAX_CHUNKS; i++) {
+    const c = jar.get(`${SEAL_COOKIE_PREFIX}${i}`)?.value;
+    if (!c) break;
+    sealed += c;
+  }
+  if (!sealed) return null;
+  const p = unseal(sealed, key);
+  if (!p || p.id !== id) return null;
+  // Discovered-device metadata is restored from the user's DynamoDB item (never in the cookie).
+  let discovered: RingDiscoveredDevice[] = [];
+  const u = currentUser();
+  if (u) {
+    const item = await getItem<{ devices?: RingDiscoveredDevice[] }>(userPK(u.sub), DISCOVERED_SK).catch(() => null);
+    discovered = item?.devices ?? [];
+  }
+  const session: RingSession = { id: p.id, token: p.token, createdAt: p.createdAt, expiresAt: p.expiresAt, lastValidatedAt: p.lastValidatedAt, invalidated: p.invalidated, discovered, account: p.account ?? null };
+  state().sessions.set(session.id, session);
+  console.info({ event: "ring_session_restored", discovered: discovered.length });
+  return session;
+}
+
+async function persistDiscovered(discovered: RingDiscoveredDevice[]) {
+  const u = currentUser();
+  if (!u) return;
+  // Device metadata only (names, capabilities, status) - never the token.
+  await putItem({ PK: userPK(u.sub), SK: DISCOVERED_SK, type: "RING_DISCOVERED", devices: discovered, updatedAt: new Date().toISOString() }).catch((e) => console.warn({ event: "ring_discovered_persist_failed", reason: (e as Error)?.message }));
 }
 
 /** Best-effort expiry from a JWT `exp` claim (no verification - only used for the countdown). */
@@ -83,6 +161,8 @@ export async function createRingSession(token: string, discovered: RingDiscovere
     path: "/",
     maxAge: Math.ceil((session.expiresAt - now) / 1000) + 60 * 60, // keep the cookie a bit longer so the "expired" state is visible
   });
+  await writeSealedCookies(session);
+  await persistDiscovered(discovered);
   return session;
 }
 
@@ -94,7 +174,7 @@ async function readSessionId() {
 export async function getRingSession(): Promise<RingSession | null> {
   const id = await readSessionId();
   if (!id) return null;
-  return state().sessions.get(id) ?? null;
+  return state().sessions.get(id) ?? (await readSealedSession(id));
 }
 
 export function sessionInfo(session: RingSession | null): RingSessionInfo | null {
@@ -117,9 +197,12 @@ export function usableToken(session: RingSession | null): string | null {
   return session.token;
 }
 
-export function markValidated(session: RingSession, discovered?: RingDiscoveredDevice[]) {
+export async function markValidated(session: RingSession, discovered?: RingDiscoveredDevice[]) {
   session.lastValidatedAt = Date.now();
-  if (discovered) session.discovered = discovered;
+  if (discovered) {
+    session.discovered = discovered;
+    await persistDiscovered(discovered);
+  }
 }
 
 export function markInvalid(session: RingSession) {
@@ -132,6 +215,7 @@ export async function destroyRingSession() {
   if (id) state().sessions.delete(id);
   const jar = await cookies();
   jar.delete(RING_SESSION_COOKIE);
+  await writeSealedCookies(null);
 }
 
 /* ---- Connected devices (per user, DynamoDB-backed) ----------------------- */

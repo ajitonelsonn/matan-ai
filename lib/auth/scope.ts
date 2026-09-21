@@ -18,7 +18,7 @@ declare global {
 function logRuntimeConfig() {
   if (globalThis.__matanRuntimeLogged) return;
   globalThis.__matanRuntimeLogged = true;
-  console.info({ event: "runtime_config", s3: isS3Configured(), ses: Boolean(process.env.SES_FROM_EMAIL), smtp: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER), ringSessionSecret: Boolean(process.env.RING_SESSION_SECRET), appBaseUrl: Boolean(process.env.APP_BASE_URL), dynamoTable: process.env.DYNAMODB_TABLE_NAME ?? "MatanAI (default)" });
+  console.info({ event: "runtime_config", s3: isS3Configured(), ses: Boolean(process.env.SES_FROM_EMAIL), smtp: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER), smtpPassword: Boolean(process.env.SMTP_PASSWORD), ringSessionSecret: Boolean(process.env.RING_SESSION_SECRET), appBaseUrl: Boolean(process.env.APP_BASE_URL), dynamoTable: process.env.DYNAMODB_TABLE_NAME ?? "MatanAI (default)" });
 }
 
 /** Warm every per-user cache from DynamoDB (each is a single Query/GetItem, once per process per user). */

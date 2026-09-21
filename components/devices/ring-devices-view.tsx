@@ -36,6 +36,8 @@ import { ringKindIcon, ringKindLabel } from "./ring-device-card";
 import { useRingCountdown } from "./use-ring-session";
 import { SourceBadge } from "@/components/experience/source-badge";
 import { RingAccountCard, RingCapabilityMatrix, RingConfigurationSummary, RingFutureFeaturesCard, RingRegion } from "./ring-intelligence";
+import { SnapshotViewer } from "./ring-live-tools";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 type Tab = "all" | RingDeviceKind | "offline";
 type SortKey = "name" | "status" | "type" | "recent";
@@ -50,7 +52,8 @@ const sortOptions = [
 export interface RingDevicesViewProps {
   initialDeviceId?: string;
   sourceSwitch?: React.ReactNode;
-  onBrowseDemo: () => void;
+  /** Demo Mode only: switch the page to the sample devices. Absent in Real Mode (nothing demo is shown there). */
+  onBrowseDemo?: () => void;
   /** Lifted so the container can decide the default source. */
   onConnectedChange?: (count: number) => void;
 }
@@ -156,6 +159,15 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
       toast.error();
     }
   };
+  const updateDevice = async (d: ConnectedRingDevice, patch: { aiEnabled?: boolean; favorite?: boolean }) => {
+    try {
+      const updated = await ringApi.update(d.id, patch);
+      setData({ connected: connected.map((x) => (x.id === updated.id ? updated : x)) });
+      toast.success(patch.aiEnabled !== undefined ? (patch.aiEnabled ? "Matan AI analysis on" : "Matan AI analysis off") : updated.favorite ? "Added to favorites" : "Removed from favorites", updated.displayName);
+    } catch {
+      toast.error();
+    }
+  };
   const toggleFavorite = async (d: ConnectedRingDevice) => {
     try {
       const updated = await ringApi.update(d.id, { favorite: !d.favorite });
@@ -216,7 +228,7 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
         subtitle={
           connected.length ? (
             <>
-              Devices discovered from the Ring Developer Playground · {counts.online} Online · {counts.offline + counts.unknown} {live ? "Offline" : "Connection expired"}
+              Devices discovered from the Ring Developer Playground · {live ? `${counts.online} Online · ${counts.offline + counts.unknown} Offline` : `session expired - status is last known (${counts.online} online, ${counts.offline + counts.unknown} offline at last check)`}
             </>
           ) : (
             "Connect your Ring devices. Matan AI uses Ring events and media to understand what is happening around your home or business."
@@ -281,9 +293,11 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
                       <Button size="lg" leftIcon={<Plus className="size-4" />} onClick={() => setAddOpen(true)}>
                         Add Ring Device
                       </Button>
-                      <Button size="lg" variant="ghost" leftIcon={<FlaskConical className="size-4" />} onClick={onBrowseDemo}>
-                        Browse demo devices
-                      </Button>
+                      {onBrowseDemo && (
+                        <Button size="lg" variant="ghost" leftIcon={<FlaskConical className="size-4" />} onClick={onBrowseDemo}>
+                          Browse demo devices
+                        </Button>
+                      )}
                     </div>
                   }
                   className="relative py-16"
@@ -316,6 +330,12 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
                 ))}
               </div>
             )}
+            {connected.length > 0 && (
+              <div className="mt-5 grid gap-5 lg:grid-cols-12">
+                <RingAccountCard account={session?.account} className="lg:col-span-4 lg:self-start" />
+                <RingFutureFeaturesCard devices={connected} className="lg:col-span-8" columns={2} />
+              </div>
+            )}
           </div>
 
           <div className="space-y-5 xl:col-span-3">
@@ -336,13 +356,13 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
                     </div>
                     <div className="px-3">
                       <div className="flex items-center gap-1.5 text-[26px] font-bold leading-none text-text tabular-nums">
-                        <StatusDot tone="success" /> {counts.online}
+                        <StatusDot tone={live ? "success" : "neutral"} /> {counts.online}
                       </div>
-                      <div className="mt-1 text-[12px] text-text-3">Online</div>
+                      <div className="mt-1 text-[12px] text-text-3">{live ? "Online" : "Last known online"}</div>
                     </div>
                     <div className="pl-3">
                       <div className="flex items-center gap-1.5 text-[26px] font-bold leading-none text-text tabular-nums">
-                        <StatusDot tone="danger" /> {counts.offline + counts.unknown}
+                        <StatusDot tone={live ? "danger" : "neutral"} /> {counts.offline + counts.unknown}
                       </div>
                       <div className="mt-1 text-[12px] text-text-3">{counts.unknown ? "Offline/unknown" : "Offline"}</div>
                     </div>
@@ -372,8 +392,12 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
               </>
             )}
 
-            <RingAccountCard account={session?.account} />
-            <RingFutureFeaturesCard devices={connected} />
+            {connected.length === 0 && (
+              <>
+                <RingAccountCard account={session?.account} />
+                <RingFutureFeaturesCard devices={connected} />
+              </>
+            )}
 
             <section className="card p-5" aria-labelledby="ring-help">
               <SectionHeader icon={<CircleHelp />} title={<span id="ring-help">Need Help?</span>} />
@@ -423,8 +447,8 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
       </Modal>
 
       {/* Detail drawer */}
-      <Drawer open={Boolean(detail)} onClose={() => setDetailId(null)} title={detail?.displayName} description={detail ? `${detail.model ? `Ring ${detail.model}` : ringKindLabel[detail.deviceType]}${detail.locationLabel ? ` · ${detail.locationLabel}` : ""}` : undefined} width="max-w-lg">
-        {detail && <RingDeviceDetail device={detail} live={live} onEdit={() => openEdit(detail)} onRemove={() => void remove(detail)} onRefreshStatus={() => void refreshStatus(detail)} onEvents={() => setEventsOpenFor(detail.id)} />}
+      <Drawer open={Boolean(detail)} onClose={() => setDetailId(null)} title={detail?.displayName} description={detail ? `${detail.model ? `Ring ${detail.model}` : ringKindLabel[detail.deviceType]}${detail.locationLabel ? ` · ${detail.locationLabel}` : ""}` : undefined} width="max-w-3xl">
+        {detail && <RingDeviceDetail device={detail} live={live} onEdit={() => openEdit(detail)} onRemove={() => void remove(detail)} onRefreshStatus={() => void refreshStatus(detail)} onEvents={() => setEventsOpenFor(detail.id)} onUpdate={(patch) => updateDevice(detail, patch)} />}
       </Drawer>
 
       {/* Events drawer */}
@@ -444,62 +468,131 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function RingDeviceDetail({ device, live, onEdit, onRemove, onRefreshStatus, onEvents }: { device: ConnectedRingDevice; live: boolean; onEdit: () => void; onRemove: () => void; onRefreshStatus: () => void; onEvents: () => void }) {
+function RingDeviceDetail({ device, live, onEdit, onRemove, onRefreshStatus, onEvents, onUpdate }: { device: ConnectedRingDevice; live: boolean; onEdit: () => void; onRemove: () => void; onRefreshStatus: () => void; onEvents: () => void; onUpdate: (patch: { aiEnabled?: boolean; favorite?: boolean }) => Promise<void> }) {
   const Icon = ringKindIcon[device.deviceType];
+  const toast = useToast();
+  const [snap, setSnap] = React.useState<{ src: string; capturedAt?: string } | null>(null);
+  const [snapBusy, setSnapBusy] = React.useState(false);
+  const [busy, setBusy] = React.useState<"ai" | "favorite" | null>(null);
+  const now = new Date().toISOString();
+  const online = device.status === "online";
+  const canSnapshot = live && device.details.snapshot !== false;
+
+  const snapshot = async () => {
+    setSnapBusy(true);
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.accessToken?.toString();
+      const res = await fetch(`/api/ring/devices/${device.id}/snapshot`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        toast.info("No snapshot", j?.error?.message ?? "Ring returned no image.");
+        return;
+      }
+      setSnap({ src: URL.createObjectURL(await res.blob()), capturedAt: res.headers.get("X-Media-Captured-At") ?? undefined });
+    } catch {
+      toast.error("Snapshot failed", "Please try again.");
+    } finally {
+      setSnapBusy(false);
+    }
+  };
+  const patch = async (kind: "ai" | "favorite", value: boolean) => {
+    setBusy(kind);
+    try {
+      await onUpdate(kind === "ai" ? { aiEnabled: value } : { favorite: value });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
-    <div className="space-y-5">
-      <div className="relative aspect-video overflow-hidden rounded-2xl border border-border bg-surface-2">
-        <SafeImage src={device.imageUrl} alt="" sizes="480px" fallbackIcon={<Icon className="size-8" />} fallbackLabel="Preview unavailable" className="[&_img]:object-contain [&_img]:p-8" grayscale={device.status !== "online"} />
-        <div className="absolute left-3 top-3 flex items-center gap-2">
-          <Badge tone={device.status === "online" ? "success" : device.status === "offline" ? "danger" : "neutral"} dot>{device.status === "online" ? "Online" : device.status === "offline" ? "Offline" : "Unknown"}</Badge>
-          <RingBadge size="xs" />
-          {device.favorite && <Badge tone="warning" size="xs" icon={<Star className="size-3" />}>Favorite</Badge>}
+    <div className="space-y-6">
+      {/* Hero: image + identity + primary actions */}
+      <div className="grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-surface-2 sm:aspect-auto sm:min-h-[220px]">
+          <SafeImage src={device.imageUrl} alt="" sizes="240px" fallbackIcon={<Icon className="size-8" />} fallbackLabel="Preview unavailable" className="[&_img]:object-contain [&_img]:p-6" grayscale={!online} />
+          <div className="absolute left-3 top-3 flex items-center gap-2">
+            <Badge tone={!live ? "neutral" : online ? "success" : device.status === "offline" ? "danger" : "neutral"} dot>{!live ? `Last known: ${online ? "Online" : device.status === "offline" ? "Offline" : "Unknown"}` : online ? "Online" : device.status === "offline" ? "Offline" : "Unknown"}</Badge>
+            <RingBadge size="xs" />
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[22px] font-bold leading-tight text-text">{device.displayName}</h3>
+              {device.favorite && <Badge tone="warning" size="xs" icon={<Star className="size-3" />}>Favorite</Badge>}
+              {!device.aiEnabled && <Badge tone="neutral" size="xs">Matan AI off</Badge>}
+            </div>
+            <p className="mt-0.5 text-[14px] text-text-2">
+              {device.model ? `Ring ${device.model}` : ringKindLabel[device.deviceType]} · {ringKindLabel[device.deviceType]}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-text-3">
+              <span className="inline-flex items-center gap-1"><MapPin className="size-3.5" /> {device.locationLabel ?? "Location not set"}</span>
+              <RingRegion device={device} />
+              <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> synced {timeAgo(device.lastSyncedAt, now)}</span>
+            </div>
+            {!live && <p className="mt-2 text-[12.5px] text-warning">Ring session expired - live view, snapshot and status refresh resume after you reconnect.</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" leftIcon={<Video className="size-4" />} href={`/live?camera=ring:${device.id}`} disabled={!live || device.details.video === false}>Live view</Button>
+            <Button size="sm" variant="secondary" leftIcon={<Camera className="size-4" />} onClick={() => void snapshot()} loading={snapBusy} disabled={!canSnapshot} title={canSnapshot ? "Fresh snapshot from Ring (needs a live view or a recent simulation)" : "Reconnect Ring to request a snapshot"}>Snapshot</Button>
+            <Button size="sm" variant="secondary" leftIcon={<ListOrdered className="size-4" />} onClick={onEvents}>Event history</Button>
+            <Button size="sm" variant="secondary" leftIcon={<RefreshCw className="size-4" />} onClick={onRefreshStatus} disabled={!live}>Refresh status</Button>
+            <Button size="sm" variant="ghost" leftIcon={<Pencil className="size-4" />} onClick={onEdit}>Edit</Button>
+          </div>
         </div>
       </div>
-      <dl className="grid grid-cols-2 gap-2.5">
+
+      {/* Facts */}
+      <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <Fact label="Ring name" value={device.ringName} />
-        <Fact label="Type" value={ringKindLabel[device.deviceType]} />
         <Fact label="Model" value={device.model ? `Ring ${device.model}` : undefined} />
         <Fact label="Region (coarse)" value={[device.region?.country, device.region?.state].filter(Boolean).join(" / ") || undefined} />
-        <Fact label="Status reported" value={device.statusReportedAt ? `${formatDate(device.statusReportedAt)} ${formatTime(device.statusReportedAt)}` : undefined} />
-        <Fact label="Connected" value={`${formatDate(device.connectedAt)} · ${timeAgo(device.connectedAt, new Date().toISOString())}`} />
+        <Fact label="Status reported" value={device.statusReportedAt ? `${formatDate(device.statusReportedAt)} · ${formatTime(device.statusReportedAt)}` : undefined} />
+        <Fact label="Connected" value={`${formatDate(device.connectedAt)} · ${timeAgo(device.connectedAt, now)}`} />
+        <Fact label="Ring device id" value={<span className="font-mono text-[12.5px]">…{device.ringDeviceId.slice(-6)}</span>} />
       </dl>
-      <section aria-labelledby="dev-caps">
-        <h3 id="dev-caps" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Capabilities (Ring)</h3>
-        <RingCapabilityMatrix device={device} />
+
+      {/* Matan settings (real, per user) */}
+      <section className="card-inset p-4" aria-labelledby="dev-matan">
+        <h3 id="dev-matan" className="text-[11.5px] uppercase tracking-wide text-text-3">Matan settings</h3>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2.5 text-[13.5px] text-text">
+            <span>
+              <span className="block font-medium">Matan AI analysis</span>
+              <span className="block text-[11.5px] text-text-3">Analyze new Ring events from this device automatically</span>
+            </span>
+            <Toggle size="sm" checked={device.aiEnabled} disabled={busy === "ai"} onChange={(v) => void patch("ai", v)} label="Matan AI analysis" />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2.5 text-[13.5px] text-text">
+            <span>
+              <span className="block font-medium">Favorite</span>
+              <span className="block text-[11.5px] text-text-3">Pin this device first on Home and Live View</span>
+            </span>
+            <Toggle size="sm" checked={device.favorite} disabled={busy === "favorite"} onChange={(v) => void patch("favorite", v)} label="Favorite" />
+          </label>
+        </div>
       </section>
-      <section aria-labelledby="dev-conf">
-        <h3 id="dev-conf" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Configuration (read-only)</h3>
-        <RingConfigurationSummary device={device} />
-      </section>
-      <div className="flex flex-wrap items-center gap-2 text-[13px] text-text-2">
-        <MapPin className="size-4 text-text-3" /> {device.locationLabel ?? "Location not set"}
-        <span className="text-text-3">·</span>
-        <RingRegion device={device} />
-        <span className="text-text-3">·</span>
-        <span>{device.aiEnabled ? "Matan AI analysis on" : "Matan AI analysis off"}</span>
+
+      {/* Ring data: capabilities + configuration side by side */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section aria-labelledby="dev-caps">
+          <h3 id="dev-caps" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Capabilities (Ring)</h3>
+          <RingCapabilityMatrix device={device} />
+        </section>
+        <section aria-labelledby="dev-conf">
+          <h3 id="dev-conf" className="mb-1.5 text-[11.5px] uppercase tracking-wide text-text-3">Configuration (Ring · read-only)</h3>
+          <RingConfigurationSummary device={device} />
+          <p className="mt-2 text-[11.5px] text-text-3">Ring settings cannot be changed through the Partner API; device controls (siren, lights, lock) are a future Ring capability.</p>
+        </section>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" leftIcon={<Video className="size-4" />} href={`/live?camera=ring:${device.id}`} disabled={!live || device.details.video === false}>
-          Live view
-        </Button>
-        <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="size-4" />} onClick={onRefreshStatus} disabled={!live}>
-          Refresh status
-        </Button>
-        <Button variant="secondary" size="sm" leftIcon={<ListOrdered className="size-4" />} onClick={onEvents}>
-          Event history
-        </Button>
-        <Button variant="secondary" size="sm" leftIcon={<Pencil className="size-4" />} onClick={onEdit}>
-          Edit
-        </Button>
+
+      <div className="flex items-center justify-between border-t border-border pt-4">
+        <p className="text-[12px] text-text-3">Source: Ring Developer Playground</p>
+        <Button variant="danger" size="sm" leftIcon={<Trash2 className="size-4" />} onClick={onRemove}>Remove from Matan AI</Button>
       </div>
-      {!live && <p className="text-[12.5px] text-text-3">Live status is paused - reconnect the Ring Playground session to refresh.</p>}
-      <p className="text-[12px] text-text-3">Source: Ring Developer Playground · synced {timeAgo(device.lastSyncedAt, new Date().toISOString())}</p>
-      <div className="flex justify-end border-t border-border pt-4">
-        <Button variant="danger" size="sm" leftIcon={<Trash2 className="size-4" />} onClick={onRemove}>
-          Remove from Matan AI
-        </Button>
-      </div>
+
+      <SnapshotViewer src={snap?.src ?? null} capturedAt={snap?.capturedAt} device={device} onClose={() => { if (snap) URL.revokeObjectURL(snap.src); setSnap(null); }} />
     </div>
   );
 }

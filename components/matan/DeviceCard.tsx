@@ -25,11 +25,11 @@ export function DeviceMini({ device, onClick, className }: { device: Device; onC
   const Tag = onClick ? "button" : "div";
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} className={cn("card-inset flex flex-col items-center gap-2 px-3 py-4 text-center transition-[border-color,background-color] hover:border-border-strong hover:bg-surface-2/60", className)}>
-      <span className={cn("inline-flex size-11 items-center justify-center rounded-xl border", device.status === "online" ? "bg-surface-2 border-border text-text" : "bg-danger/10 border-danger/25 text-danger")}>
+      <span className={cn("inline-flex size-11 items-center justify-center rounded-xl border", device.statusStale ? "bg-surface-2 border-border text-text-3" : device.status === "online" ? "bg-surface-2 border-border text-text" : "bg-danger/10 border-danger/25 text-danger")}>
         <Icon className="size-5" />
       </span>
       <span className="text-[13.5px] font-semibold text-text leading-tight">{device.name}</span>
-      <StatusDot tone={device.status === "online" ? "success" : "danger"} label={device.status === "online" ? "Online" : "Offline"} size="sm" />
+      <StatusDot tone={device.statusStale ? "neutral" : device.status === "online" ? "success" : "danger"} label={device.statusStale ? `Last known: ${device.status === "online" ? "online" : "offline"}` : device.status === "online" ? "Online" : "Offline"} size="sm" />
     </Tag>
   );
 }

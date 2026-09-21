@@ -150,7 +150,8 @@ const realQuickQuestions = ["What happened today?", "What happened while I was a
 export async function buildRingDashboard(): Promise<DashboardData & { stale: boolean; ringSession: RingSessionInfo | null }> {
   const { events, session, stale } = await getRingEvents();
   const connected = listConnected();
-  const devices = connected.map(ringToDevice);
+  const live = Boolean(usableToken(await getRingSession()));
+  const devices = connected.map((d) => ringToDevice(d, live));
   const today = eventsInRange(events, "today");
   const yesterday = eventsInRange(events, "today", 1);
   const todayCounts: EventCounts = countEvents(today);

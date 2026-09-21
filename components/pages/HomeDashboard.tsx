@@ -281,7 +281,7 @@ export function HomeDashboard() {
                     {isRing ? (
                       <>
                         <StatTile icon={<CalendarDays />} value={data.todayCounts.total} label="Events today" tone="primary" onClick={() => router.push("/events?range=today")} />
-                        <StatTile icon={<Cpu />} value={`${data.devices.filter((d) => d.status === "online").length}/${data.devices.length}`} label="Devices online" tone="success" onClick={() => router.push("/devices")} />
+                        <StatTile icon={<Cpu />} value={data.devices.some((d) => d.statusStale) ? "—" : `${data.devices.filter((d) => d.status === "online").length}/${data.devices.length}`} label={data.devices.some((d) => d.statusStale) ? "Status unknown (reconnect)" : "Devices online"} tone={data.devices.some((d) => d.statusStale) ? "neutral" : "success"} onClick={() => router.push("/devices")} />
                         <StatTile icon={<ClockIcon />} value={data.latestEvents.filter((e) => e.analysis === "pending").length} label="Awaiting AI" tone="neutral" onClick={() => router.push("/events")} />
                         <StatTile icon={<Radio />} value={ring.state === "connected" || ring.state === "expiring" ? ring.countdownLabel : "—"} label={ring.state === "connected" || ring.state === "expiring" ? "Session left" : "Session expired"} tone={ring.state === "connected" ? "primary" : ring.state === "expiring" ? "warning" : "danger"} onClick={() => openConnect()} />
                       </>

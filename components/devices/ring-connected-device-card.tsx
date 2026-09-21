@@ -23,6 +23,10 @@ const statusTone = { online: "success", offline: "danger", unknown: "neutral" } 
 export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpen, menu, className, liveEnabled = true }: { device: ConnectedRingDevice; view?: "grid" | "list"; onEvents: () => void; onOpen: () => void; menu?: React.ReactNode; className?: string; liveEnabled?: boolean }) {
   const Icon = ringKindIcon[device.deviceType];
   const canLive = device.details.video !== false && liveEnabled;
+  // Without a live Ring session the status cannot be re-checked: show it as last known, never as current.
+  const stale = !liveEnabled;
+  const tone = stale ? "neutral" : statusTone[device.status];
+  const label = stale ? `Last known: ${statusLabel[device.status]}${device.statusReportedAt ? ` · ${timeAgo(device.statusReportedAt, new Date().toISOString())}` : ""}` : statusLabel[device.status];
   const liveButton = (
     <Button variant={canLive ? "primary" : "secondary"} size="sm" className="flex-1" leftIcon={<Video className="size-4" />} href={canLive ? `/live?camera=ring:${device.id}` : undefined} disabled={!canLive}>
       Live View
@@ -32,12 +36,12 @@ export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpe
   const header = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <StatusDot tone={statusTone[device.status]} pulse={device.status === "online"} size="lg" />
+        <StatusDot tone={tone} pulse={!stale && device.status === "online"} size="lg" />
         <div className="leading-tight">
           <h3 className="text-[15px] font-semibold text-text">
             {device.displayName} {device.favorite && <Star className="inline size-3.5 -mt-0.5 fill-warning text-warning" aria-label="Favorite" />}
           </h3>
-          <p className={cn("text-[13px] font-medium", device.status === "online" ? "text-success" : device.status === "offline" ? "text-danger" : "text-text-3")}>{statusLabel[device.status]}</p>
+          <p className={cn("text-[13px] font-medium", stale ? "text-text-3" : device.status === "online" ? "text-success" : device.status === "offline" ? "text-danger" : "text-text-3")}>{label}</p>
         </div>
       </div>
       <RingBadge />
@@ -93,7 +97,7 @@ export function RingConnectedDeviceCard({ device, view = "grid", onEvents, onOpe
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <StatusDot tone={statusTone[device.status]} pulse={device.status === "online"} />
+            <StatusDot tone={tone} pulse={!stale && device.status === "online"} />
             <button type="button" onClick={onOpen} className="text-left text-[15px] font-semibold text-text hover:text-primary-2">
               {device.displayName}
             </button>

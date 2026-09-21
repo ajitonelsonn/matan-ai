@@ -90,12 +90,12 @@ export function RingAccountCard({ account, className }: { account: RingAccount |
 const featureIcon: Record<FutureFeature["key"], React.ReactNode> = { deviceControls: <SlidersHorizontal />, chimeControls: <Speaker />, family: <Users />, lifecycle: <Radio />, subscriptions: <CreditCard /> };
 
 /** Honest "not yet" UX for Ring capabilities Matan cannot demonstrate with the Playground. Nothing here is interactive. */
-export function RingFutureFeaturesCard({ devices, className }: { devices: Pick<ConnectedRingDevice, "details">[]; className?: string }) {
+export function RingFutureFeaturesCard({ devices, className, columns = 1 }: { devices: Pick<ConnectedRingDevice, "details">[]; className?: string; columns?: 1 | 2 }) {
   const features = futureFeatures(devices);
   return (
     <section className={cn("card p-5", className)} aria-labelledby="ring-future">
       <SectionHeader icon={<Lock />} title={<span id="ring-future">Future Ring capabilities</span>} subtitle="Shown, never faked. Each item names why it isn't live yet." />
-      <ul className="space-y-2.5">
+      <ul className={cn("gap-2.5", columns === 2 ? "grid sm:grid-cols-2" : "space-y-2.5")}>
         {features.map((f) => (
           <li key={f.key} className="rounded-xl border border-dashed border-border bg-surface-2/40 p-3" aria-disabled="true">
             <div className="flex items-start gap-3">

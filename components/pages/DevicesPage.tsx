@@ -56,9 +56,11 @@ export function DevicesPage({ initialDeviceId }: { initialDeviceId?: string }) {
     }
   };
 
-  const sourceSwitch = <DeviceSourceSwitch value={source ?? "ring"} onChange={choose} ringCount={ringCount} />;
+  // Real Mode shows Ring devices only - no demo switch, no demo fallback.
+  const isRing = appMode === "ring";
+  const sourceSwitch = isRing ? null : <DeviceSourceSwitch value={source ?? "ring"} onChange={choose} ringCount={ringCount} />;
 
-  if (source === "demo") {
+  if (source === "demo" && !isRing) {
     return (
       <>
         <DemoDevicesView initialDeviceId={initialDeviceId} onAddRing={() => setAddOpen(true)} sourceSwitch={sourceSwitch} />
@@ -77,5 +79,5 @@ export function DevicesPage({ initialDeviceId }: { initialDeviceId?: string }) {
     );
   }
 
-  return <RingDevicesView initialDeviceId={initialDeviceId} sourceSwitch={sourceSwitch} onBrowseDemo={() => choose("demo")} onConnectedChange={setRingCount} />;
+  return <RingDevicesView initialDeviceId={initialDeviceId} sourceSwitch={sourceSwitch} onBrowseDemo={isRing ? undefined : () => choose("demo")} onConnectedChange={setRingCount} />;
 }

@@ -2,7 +2,7 @@ import "server-only";
 import type { ModeActivity, SecurityMode, SecurityModeId } from "@/lib/types";
 import { securityModes } from "@/lib/mock/securityModes";
 import { getUserSettings, saveUserSettings } from "./user-settings";
-import { listConnected } from "@/lib/ring/session";
+import { getRingSession, listConnected, usableToken } from "@/lib/ring/session";
 
 /**
  * Real Mode security modes. The mode definitions (name, description, illustration) are
@@ -41,7 +41,7 @@ export function activeRingMode(): SecurityMode {
   return securityModes.find((m) => m.id === id) ?? securityModes[0];
 }
 
-export function ringSecurityPayload(): RingSecurityPayload {
+export function ringSecurityPayload(live = true): RingSecurityPayload {
   const settings = getUserSettings();
   const active = activeRingMode();
   const devices = listConnected();
@@ -55,9 +55,10 @@ export function ringSecurityPayload(): RingSecurityPayload {
     schedules: [],
     activity: history.map((h, i) => ({ id: `mode-${i}-${h.at}`, modeId: h.modeId, label: `Switched to ${securityModes.find((m) => m.id === h.modeId)?.name ?? h.modeId}`, timestamp: h.at, source: h.source })),
     status: {
-      camerasOnline: cameras.filter((d) => d.status === "online").length,
+      // Without a live Ring session the online counts are not known - report 0 rather than a stale number.
+      camerasOnline: live ? cameras.filter((d) => d.status === "online").length : 0,
       camerasTotal: cameras.length,
-      devicesOnline: devices.filter((d) => d.status === "online").length,
+      devicesOnline: live ? devices.filter((d) => d.status === "online").length : 0,
       devicesTotal: devices.length,
       alertLevel: active.alertLevel,
       activeModeName: active.name,
@@ -76,5 +77,9 @@ export async function activateRingMode(id: unknown): Promise<RingSecurityPayload
     await saveUserSettings({ security: { activeModeId: modeId, changedAt: at, history: [{ modeId, at, source: "Manually" as const }, ...current.history].slice(0, MAX_HISTORY) } });
     console.info({ event: "security_mode_changed", mode: modeId });
   }
-  return ringSecurityPayload();
+  return ringSecurityPayload(await ringLive());
+}
+
+async function ringLive() {
+  return Boolean(usableToken(await getRingSession()));
 }

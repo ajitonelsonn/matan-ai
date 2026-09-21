@@ -5,8 +5,9 @@ import type { ConnectedRingDevice, RingHistoryEvent } from "./types";
  * Adapters from Ring-backed records to the shared UI types.
  * Nothing here invents Ring facts: unknown values stay undefined.
  */
-export function ringToDevice(d: ConnectedRingDevice): Device {
+export function ringToDevice(d: ConnectedRingDevice, live = true): Device {
   return {
+    statusStale: !live || undefined,
     id: d.id,
     name: d.displayName,
     kind: d.deviceType === "doorbell" ? "doorbell" : d.deviceType === "chime" ? "chime" : "camera",

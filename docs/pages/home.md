@@ -33,9 +33,9 @@ flowchart LR
 | Real Mode banner | Playground status: token countdown (`expires in mm:ss`), **Refresh** (re-discovery + history resync), **Manage Ring Connection**; turns into *Session expired → Reconnect Ring* when the 30-minute token lapses | `/api/ring/session`, `/api/ring/refresh` | ✅ |
 | Live view player | Real WebRTC/WHEP stream of the Playground device: **Start Ring live view**, mute, fullscreen; *Ready* badge | `POST /api/ring/devices/{id}/stream` → Ring WHEP | ✅ (needs a live token) |
 | Latest Intelligence Events | Four newest Ring events with Nova summary, priority badge, **AI status line** ("AI analysis complete"), **notification line** ("Notification sent via …" / "not required"), *New* badge for events that arrived since the page loaded; click → event page | `latestEvents` (Ring history + Matan analyses) | ✅ |
-| Ring Simulator connected card | Total Ring events on record (all history), explanation of automatic analysis; tiles **Events today**, **Devices online**, **Awaiting AI**, **Session left** | `historyCount`, `todayCounts`, devices, session | ✅ |
+| Ring Simulator connected card | Total Ring events on record (all history), explanation of automatic analysis; tiles **Events today**, **Devices online** (becomes *Status unknown (reconnect)* once the token expires, because Ring status cannot be re-checked without it), **Awaiting AI**, **Session left** | `historyCount`, `todayCounts`, devices, session | ✅ |
 | Ask Matan AI | Six quick questions + free-text input; answers are computed from the user's real Ring events (`answerRing`); **Try example** | `POST /api/assistant?mode=ring` | ✅ · 🎤 **Voice input → future integration** (toast) |
-| Device Status | Connected Ring devices with online/offline dot; **View all devices** | `/api/ring/devices` | ✅ |
+| Device Status | Connected Ring devices with online/offline dot (*Last known: online* while the session is expired); **View all devices** | `/api/ring/devices` | ✅ |
 | Quick Actions | **View Live** → `/live` · **Security Mode** → `/security-modes` (shows the active Matan mode) · **Send Report** · **Add Automation** → `/automations?create=1` | see below | ✅ |
 | Today's Activity | Total events today, % vs yesterday, donut by type (people / packages / vehicles / others); **View details** → `/insights` | `todayCounts` from Ring history | ✅ |
 

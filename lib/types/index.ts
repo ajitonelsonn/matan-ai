@@ -71,6 +71,8 @@ export interface Device {
   model: string;
   location: string;
   status: DeviceStatus;
+  /** Real Mode: true when the Ring session is expired, so `status` is the last value Ring reported, not a live check. */
+  statusStale?: boolean;
   battery?: number; // percent
   signal?: number; // percent
   previewUrl?: string;

@@ -37,10 +37,21 @@ MATAN AI runs on **AWS Amplify Hosting (Next.js SSR compute)** with a compute ro
 - `notifyForIntelligence` is awaited inside the pipeline (manual and automatic).
 - Analysis failures are persisted (`SK=AIFAIL#<eventId>`) and hydrated with analyses, so all instances show the same *AI unavailable* state until a manual retry; the browser overlays *analyzing* on the event it is currently stepping.
 
+## Symptom 4 — analysis completes, "Notification could not be sent"
+
+**Observed:** `email_provider_failed: SES_ACCESS_DENIED` and `runtime_config … smtpPassword: false`.
+
+**Root causes:** (a) the compute role had no `ses:SendEmail` / `ses:SendRawEmail` on the sender identity **and** the configuration set (SES v2 authorizes both); (b) an Amplify *Secret* is not injected into the build environment, so `SMTP_PASSWORD` never reached `.env.production` and the SMTP fallback was unavailable.
+
+**Fix (configuration only):**
+- Add to `MatanAI-Amplify-ComputeRole`:
+  `ses:SendEmail`, `ses:SendRawEmail` on `arn:aws:ses:us-east-1:<account-id>:identity/<sending-domain>` and `arn:aws:ses:us-east-1:<account-id>:configuration-set/matan-ai` (plus `identity/<recipient>` while SES is in sandbox).
+- Provide `SMTP_PASSWORD` as a regular Amplify environment variable (rotated Gmail app password) so the build can copy it into the private server bundle; the runtime log then shows `smtpPassword: true`.
+
 ## Amplify configuration checklist
 
 1. **Add `RING_SESSION_SECRET`** (Environment variables or Secrets; 32+ random characters, e.g. `openssl rand -base64 48`). Rotating it simply signs everyone out of Ring.
-2. Keep the existing variables (`S3_MEDIA_BUCKET`, `SES_*`, `SMTP_*`, `APP_BASE_URL`, `BEDROCK_MODEL_ID`, `NEXT_PUBLIC_COGNITO_*`). `SMTP_PASSWORD` stays a Secret; it is copied into the private server build only.
+2. Keep the existing variables (`S3_MEDIA_BUCKET`, `SES_*`, `SMTP_*`, `APP_BASE_URL`, `BEDROCK_MODEL_ID`, `NEXT_PUBLIC_COGNITO_*`). `SMTP_PASSWORD` must be a regular environment variable (Amplify Secrets are not visible to the build); it is copied into the private server build only.
 3. Do **not** add `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`; the compute role provides credentials and Lambda sets `AWS_REGION`.
 4. Redeploy `main`.
 5. Cognito app client: the production callback/sign-out URLs (`https://main.<app>.amplifyapp.com/auth/callback`, `/login`) must be listed; Google OAuth client must have the Cognito domain redirect URI.

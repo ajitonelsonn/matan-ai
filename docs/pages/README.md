@@ -6,6 +6,7 @@ The rule applied on every page: **nothing is simulated in Real Mode.** A functio
 
 | Page | Doc | Real in Real Mode | Future integrations shown |
 | --- | --- | --- | --- |
+| Sign in / Sign up / Mode chooser | [auth.md](auth.md) | Cognito sign-up + verification, sign-in, Google, password reset, route guard, chooser | MFA, profile editing, other identity providers |
 | Home | [home.md](home.md) | live stream, latest analyzed events, today's numbers, Matan assistant, real daily report email, notification inbox | weather, voice input |
 | Live View | [live-view.md](live-view.md) | WebRTC/WHEP stream, Ring snapshot, frame screenshot, today's timeline, Matan AI toggle, read-only Ring config | siren / lights / lock / record, clip download-share from the player |
 | Events | [events.md](events.md) | Ring history + Nova analysis + decision + notification outcome, filters, download stored media, share | editing / deleting Ring history |

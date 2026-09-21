@@ -26,11 +26,14 @@ import { matanApi } from "@/lib/api/matan";
 import { ApiError } from "@/lib/api/client";
 import { images } from "@/lib/mock/images";
 import { cn } from "@/lib/utils/cn";
-import type { SettingsData } from "@/lib/types";
+import type { SettingsData, UserProfile } from "@/lib/types";
 import { ExperienceSettingsCard } from "@/components/experience/experience-settings-card";
 import { useTheme } from "@/components/experience/theme-provider";
 import { ThemeToggle } from "@/components/experience/theme-toggle";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useAppMode, useExperience } from "@/components/experience/experience-provider";
+import { firstNameOf } from "@/lib/auth/user";
+import { downloadProtectedMedia } from "@/hooks/useProtectedMedia";
 import { CareRulesPanel } from "@/components/care/CareRulesPanel";
 import { AuthLoadingScreen } from "@/components/auth/AuthGuard";
 
@@ -89,7 +92,19 @@ export function SettingsPage() {
   const [feedback, setFeedback] = React.useState("");
 
   const s = q.data?.settings;
-  const account = q.data?.account;
+  const appMode = useAppMode();
+  const isRing = appMode === "ring";
+  const { ring, openConnect } = useExperience();
+  // Real Mode: the profile is the signed-in Cognito/Google identity, never the demo profile.
+  const account: UserProfile | undefined = isRing
+    ? auth.user
+      ? { id: auth.user.id, name: auth.user.name?.trim() || auth.user.email, firstName: firstNameOf(auth.user), email: auth.user.email, role: "Owner", location: "", avatarUrl: auth.user.pictureUrl, plan: "Hackathon build", twoFactor: false }
+      : undefined
+    : q.data?.account;
+  const futureToast = (what: string, why: string) => toast.info(`${what} is a future integration`, why);
+  const FutureRow = ({ icon, title, hint, tone }: { icon: React.ReactNode; title: string; hint: string; tone?: "primary" | "danger" | "warning" | "success" | "purple" }) => (
+    <Row icon={icon} title={title} hint={hint} tone={tone} onClick={() => futureToast(title, hint)} control={<Badge tone="neutral" size="xs" icon={<Lock className="size-2.5" />}>Future</Badge>} />
+  );
 
   React.useEffect(() => {
     window.history.replaceState(null, "", tab === "general" ? "/settings" : `/settings?tab=${tab}`);
@@ -147,10 +162,15 @@ export function SettingsPage() {
   const exportData = async () => {
     setBusy("export");
     try {
+      if (isRing) {
+        const size = await downloadProtectedMedia("/api/matan/export", `matan-ai-export-${new Date().toISOString().slice(0, 10)}.json`);
+        toast.success("Export downloaded", `${(size / 1024).toFixed(0)} KB JSON · settings, care context, rules, devices, events with analyses, chats.`);
+        return;
+      }
       const r = await settingsApi.exportData();
-      toast.success("Export ready", `${r.file} · ${r.size}`);
+      toast.info("Demo export simulated", `${r.file} · ${r.size} (no file in Demo Mode)`);
     } catch {
-      toast.error();
+      toast.error("Export failed", "Please try again.");
     } finally {
       setBusy(null);
     }
@@ -174,10 +194,14 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="gen">
       <CardHeader icon={<Settings />} title={<span id="gen">General Settings</span>} subtitle="Basic preferences for your Matan AI experience." />
       <div className="space-y-1">
-        {match("app name") && <Row icon={<Layers />} title="App Name" hint="Choose how your home appears in the app." control={<Button variant="secondary" size="sm" rightIcon={<ChevronRight className="size-3.5" />} onClick={() => { setAppName(s.general.appName); setModal("appName"); }}>{s.general.appName}</Button>} />}
-        {match("time zone") && <Row icon={<Clock />} title="Time Zone" hint="Set your local time zone." control={<Select size="sm" value={s.general.timeZone} onChange={(v) => void update({ general: { timeZone: v } })} options={["(GMT+9) Dili, Timor-Leste", "(GMT+8) Bali, Indonesia", "(GMT+10) Darwin, Australia", "(GMT+0) London, UK"].map((v) => ({ value: v, label: v }))} align="end" label="Time zone" />} />}
-        {match("date") && <Row icon={<CalendarDays />} title="Date & Time Format" hint="Choose how dates and times are displayed." control={<Select size="sm" value={s.general.dateFormat} onChange={(v) => void update({ general: { dateFormat: v } })} options={["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map((v) => ({ value: v, label: v }))} align="end" label="Date format" />} />}
-        {match("start page") && <Row icon={<House />} title="Start Page" hint="Select the page to show when opening the app." control={<Select size="sm" value={s.general.startPage} onChange={(v) => void update({ general: { startPage: v } })} options={["Home", "Live View", "Events", "AI Assistant"].map((v) => ({ value: v, label: v }))} align="end" label="Start page" />} />}
+        {isRing && match("app name") && <FutureRow icon={<Layers />} title="App Name" hint="Naming your home is saved but not shown anywhere yet." />}
+        {isRing && match("time zone") && <Row icon={<Clock />} title="Time Zone" hint="Matan uses the Care Context timezone for quiet hours, rules and reports." onClick={() => setTab("care")} control={<ChevronRight className="size-4 text-text-3" />} />}
+        {isRing && match("date") && <FutureRow icon={<CalendarDays />} title="Date & Time Format" hint="Saved, but the interface always uses its default format for now." />}
+        {isRing && match("start page") && <FutureRow icon={<House />} title="Start Page" hint="Real Mode always opens on Home after the mode choice." />}
+        {!isRing && match("app name") && <Row icon={<Layers />} title="App Name" hint="Choose how your home appears in the app." control={<Button variant="secondary" size="sm" rightIcon={<ChevronRight className="size-3.5" />} onClick={() => { setAppName(s.general.appName); setModal("appName"); }}>{s.general.appName}</Button>} />}
+        {!isRing && match("time zone") && <Row icon={<Clock />} title="Time Zone" hint="Set your local time zone." control={<Select size="sm" value={s.general.timeZone} onChange={(v) => void update({ general: { timeZone: v } })} options={["(GMT+9) Dili, Timor-Leste", "(GMT+8) Bali, Indonesia", "(GMT+10) Darwin, Australia", "(GMT+0) London, UK"].map((v) => ({ value: v, label: v }))} align="end" label="Time zone" />} />}
+        {!isRing && match("date") && <Row icon={<CalendarDays />} title="Date & Time Format" hint="Choose how dates and times are displayed." control={<Select size="sm" value={s.general.dateFormat} onChange={(v) => void update({ general: { dateFormat: v } })} options={["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map((v) => ({ value: v, label: v }))} align="end" label="Date format" />} />}
+        {!isRing && match("start page") && <Row icon={<House />} title="Start Page" hint="Select the page to show when opening the app." control={<Select size="sm" value={s.general.startPage} onChange={(v) => void update({ general: { startPage: v } })} options={["Home", "Live View", "Events", "AI Assistant"].map((v) => ({ value: v, label: v }))} align="end" label="Start page" />} />}
       </div>
     </section>
   );
@@ -186,9 +210,13 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="ntf">
       <CardHeader icon={<Bell />} title={<span id="ntf">Notifications</span>} subtitle="Choose what you want to be notified about." />
       <div className="space-y-1">
-        {([["securityAlerts", "Security Alerts", "Motion, people, unusual activity", <TriangleAlert key="a" />, "danger"], ["packageDeliveries", "Package Deliveries", "When a package is detected", <Package key="b" />, "warning"], ["familyActivity", "Family Activity", "Arrivals, departures, check-ins", <Users key="c" />, "purple"], ["deviceStatus", "Device Status", "Offline, low battery, issues", <Cog key="d" />, "primary"], ["marketingUpdates", "Marketing Updates", "Product news and tips", <Megaphone key="e" />, "primary"]] as [keyof SettingsData["notifications"], string, string, React.ReactNode, "danger" | "warning" | "purple" | "primary"][])
-          .filter(([, l]) => match(l))
-          .map(([k, l, h, icon, tone]) => <Row key={k} icon={icon} title={l} hint={h} tone={tone} control={<Toggle checked={Boolean(s.notifications[k])} onChange={(v) => void update({ notifications: { [k]: v } }, `${l} ${v ? "on" : "off"}`)} label={l} />} />)}
+        {isRing ? (
+          <Row icon={<Sparkles />} title="What gets emailed" hint="With Care Context on, Smart Rules decide (Notify / Escalate → email). With it off, the alert level below applies." tone="purple" onClick={() => setTab("care")} control={<ChevronRight className="size-4 text-text-3" />} />
+        ) : (
+          ([["securityAlerts", "Security Alerts", "Motion, people, unusual activity", <TriangleAlert key="a" />, "danger"], ["packageDeliveries", "Package Deliveries", "When a package is detected", <Package key="b" />, "warning"], ["familyActivity", "Family Activity", "Arrivals, departures, check-ins", <Users key="c" />, "purple"], ["deviceStatus", "Device Status", "Offline, low battery, issues", <Cog key="d" />, "primary"], ["marketingUpdates", "Marketing Updates", "Product news and tips", <Megaphone key="e" />, "primary"]] as [keyof SettingsData["notifications"], string, string, React.ReactNode, "danger" | "warning" | "purple" | "primary"][])
+            .filter(([, l]) => match(l))
+            .map(([k, l, h, icon, tone]) => <Row key={k} icon={icon} title={l} hint={h} tone={tone} control={<Toggle checked={Boolean(s.notifications[k])} onChange={(v) => void update({ notifications: { [k]: v } }, `${l} ${v ? "on" : "off"}`)} label={l} />} />)
+        )}
         {tab === "notifications" && (
           <>
             <Row icon={<Mail />} title="Alert email address" hint={s.notifications.emailAddress ? `Matan AI email alerts go to ${s.notifications.emailAddress}` : "Set where high-priority Matan AI alerts are emailed."} tone="primary" onClick={() => { setAlertEmail(s.notifications.emailAddress ?? (auth.user?.email ?? "")); setModal("alertEmail"); }} control={<ChevronRight className="size-4 text-text-3" />} />
@@ -219,7 +247,7 @@ export function SettingsPage() {
               <Row
                 icon={<Sparkles />}
                 title="Send test alert"
-                hint="Emails a sample high-priority alert to the address above via Amazon SES."
+                hint="Emails a sample high-priority alert to the address above (Amazon SES, SMTP fallback while SES is in sandbox)."
                 tone="primary"
                 control={
                   <Button
@@ -249,19 +277,24 @@ export function SettingsPage() {
                 }
               />
             )}
-            <Row icon={<Moon />} title="Quiet hours" hint={s.notifications.quietHoursEnabled ? s.notifications.quietHours : "Off"} tone="purple" control={<Toggle checked={s.notifications.quietHoursEnabled} onChange={(v) => void update({ notifications: { quietHoursEnabled: v } }, v ? "Quiet hours on" : "Quiet hours off")} label="Quiet hours" />} />
+            <Row icon={<Moon />} title={isRing ? "Quiet hours (Decision Engine)" : "Quiet hours"} hint={isRing ? `${s.notifications.quietHoursEnabled ? s.notifications.quietHours : "Off"} · scores events like Night Mode. Rule quiet hours are in Care & Rules.` : s.notifications.quietHoursEnabled ? s.notifications.quietHours : "Off"} tone="purple" control={<Toggle checked={s.notifications.quietHoursEnabled} onChange={(v) => void update({ notifications: { quietHoursEnabled: v } }, v ? "Quiet hours on" : "Quiet hours off")} label="Quiet hours" />} />
             <div className="grid grid-cols-3 gap-2 px-2 pt-2">
-              {(["push", "email", "sms"] as const).map((ch) => (
-                <button key={ch} type="button" onClick={() => void update({ notifications: { channels: { [ch]: !s.notifications.channels[ch] } } }, `${ch.toUpperCase()} ${s.notifications.channels[ch] ? "off" : "on"}`)} aria-pressed={s.notifications.channels[ch]} className={cn("card-inset flex items-center justify-center gap-2 py-2.5 text-[13px] font-medium capitalize transition-colors", s.notifications.channels[ch] ? "border-primary/50 text-primary bg-primary/8" : "text-text-3")}>
-                  {s.notifications.channels[ch] && <Check className="size-3.5" />} {ch === "sms" ? "SMS" : ch}
-                </button>
-              ))}
+              {(["push", "email", "sms"] as const).map((ch) => {
+                const future = isRing && ch !== "email";
+                return (
+                  <button key={ch} type="button" onClick={() => (future ? futureToast(ch === "sms" ? "SMS alerts" : "Push notifications", "Only email alerts are delivered in this build (Amazon SES → SMTP).") : void update({ notifications: { channels: { [ch]: !s.notifications.channels[ch] } } }, `${ch.toUpperCase()} ${s.notifications.channels[ch] ? "off" : "on"}`))} aria-pressed={!future && s.notifications.channels[ch]} className={cn("card-inset flex items-center justify-center gap-2 py-2.5 text-[13px] font-medium capitalize transition-colors", !future && s.notifications.channels[ch] ? "border-primary/50 text-primary bg-primary/8" : "text-text-3", future && "opacity-70")}>
+                    {future ? <Lock className="size-3" /> : s.notifications.channels[ch] && <Check className="size-3.5" />} {ch === "sms" ? "SMS" : ch}{future ? " · future" : ""}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
-        <Button variant="secondary" fullWidth className="mt-3 justify-between" rightIcon={<ChevronRight className="size-4" />} leftIcon={<ExternalLink className="size-4" />} onClick={() => setTab("notifications")}>
-          Notification Preferences
-        </Button>
+        {tab !== "notifications" && (
+          <Button variant="secondary" fullWidth className="mt-3 justify-between" rightIcon={<ChevronRight className="size-4" />} leftIcon={<ExternalLink className="size-4" />} onClick={() => setTab("notifications")}>
+            Notification Preferences
+          </Button>
+        )}
       </div>
     </section>
   );
@@ -270,11 +303,25 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="prv">
       <CardHeader icon={<ShieldCheck />} title={<span id="prv">Privacy & Security</span>} subtitle="Control your data and keep your home secure." />
       <div className="space-y-1">
-        {match("data storage") && <Row icon={<Database />} title="Data Storage" hint={`Keep recordings for ${s.privacy.retentionDays} days.`} onClick={() => setModal("storage")} />}
-        {match("ai processing") && <Row icon={<Sparkles />} title="AI Processing" hint="Choose how AI analyzes your data." tone="purple" control={<Select size="sm" value={s.privacy.aiProcessing} onChange={(v) => void update({ privacy: { aiProcessing: v } })} options={[{ value: "cloud", label: "Full analysis", description: "Best accuracy" }, { value: "balanced", label: "Balanced", description: "Recommended" }, { value: "minimal", label: "Minimal", description: "Motion only" }]} align="end" label="AI processing" />} />}
-        {match("privacy zones") && <Row icon={<EyeOff />} title="Privacy Zones" hint={`${s.privacy.privacyZones} zones hidden from monitoring.`} onClick={() => setModal("zones")} />}
-        {match("data sharing") && <Row icon={<Share2 />} title="Data Sharing" hint="Share events with family members." control={<Toggle checked={s.privacy.shareWithFamily} onChange={(v) => void update({ privacy: { shareWithFamily: v } }, v ? "Sharing with family on" : "Sharing with family off")} label="Share with family" />} />}
-        {tab === "privacy" && <Row icon={<Share2 />} title="Anonymised analytics" hint="Help improve Matan AI with anonymous usage data." control={<Toggle checked={s.privacy.shareAnonymizedAnalytics} onChange={(v) => void update({ privacy: { shareAnonymizedAnalytics: v } })} label="Anonymised analytics" />} />}
+        {isRing ? (
+          <>
+            {match("data storage") && <Row icon={<Database />} title="Where your data lives" hint="Events, analyses and settings in DynamoDB; clips and snapshots in a private S3 bucket - all keyed by your account. Ring tokens are never stored." tone="success" control={<Badge tone="success" size="xs">AWS · per user</Badge>} />}
+            {match("data storage") && <FutureRow icon={<Clock />} title="Retention period" hint="Stored media is kept until you delete it; automatic expiry (S3 lifecycle) is not configured yet." />}
+            {match("privacy zones") && <Row icon={<EyeOff />} title="Privacy Zones (Ring)" hint={`${ring.connected.reduce((n, d) => n + (d.configuration?.privacyZonesCount ?? 0), 0)} configured on your Ring devices · read-only through the Partner API.`} control={<Badge tone="neutral" size="xs">Ring · read-only</Badge>} />}
+            {match("ai processing") && <Row icon={<Sparkles />} title="AI Processing" hint="Snapshots/clips are sent to Amazon Nova Pro (Bedrock) only for analysis; nothing is used for training. Tune what is analyzed under AI Preferences." tone="purple" onClick={() => setTab("ai")} control={<ChevronRight className="size-4 text-text-3" />} />}
+            {match("data sharing") && <FutureRow icon={<Share2 />} title="Data Sharing" hint="Sharing events with family needs multi-user accounts, which are not built." />}
+            {tab === "privacy" && <FutureRow icon={<Share2 />} title="Anonymised analytics" hint="No usage analytics are collected in this build." />}
+            {tab === "privacy" && <Row icon={<Download />} title="Export my data" hint="Download everything Matan stores for you as JSON." onClick={() => void exportData()} control={busy === "export" ? <Badge tone="primary" size="xs">Preparing…</Badge> : undefined} />}
+          </>
+        ) : (
+          <>
+            {match("data storage") && <Row icon={<Database />} title="Data Storage" hint={`Keep recordings for ${s.privacy.retentionDays} days.`} onClick={() => setModal("storage")} />}
+            {match("ai processing") && <Row icon={<Sparkles />} title="AI Processing" hint="Choose how AI analyzes your data." tone="purple" control={<Select size="sm" value={s.privacy.aiProcessing} onChange={(v) => void update({ privacy: { aiProcessing: v } })} options={[{ value: "cloud", label: "Full analysis", description: "Best accuracy" }, { value: "balanced", label: "Balanced", description: "Recommended" }, { value: "minimal", label: "Minimal", description: "Motion only" }]} align="end" label="AI processing" />} />}
+            {match("privacy zones") && <Row icon={<EyeOff />} title="Privacy Zones" hint={`${s.privacy.privacyZones} zones hidden from monitoring.`} onClick={() => setModal("zones")} />}
+            {match("data sharing") && <Row icon={<Share2 />} title="Data Sharing" hint="Share events with family members." control={<Toggle checked={s.privacy.shareWithFamily} onChange={(v) => void update({ privacy: { shareWithFamily: v } }, v ? "Sharing with family on" : "Sharing with family off")} label="Share with family" />} />}
+            {tab === "privacy" && <Row icon={<Share2 />} title="Anonymised analytics" hint="Help improve Matan AI with anonymous usage data." control={<Toggle checked={s.privacy.shareAnonymizedAnalytics} onChange={(v) => void update({ privacy: { shareAnonymizedAnalytics: v } })} label="Anonymised analytics" />} />}
+          </>
+        )}
       </div>
     </section>
   );
@@ -283,15 +330,27 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="aip">
       <CardHeader icon={<Brain />} title={<span id="aip">AI Preferences</span>} subtitle="Customize how Matan AI works for you." iconTone="purple" />
       <div className="space-y-1">
-        {match("sensitivity") && <Row icon={<SlidersHorizontal />} title="Detection Sensitivity" hint="Adjust AI detection sensitivity." control={<Select size="sm" value={s.ai.sensitivity} onChange={(v) => void update({ ai: { sensitivity: v } }, `Sensitivity set to ${v}`)} options={["Low", "Medium", "High"].map((v) => ({ value: v as SettingsData["ai"]["sensitivity"], label: v }))} align="end" label="Sensitivity" />} />}
-        {match("recognition") && <Row icon={<UserRound />} title="People Recognition" hint={`Manage known faces (${s.ai.knownFaces}).`} onClick={() => setModal("faces")} control={<span className="flex items-center gap-2"><Toggle size="sm" checked={s.ai.peopleRecognition} onChange={(v) => void update({ ai: { peopleRecognition: v } }, v ? "People recognition on" : "People recognition off")} label="People recognition" /><ChevronRight className="size-4 text-text-3" /></span>} />}
-        {match("smart alerts") && <Row icon={<Lightbulb />} title="Smart Alerts" hint="Let AI filter unimportant events." tone="warning" control={<Toggle checked={s.ai.smartAlerts} onChange={(v) => void update({ ai: { smartAlerts: v } }, v ? "Smart alerts on" : "Smart alerts off")} label="Smart alerts" />} />}
-        {match("language") && <Row icon={<MessageSquare />} title="AI Language" hint="Choose AI assistant language." control={<Select size="sm" value={s.ai.language} onChange={(v) => void update({ ai: { language: v } })} options={["English", "Tetum", "Português", "Bahasa Indonesia"].map((v) => ({ value: v, label: v }))} align="end" label="AI language" />} />}
+        {isRing ? (
+          <>
+            {match("sensitivity") && <Row icon={<SlidersHorizontal />} title="Detection Sensitivity" hint="Per event type (motion, person, package, vehicle) in Care Context - used by Smart Rules." onClick={() => setTab("care")} control={<ChevronRight className="size-4 text-text-3" />} />}
+            {match("smart alerts") && <Row icon={<Lightbulb />} title="Smart Rules" hint="Deterministic rules decide Ignore / Monitor / Notify / Escalate after every analysis." tone="warning" onClick={() => setTab("care")} control={<ChevronRight className="size-4 text-text-3" />} />}
+            {match("model") && <Row icon={<Brain />} title="Model" hint="Amazon Nova Pro via Amazon Bedrock (amazon.nova-pro-v1:0) - analysis, summaries and the assistant." tone="purple" control={<Badge tone="purple" size="xs">Nova Pro</Badge>} />}
+            {match("recognition") && <FutureRow icon={<UserRound />} title="People Recognition" hint="Matan never identifies people; Ring provides no faces or household mapping." />}
+            {match("language") && <FutureRow icon={<MessageSquare />} title="AI Language" hint="Matan AI currently answers in English." />}
+          </>
+        ) : (
+          <>
+            {match("sensitivity") && <Row icon={<SlidersHorizontal />} title="Detection Sensitivity" hint="Adjust AI detection sensitivity." control={<Select size="sm" value={s.ai.sensitivity} onChange={(v) => void update({ ai: { sensitivity: v } }, `Sensitivity set to ${v}`)} options={["Low", "Medium", "High"].map((v) => ({ value: v as SettingsData["ai"]["sensitivity"], label: v }))} align="end" label="Sensitivity" />} />}
+            {match("recognition") && <Row icon={<UserRound />} title="People Recognition" hint={`Manage known faces (${s.ai.knownFaces}).`} onClick={() => setModal("faces")} control={<span className="flex items-center gap-2"><Toggle size="sm" checked={s.ai.peopleRecognition} onChange={(v) => void update({ ai: { peopleRecognition: v } }, v ? "People recognition on" : "People recognition off")} label="People recognition" /><ChevronRight className="size-4 text-text-3" /></span>} />}
+            {match("smart alerts") && <Row icon={<Lightbulb />} title="Smart Alerts" hint="Let AI filter unimportant events." tone="warning" control={<Toggle checked={s.ai.smartAlerts} onChange={(v) => void update({ ai: { smartAlerts: v } }, v ? "Smart alerts on" : "Smart alerts off")} label="Smart alerts" />} />}
+            {match("language") && <Row icon={<MessageSquare />} title="AI Language" hint="Choose AI assistant language." control={<Select size="sm" value={s.ai.language} onChange={(v) => void update({ ai: { language: v } })} options={["English", "Tetum", "Português", "Bahasa Indonesia"].map((v) => ({ value: v, label: v }))} align="end" label="AI language" />} />}
+          </>
+        )}
         {match("auto") && (
           <Row
             icon={<Sparkles />}
             title="Auto-analyze new Ring events"
-            hint="Real Mode · Bedrock Nova Pro runs on new events automatically."
+            hint="New Ring events are analyzed by Nova Pro automatically (snapshot first, clip when useful)."
             tone="purple"
             control={
               <Select
@@ -332,7 +391,9 @@ export function SettingsPage() {
             }
           />
         )}
-        {match("accent") && (
+        {match("accent") && isRing && <FutureRow icon={<Palette />} title="Accent Color" hint="Saved with your settings but not applied to the interface yet." />}
+        {match("font") && isRing && <FutureRow icon={<Type />} title="Font Size" hint="Saved with your settings but not applied to the interface yet." />}
+        {match("accent") && !isRing && (
           <Row
             icon={<Palette />}
             title="Accent Color"
@@ -348,7 +409,7 @@ export function SettingsPage() {
             }
           />
         )}
-        {match("font") && <Row icon={<Type />} title="Font Size" hint="Adjust text size." control={<Select size="sm" value={s.appearance.fontSize} onChange={(v) => void update({ appearance: { fontSize: v } })} options={["Small", "Medium", "Large"].map((v) => ({ value: v as SettingsData["appearance"]["fontSize"], label: v }))} align="end" label="Font size" />} />}
+        {match("font") && !isRing && <Row icon={<Type />} title="Font Size" hint="Adjust text size." control={<Select size="sm" value={s.appearance.fontSize} onChange={(v) => void update({ appearance: { fontSize: v } })} options={["Small", "Medium", "Large"].map((v) => ({ value: v as SettingsData["appearance"]["fontSize"], label: v }))} align="end" label="Font size" />} />}
       </div>
     </section>
   );
@@ -357,9 +418,20 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="reg">
       <CardHeader icon={<Globe />} title={<span id="reg">Language & Region</span>} subtitle="Set your language and regional preferences." />
       <div className="space-y-1">
-        {match("language") && <Row icon={<Languages />} title="Language" hint="Choose app language." control={<Select size="sm" value={s.region.language} onChange={(v) => void update({ region: { language: v } })} options={["English", "Tetum", "Português", "Bahasa Indonesia"].map((v) => ({ value: v, label: v }))} align="end" label="Language" />} />}
-        {match("region") && <Row icon={<MapPin />} title="Region" hint="Set your country/region." control={<Select size="sm" value={s.region.region} onChange={(v) => void update({ region: { region: v } })} options={["Timor-Leste", "Indonesia", "Australia", "Portugal"].map((v) => ({ value: v, label: v }))} align="end" label="Region" />} />}
-        {match("units") && <Row icon={<Ruler />} title="Units" hint="Choose measurement units." control={<Select size="sm" value={s.region.units} onChange={(v) => void update({ region: { units: v } })} options={["Metric (°C, km)", "Imperial (°F, mi)"].map((v) => ({ value: v, label: v }))} align="end" label="Units" />} />}
+        {isRing ? (
+          <>
+            {match("time zone") && <Row icon={<Clock />} title="Care timezone" hint="Quiet hours, rule time windows and the daily report use the Care Context timezone." onClick={() => setTab("care")} control={<ChevronRight className="size-4 text-text-3" />} />}
+            {match("language") && <FutureRow icon={<Languages />} title="Language" hint="The interface and Matan AI are English-only in this build (Tetum / Português planned)." />}
+            {match("region") && <FutureRow icon={<MapPin />} title="Region" hint="Ring reports a coarse device region; a user region setting has no effect yet." />}
+            {match("units") && <FutureRow icon={<Ruler />} title="Units" hint="Used by the weather integration, which is not connected." />}
+          </>
+        ) : (
+          <>
+            {match("language") && <Row icon={<Languages />} title="Language" hint="Choose app language." control={<Select size="sm" value={s.region.language} onChange={(v) => void update({ region: { language: v } })} options={["English", "Tetum", "Português", "Bahasa Indonesia"].map((v) => ({ value: v, label: v }))} align="end" label="Language" />} />}
+            {match("region") && <Row icon={<MapPin />} title="Region" hint="Set your country/region." control={<Select size="sm" value={s.region.region} onChange={(v) => void update({ region: { region: v } })} options={["Timor-Leste", "Indonesia", "Australia", "Portugal"].map((v) => ({ value: v, label: v }))} align="end" label="Region" />} />}
+            {match("units") && <Row icon={<Ruler />} title="Units" hint="Choose measurement units." control={<Select size="sm" value={s.region.units} onChange={(v) => void update({ region: { units: v } })} options={["Metric (°C, km)", "Imperial (°F, mi)"].map((v) => ({ value: v, label: v }))} align="end" label="Units" />} />}
+          </>
+        )}
       </div>
     </section>
   );
@@ -368,10 +440,10 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="adv">
       <CardHeader icon={<SlidersHorizontal />} title={<span id="adv">Advanced Settings</span>} subtitle="For advanced users." />
       <div className="space-y-1">
-        <Row icon={<Download />} title="Export Data" hint="Download your data." onClick={() => void exportData()} control={busy === "export" ? <Badge tone="primary" size="xs">Preparing…</Badge> : undefined} />
-        <Row icon={<Upload />} title="Import Settings" hint="Restore from backup." onClick={() => setModal("import")} />
+        <Row icon={<Download />} title="Export Data" hint={isRing ? "Download settings, Care Context, rules, devices, events with analyses and chats as JSON." : "Download your data."} onClick={() => void exportData()} control={busy === "export" ? <Badge tone="primary" size="xs">Preparing…</Badge> : undefined} />
+        {isRing ? <FutureRow icon={<Upload />} title="Import Settings" hint="Restoring from an export file is not built yet." /> : <Row icon={<Upload />} title="Import Settings" hint="Restore from backup." onClick={() => setModal("import")} />}
         <Row icon={<RotateCcw />} title="Reset Settings" hint="Restore preferences to defaults." tone="warning" onClick={() => void resetSettings()} />
-        <Row icon={<TriangleAlert />} title="Reset App" hint="Restore the entire demo to its original state." tone="danger" onClick={() => void resetApp()} />
+        {!isRing && <Row icon={<TriangleAlert />} title="Reset App" hint="Restore the entire demo to its original state." tone="danger" onClick={() => void resetApp()} />}
       </div>
     </section>
   );
@@ -381,15 +453,15 @@ export function SettingsPage() {
       <CardHeader icon={<LifeBuoy />} title={<span id="hlp">Help & Support</span>} subtitle="Need help? We're here for you." />
       <div className="space-y-1">
         <Row icon={<BookOpen />} title="User Guide" hint="Learn how to use Matan AI." onClick={() => setModal("guide")} />
-        <Row icon={<LifeBuoy />} title="Contact Support" hint="Get help from our team." onClick={() => toast.success("Support request opened", "We'll reply to ajito@example.com within 24 hours.")} />
-        <Row icon={<MessageSquare />} title="Send Feedback" hint="Help us improve Matan AI." onClick={() => setModal("feedback")} />
+        {isRing ? <Row icon={<LifeBuoy />} title="Project & source" hint="MATAN AI is an open hackathon build - issues and questions go to the GitHub repository." onClick={() => window.open("https://github.com/ajitonelsonn/matan-ai", "_blank", "noopener")} control={<ExternalLink className="size-4 text-text-3" />} /> : <Row icon={<LifeBuoy />} title="Contact Support" hint="Get help from our team." onClick={() => toast.success("Support request opened", "We'll reply to ajito@example.com within 24 hours.")} />}
+        {isRing ? <FutureRow icon={<MessageSquare />} title="Send Feedback" hint="In-app feedback is not stored yet; use GitHub issues." /> : <Row icon={<MessageSquare />} title="Send Feedback" hint="Help us improve Matan AI." onClick={() => setModal("feedback")} />}
       </div>
     </section>
   );
 
   const accountCard = account && (
     <section className="card p-5" aria-labelledby="acc">
-      <button type="button" onClick={() => setModal("account")} className="flex w-full items-center gap-3.5 rounded-xl p-1 text-left transition-colors hover:bg-surface-2/60">
+      <button type="button" onClick={() => (isRing ? futureToast("Manage Account", "Your profile comes from Amazon Cognito / Google.") : setModal("account"))} className="flex w-full items-center gap-3.5 rounded-xl p-1 text-left transition-colors hover:bg-surface-2/60">
         <Avatar name={account.name} src={account.avatarUrl} size="lg" ring />
         <span className="min-w-0 flex-1">
           <span id="acc" className="block text-[17px] font-semibold text-text">{account.name}</span>
@@ -399,12 +471,22 @@ export function SettingsPage() {
         <ChevronRight className="size-4 text-text-3" aria-hidden />
       </button>
       <div className="mt-3 space-y-1 border-t border-border pt-3">
-        <Row icon={<User />} title="Manage Account" hint="Name, email and photo." onClick={() => setModal("account")} />
+        {isRing ? <FutureRow icon={<User />} title="Manage Account" hint={auth.user?.provider === "google" ? "Name and photo come from your Google account." : "Editing name/photo in Cognito is not built yet."} /> : <Row icon={<User />} title="Manage Account" hint="Name, email and photo." onClick={() => setModal("account")} />}
         <Row icon={<KeyRound />} title="Sign-in method" hint={auth.user?.provider === "google" ? "Google account via Amazon Cognito." : "Email & password via Amazon Cognito."} control={<Badge tone={auth.user?.provider === "google" ? "success" : "primary"} size="xs">{auth.user?.provider === "google" ? "Google" : "Email"}</Badge>} />
         {auth.user?.provider !== "google" && <Row icon={<Lock />} title="Change Password" hint="We'll email you a verification code." onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(auth.user?.email ?? "")}`)} />}
-        <Row icon={<ShieldCheck />} title="Two-Factor Authentication" hint="Protect your account with a code." tone="success" onClick={() => toast.info("Two-factor authentication is managed in the next phase", "It's currently enabled for this account.")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-success">Enabled <ChevronRight className="size-4 text-text-3" /></span>} />
-        <Row icon={<Link2 />} title="Linked Accounts" hint="Ring, Google, Apple." onClick={() => setModal("linked")} />
-        <Row icon={<Crown />} title="Subscription Plan" hint="Manage billing and plan." tone="warning" onClick={() => setModal("plan")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-primary">{account.plan} <ChevronRight className="size-4 text-text-3" /></span>} />
+        {isRing ? <FutureRow icon={<ShieldCheck />} title="Two-Factor Authentication" hint="MFA is not enabled on the Cognito user pool in this build." /> : <Row icon={<ShieldCheck />} title="Two-Factor Authentication" hint="Protect your account with a code." tone="success" onClick={() => toast.info("Two-factor authentication is managed in the next phase", "It's currently enabled for this account.")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-success">Enabled <ChevronRight className="size-4 text-text-3" /></span>} />}
+        {isRing ? (
+          <>
+            <Row icon={<Link2 />} title="Ring Developer Playground" hint={ring.state === "connected" || ring.state === "expiring" ? `Connected · ${ring.connected.length} ${ring.connected.length === 1 ? "device" : "devices"} · token ${ring.countdownLabel}` : ring.state === "expired" ? "Session expired - reconnect with a new token." : "Not connected."} tone={ring.state === "connected" ? "success" : "warning"} onClick={() => openConnect()} control={<Badge tone={ring.state === "connected" || ring.state === "expiring" ? "success" : "neutral"} size="xs">{ring.state === "connected" || ring.state === "expiring" ? "Connected" : "Connect"}</Badge>} />
+            <Row icon={<Link2 />} title="Google" hint={auth.user?.provider === "google" ? "Signed in with Google through Amazon Cognito." : "Not linked - you signed in with email & password."} control={<Badge tone={auth.user?.provider === "google" ? "success" : "neutral"} size="xs">{auth.user?.provider === "google" ? "Linked" : "Not linked"}</Badge>} />
+            <FutureRow icon={<Crown />} title="Subscription Plan" hint="Hackathon build - no billing or plans." tone="warning" />
+          </>
+        ) : (
+          <>
+            <Row icon={<Link2 />} title="Linked Accounts" hint="Ring, Google, Apple." onClick={() => setModal("linked")} />
+            <Row icon={<Crown />} title="Subscription Plan" hint="Manage billing and plan." tone="warning" onClick={() => setModal("plan")} control={<span className="flex items-center gap-2 text-[13px] font-semibold text-primary">{account.plan} <ChevronRight className="size-4 text-text-3" /></span>} />
+          </>
+        )}
       </div>
       <div className="mt-3 border-t border-border pt-3">
         <Button
@@ -433,7 +515,10 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="abt">
       <CardHeader icon={<Info />} title={<span id="abt">About Matan AI</span>} subtitle="Your intelligent eye at home." />
       <dl className="grid gap-3 sm:grid-cols-2 text-[13.5px]">
-        {[["Version", "0.1.0 · UI preview"], ["Build", "Preview · Sep 2026"], ["Data", "Demo dataset (no live Ring/AWS)"], ["AI", "Amazon Nova via Bedrock (next phase)"], ["Made in", "Dili, Timor-Leste"], ["Licence", "Preview build"]].map(([k, v]) => (
+        {(isRing
+          ? [["Version", "0.9 · hackathon build"], ["Build", "Sep 2026"], ["Data", "Ring Developer Playground · AWS (Cognito, DynamoDB, S3, SES)"], ["AI", "Amazon Nova Pro via Amazon Bedrock"], ["Made in", "Dili, Timor-Leste"], ["Source", "github.com/ajitonelsonn/matan-ai"]]
+          : [["Version", "0.9 · demo"], ["Build", "Sep 2026"], ["Data", "Demo dataset (sample events, no live Ring/AWS)"], ["AI", "Scripted demo answers · Real Mode uses Amazon Nova Pro"], ["Made in", "Dili, Timor-Leste"], ["Source", "github.com/ajitonelsonn/matan-ai"]]
+        ).map(([k, v]) => (
           <div key={k} className="card-inset p-3"><dt className="text-[11.5px] uppercase tracking-wide text-text-3">{k}</dt><dd className="mt-0.5 font-medium text-text">{v}</dd></div>
         ))}
       </dl>

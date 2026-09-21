@@ -3,6 +3,7 @@ import { ok, badRequest, readJson } from "@/lib/api/http";
 import type { SecurityModeId } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/mock/clock";
 import { activateRingMode, ringSecurityPayload } from "@/lib/matan/security-modes";
+import { getRingSession, usableToken } from "@/lib/ring/session";
 import { AuthRequiredError, authErrorResponse, requireUser, withUser } from "@/lib/auth/server";
 import { hydrateUserScope } from "@/lib/auth/scope";
 
@@ -45,7 +46,7 @@ function payload() {
 }
 
 export async function GET(req: Request) {
-  if (isRing(req)) return ringScope(req, async () => ok(ringSecurityPayload()));
+  if (isRing(req)) return ringScope(req, async () => ok(ringSecurityPayload(Boolean(usableToken(await getRingSession())))));
   await delay();
   return ok(payload());
 }

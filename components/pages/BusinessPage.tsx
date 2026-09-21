@@ -61,8 +61,9 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
-  const q = useApi(() => businessApi.get(), []);
   const appMode = useAppMode();
+  // Demo business data is never fetched in Real Mode (RealModeBusiness uses real Ring/Matan sources).
+  const q = useApi(() => (appMode === "ring" ? Promise.resolve(null) : businessApi.get()), [appMode]);
   const [tab, setTab] = React.useState<Tab>(initialLocationSlug ? "locations" : "overview");
   const [search, setSearch] = React.useState("");
   const [trendRange, setTrendRange] = React.useState<"7d" | "30d">("7d");

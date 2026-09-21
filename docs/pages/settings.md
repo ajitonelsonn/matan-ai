@@ -38,10 +38,13 @@ flowchart LR
 
 ![Settings — Notifications](ss/settings-notifications.png)
 
-### Privacy & Security · AI Preferences
+### Other tabs
 
 ![Settings — Privacy](ss/settings-privacy.png)
 ![Settings — AI](ss/settings-ai.png)
+![Settings — Appearance](ss/settings-appearance.png)
+![Settings — Language & Region](ss/settings-region.png)
+![Settings — About](ss/settings-about.png)
 
 ### Export
 

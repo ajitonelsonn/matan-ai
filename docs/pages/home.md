@@ -43,6 +43,7 @@ flowchart LR
 `POST /api/matan/report` builds **today's** summary from the user's real Ring events in the care-context timezone — totals by type, Matan decision counts (Escalate / Notify / Monitor / Ignore) and up to six highlights — and emails it to the address in Settings → Notifications through the same SES → SMTP transport as alerts. One report per 10 minutes per user (`NOTIFICATION#REPORT-<bucket>#EMAIL`); the toast reports *sent (via …)*, *already sent*, *not sent: set an alert address*, or the failure code. In Demo Mode the button only simulates and says so.
 
 ![Send Report](ss/home-send-report.png)
+![Send Report result](ss/home-send-report-result.png)
 
 ### Notifications bell (real)
 The inbox is derived from Matan's own decisions on real events: every **NOTIFY** / **ESCALATE** decision and every email actually sent becomes an item (title, reason, time, link to the event). Read state is kept per user (`POST /api/ring/notifications`); the empty state explains what will appear. Demo Mode keeps its sample notifications.

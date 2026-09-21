@@ -7,23 +7,37 @@ import { getMediaMetaSync } from "./media-store";
 import { getNotificationSync } from "./notifications";
 import { currentUserSettings, relatedRecent, shouldAnalyze } from "./analysis";
 import { currentUser } from "@/lib/auth/server";
+import { getItem, putItem, userPK } from "@/lib/aws/dynamodb";
 
 /**
  * Automatic analysis of NEW Ring events (Real Mode).
  * Guards against the Ring feedback loop (every media request creates an on_demand
  * history entry), a backlog burst on first sync, and runaway cost.
+ *
+ * Stateless-runtime design (Amplify SSR compute = short-lived Lambda instances that are
+ * frozen the moment a response is sent): a sync only RECORDS pending event ids - persisted
+ * per user together with the watermark (SK=AUTO_STATE) - and the browser drives execution
+ * by calling POST /api/matan/auto/step, which analyzes one event inside its own request.
  */
 interface AutoState {
   /** Newest event start (ms) seen at the previous sync; only newer events are auto-analyzed. */
   watermarkMs: number | null;
-  /** Event ids already queued/handled. */
+  /** Event ids already queued/handled (recent, bounded). */
   seen: Set<string>;
   /** Media requests Matan itself made (ms) - the on_demand entry each one creates on Ring is skipped, at most one event per request. */
   ownMediaRequests: { at: number; claimedBy?: string }[];
-  /** Sliding-window rate limit. */
+  /** Sliding-window rate limit (run timestamps, ms). */
   runs: number[];
-  running: number;
-  queue: RingEvent[];
+  /** Event ids waiting to be analyzed by the next step request. */
+  pending: string[];
+  hydrated: boolean;
+}
+
+interface PersistedAutoState {
+  watermarkMs: number | null;
+  runs: number[];
+  pending: string[];
+  seen: string[];
 }
 
 declare global {
@@ -31,9 +45,11 @@ declare global {
   var __matanAuto: Map<string, AutoState> | undefined;
 }
 
+const AUTO_SK = "AUTO_STATE";
 const MAX_PER_HOUR = 30;
 const MAX_PER_SYNC = 5;
-const CONCURRENCY = 2;
+const MAX_PENDING = 20;
+const MAX_SEEN = 200;
 /** Ring records Matan's own snapshot/clip request as an on_demand session starting within seconds of the request. */
 const OWN_REQUEST_BEFORE_MS = 5_000;
 const OWN_REQUEST_AFTER_MS = 20_000;
@@ -47,10 +63,45 @@ function state(): AutoState {
   const key = currentUser()?.sub ?? "anonymous";
   let s = globalThis.__matanAuto.get(key);
   if (!s) {
-    s = { watermarkMs: null, seen: new Set(), ownMediaRequests: [], runs: [], running: 0, queue: [] };
+    s = { watermarkMs: null, seen: new Set(), ownMediaRequests: [], runs: [], pending: [], hydrated: false };
     globalThis.__matanAuto.set(key, s);
   }
   return s;
+}
+
+/** Load the user's persisted scheduler state once per process (watermark, pending ids, rate window). */
+export async function hydrateAutoState(sub: string) {
+  const all = (globalThis.__matanAuto ??= new Map());
+  let s = all.get(sub);
+  if (!s) {
+    s = { watermarkMs: null, seen: new Set(), ownMediaRequests: [], runs: [], pending: [], hydrated: false };
+    all.set(sub, s);
+  }
+  if (s.hydrated) return;
+  const item = await getItem<{ state?: PersistedAutoState }>(userPK(sub), AUTO_SK).catch(() => null);
+  if (item?.state) {
+    s.watermarkMs = item.state.watermarkMs ?? null;
+    s.runs = Array.isArray(item.state.runs) ? item.state.runs : [];
+    s.pending = Array.isArray(item.state.pending) ? item.state.pending : [];
+    s.seen = new Set(Array.isArray(item.state.seen) ? item.state.seen : []);
+  }
+  s.hydrated = true;
+  console.info({ event: "dynamodb_hydrated", kind: "auto", pending: s.pending.length, watermark: s.watermarkMs ? new Date(s.watermarkMs).toISOString() : null });
+}
+
+async function persistAutoState(s: AutoState) {
+  const u = currentUser();
+  if (!u) return;
+  const state: PersistedAutoState = { watermarkMs: s.watermarkMs, runs: s.runs, pending: s.pending, seen: [...s.seen].slice(-MAX_SEEN) };
+  await putItem({ PK: userPK(u.sub), SK: AUTO_SK, type: "AUTO_STATE", state, updatedAt: new Date().toISOString() }).catch((e) => console.warn({ event: "auto_state_persist_failed", reason: (e as Error)?.message }));
+}
+
+/** Number of events waiting for an auto-analysis step (drives the browser's step loop). */
+export function autoPendingCount() {
+  return state().pending.length;
+}
+export function autoPendingIds() {
+  return state().pending.slice(0, 5);
 }
 
 /** Call whenever Matan requests media from Ring (snapshot/clip) so the resulting on_demand entry is ignored. */
@@ -85,17 +136,19 @@ export function autoSettings() {
 export type Analyzer = (event: RingEvent, opts: { media: "auto" | "snapshot" | "video"; auto: true }) => Promise<unknown>;
 
 /**
- * Decide which freshly synced events to analyze and run them in the background.
- * Never blocks the request that synced the events.
+ * Decide which freshly synced events should be analyzed and record them as pending.
+ * Nothing runs here: the browser calls POST /api/matan/auto/step to analyze them one by one,
+ * each inside its own request (works on stateless hosting; never blocks the sync request).
  */
-export function scheduleAutoAnalysis(events: RingEvent[], analyze: Analyzer) {
+export async function scheduleAutoAnalysis(events: RingEvent[]) {
   const s = state();
   const cfg = autoSettings();
   const newest = events.reduce((m, e) => Math.max(m, new Date(e.timestamp).getTime()), 0);
 
   if (s.watermarkMs === null) {
-    // First sync: don't analyze the whole backlog - only events from now on.
+    // First sync ever for this user: don't analyze the whole backlog - only events from now on.
     s.watermarkMs = newest;
+    await persistAutoState(s);
     console.info({ event: "matan_auto_watermark", watermark: new Date(newest).toISOString(), mode: cfg.mode });
     return { queued: 0, reason: "initial sync - watermark set" };
   }
@@ -111,7 +164,7 @@ export function scheduleAutoAnalysis(events: RingEvent[], analyze: Analyzer) {
   };
   const fresh = events.filter((e) => new Date(e.timestamp).getTime() > (s.watermarkMs ?? 0));
   const candidates = fresh
-    .filter((e) => (s.seen.has(e.id) ? skip("already queued") : getIntelligenceSync(e.id) ? skip("already analyzed") : isAnalyzing(e.id) ? skip("in progress") : true))
+    .filter((e) => (s.seen.has(e.id) || s.pending.includes(e.id) ? skip("already queued") : getIntelligenceSync(e.id) ? skip("already analyzed") : analysisFailure(e.id) ? skip("failed earlier - retry manually") : isAnalyzing(e.id) ? skip("in progress") : true))
     .filter((e) => (isOwnOnDemand(e) ? skip("own media request (on_demand)") : true))
     .filter((e) => {
       if (e.ringEventType === "on_demand") return cfg.includeLiveView ? true : skip("live view sessions excluded by settings");
@@ -121,37 +174,69 @@ export function scheduleAutoAnalysis(events: RingEvent[], analyze: Analyzer) {
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     .slice(0, MAX_PER_SYNC);
 
+  const moved = s.watermarkMs !== Math.max(s.watermarkMs, newest);
   s.watermarkMs = Math.max(s.watermarkMs, newest);
   if (fresh.length && Object.keys(skipped).length) console.info({ event: "matan_auto_skipped", fresh: fresh.map((e) => `${e.id}:${e.ringEventType ?? e.type}:${e.clipDuration ?? 0}s`), skipped });
-  if (!candidates.length) return { queued: 0, reason: "no new candidates" };
+  if (!candidates.length) {
+    if (moved) await persistAutoState(s);
+    return { queued: 0, reason: "no new candidates" };
+  }
 
   const now = Date.now();
   s.runs = s.runs.filter((t) => now - t < 3_600_000);
-  const room = Math.max(0, MAX_PER_HOUR - s.runs.length);
-  const toRun = candidates.slice(0, room);
-  toRun.forEach((e) => {
+  const room = Math.max(0, MAX_PER_HOUR - s.runs.length - s.pending.length);
+  const toQueue = candidates.slice(0, Math.max(0, Math.min(room, MAX_PENDING - s.pending.length)));
+  toQueue.forEach((e) => {
     s.seen.add(e.id);
-    s.runs.push(now);
-    s.queue.push(e);
+    s.pending.push(e.id);
   });
-  if (candidates.length > room) console.warn({ event: "matan_auto_rate_limited", skipped: candidates.length - room });
-  console.info({ event: "matan_auto_queued", count: toRun.length, mode: cfg.mode });
-  void pump(analyze, cfg.mode === "video" ? "auto" : "snapshot");
-  return { queued: toRun.length, reason: "queued" };
+  if (candidates.length > toQueue.length) console.warn({ event: "matan_auto_rate_limited", skipped: candidates.length - toQueue.length });
+  console.info({ event: "matan_auto_queued", count: toQueue.length, pending: s.pending.length, mode: cfg.mode });
+  await persistAutoState(s);
+  return { queued: toQueue.length, reason: "queued" };
 }
 
-async function pump(analyze: Analyzer, media: "auto" | "snapshot") {
+/**
+ * Run ONE pending auto-analysis inside the current request (called by the browser via
+ * POST /api/matan/auto/step). Awaits the whole pipeline - analysis, storage and the alert
+ * email - so nothing is left running after the response.
+ */
+export async function runAutoStep(events: RingEvent[], analyze: Analyzer): Promise<{ eventId: string | null; ok: boolean; code?: string; pending: number; nextId?: string | null }> {
   const s = state();
-  while (s.running < CONCURRENCY && s.queue.length) {
-    const ev = s.queue.shift()!;
-    s.running += 1;
-    analyze(ev, { media, auto: true })
-      .then(() => console.info({ event: "matan_auto_analyzed", eventId: ev.id }))
-      .catch((e) => console.error({ event: "matan_auto_failed", eventId: ev.id, code: (e as { code?: string })?.code ?? "error" }))
-      .finally(() => {
-        s.running -= 1;
-        void pump(analyze, media);
-      });
+  const cfg = autoSettings();
+  if (cfg.mode === "off") {
+    if (s.pending.length) {
+      s.pending = [];
+      await persistAutoState(s);
+    }
+    return { eventId: null, ok: true, pending: 0 };
+  }
+  // Drop ids that no longer need work (analyzed elsewhere, failed, or gone from history).
+  while (s.pending.length) {
+    const id = s.pending[0];
+    const ev = events.find((e) => e.id === id);
+    if (ev && !getIntelligenceSync(id) && !analysisFailure(id) && !isAnalyzing(id)) break;
+    s.pending.shift();
+  }
+  const id = s.pending[0];
+  if (!id) {
+    await persistAutoState(s);
+    return { eventId: null, ok: true, pending: 0 };
+  }
+  const ev = events.find((e) => e.id === id)!;
+  s.runs = [...s.runs.filter((t) => Date.now() - t < 3_600_000), Date.now()];
+  try {
+    await analyze(ev, { media: cfg.mode === "video" ? "auto" : "snapshot", auto: true });
+    console.info({ event: "matan_auto_analyzed", eventId: id });
+    s.pending = s.pending.filter((x) => x !== id);
+    await persistAutoState(s);
+    return { eventId: id, ok: true, pending: s.pending.length, nextId: s.pending[0] ?? null };
+  } catch (e) {
+    const code = (e as { code?: string })?.code ?? "error";
+    console.error({ event: "matan_auto_failed", eventId: id, code });
+    s.pending = s.pending.filter((x) => x !== id);
+    await persistAutoState(s);
+    return { eventId: id, ok: false, code, pending: s.pending.length, nextId: s.pending[0] ?? null };
   }
 }
 

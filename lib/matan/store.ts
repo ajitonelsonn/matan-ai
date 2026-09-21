@@ -1,6 +1,6 @@
 import type { MatanEventIntelligence } from "./schema";
 import { currentUser, currentUserSub } from "@/lib/auth/server";
-import { SK, getItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
+import { SK, deleteItem, getItem, putItem, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 
 /** Persistence boundary. DynamoDB-backed (PK=USER#{sub}, SK=ANALYSIS#{eventId}) with a per-user read cache. */
 export interface MatanIntelligenceStore {
@@ -37,11 +37,13 @@ type AnalysisItem = { PK: string; SK: string; eventId: string; intelligence: Mat
 /** Load all of a user's analyses from DynamoDB into the cache (once per process). */
 export async function hydrateIntelligence(sub: string, force = false) {
   if (!force && hydratedSet().has(sub)) return;
-  const items = await queryPrefix<AnalysisItem>(userPK(sub), "ANALYSIS#");
+  const [items, failed] = await Promise.all([queryPrefix<AnalysisItem>(userPK(sub), "ANALYSIS#"), queryPrefix<{ eventId: string; code: string; at: string }>(userPK(sub), FAIL_PREFIX).catch(() => [])]);
   const m = cacheFor(sub);
   for (const it of items) if (it.eventId && it.intelligence) m.set(it.eventId, it.intelligence);
+  // Failure marks are shared across server instances so every instance shows the same state.
+  for (const f of failed) if (f.eventId && f.code && !m.has(f.eventId)) failures().set(f.eventId, { code: f.code, at: f.at });
   hydratedSet().add(sub);
-  console.info({ event: "dynamodb_hydrated", kind: "analyses", count: items.length });
+  console.info({ event: "dynamodb_hydrated", kind: "analyses", count: items.length, failed: failed.length });
 }
 
 export const dynamoIntelligenceStore: MatanIntelligenceStore = {
@@ -126,11 +128,18 @@ export function isAnalyzing(eventId: string) {
 export function analysisStage(eventId: string): AnalysisStage | null {
   return inFlight().get(eventId)?.stage ?? null;
 }
-export function markAnalysisFailed(eventId: string, code: string) {
-  failures().set(eventId, { code, at: new Date().toISOString() });
+const FAIL_PREFIX = "AIFAIL#";
+/** Remember a failure in memory and (best effort) in DynamoDB so a stateless runtime agrees across instances. */
+export async function markAnalysisFailed(eventId: string, code: string) {
+  const at = new Date().toISOString();
+  failures().set(eventId, { code, at });
+  const u = currentUser();
+  if (u) await putItem({ PK: userPK(u.sub), SK: `${FAIL_PREFIX}${eventId}`, type: "ANALYSIS_FAILED", eventId, code, at }).catch(() => undefined);
 }
-export function clearAnalysisFailure(eventId: string) {
-  failures().delete(eventId);
+export async function clearAnalysisFailure(eventId: string) {
+  const had = failures().delete(eventId);
+  const u = currentUser();
+  if (u && had) await deleteItem(userPK(u.sub), `${FAIL_PREFIX}${eventId}`).catch(() => undefined);
 }
 export function analysisFailure(eventId: string) {
   return failures().get(eventId) ?? null;

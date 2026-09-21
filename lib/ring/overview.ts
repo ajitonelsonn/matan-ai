@@ -7,15 +7,13 @@ import { buildInsights, countEvents, eventsInRange, type InsightWindow } from "@
 import { emailPrefs } from "@/lib/matan/notification-email";
 import { getUserSettings } from "@/lib/matan/user-settings";
 import { getCareContext } from "@/lib/matan/rules/store";
-import { getStore } from "@/lib/mock/store";
 import { user, weather } from "@/lib/mock/users";
 import { isRingApiError } from "./errors";
 import type { RingSessionInfo } from "./types";
 import { getIntelligenceSync } from "@/lib/matan/store";
-import { applyIntelligence, currentUserSettings } from "@/lib/matan/analysis";
-import { overlayProcessingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
-import { runMatanPipeline } from "@/lib/matan/pipeline";
-import { currentUser, currentUserSub, withUser } from "@/lib/auth/server";
+import { applyIntelligence } from "@/lib/matan/analysis";
+import { autoPendingCount, autoPendingIds, overlayProcessingState, scheduleAutoAnalysis } from "@/lib/matan/auto";
+import { currentUserSub } from "@/lib/auth/server";
 import { SK, putIfAbsent, queryPrefix, stripKeys, userPK } from "@/lib/aws/dynamodb";
 import { buildInbox } from "./inbox";
 import { activeRingMode } from "@/lib/matan/security-modes";
@@ -139,9 +137,9 @@ export async function getRingEvents(force = false): Promise<{ events: RingEvent[
   cache.events = all;
   cache.errors = errors;
   await persistNewEvents(sub, cache, all);
-  // Fresh sync → auto-analyze new events in the background (never blocks this request); runs as this user.
-  const user = currentUser()!;
-  scheduleAutoAnalysis(all, (ev, o) => withUser(user, () => runMatanPipeline(ev, all, currentUserSettings(), { media: o.media, auto: true })));
+  // Fresh sync → record new events as pending auto-analysis. Execution happens in separate,
+  // browser-driven step requests (POST /api/matan/auto/step) so it works on stateless hosting.
+  await scheduleAutoAnalysis(all);
   return { events: withIntelligence(all), session: sessionInfo(session), stale: false };
 }
 
@@ -172,6 +170,8 @@ export async function buildRingDashboard(): Promise<DashboardData & { stale: boo
     activeModeName: active.name,
     quickQuestions: realQuickQuestions,
     featuredCameraId: connected.find((d) => d.details.video !== false)?.id ?? connected[0]?.id ?? "",
+    autoPending: autoPendingCount(),
+    autoPendingIds: autoPendingIds(),
     stale,
     ringSession: session,
   };

@@ -25,6 +25,18 @@ MATAN AI runs on **AWS Amplify Hosting (Next.js SSR compute)** with a compute ro
 - discovered-device **metadata** (names, capabilities, status — no token) is persisted per user as `RING_DISCOVERED` so the Add-device dialog works on every instance;
 - without `RING_SESSION_SECRET` the code falls back to the old memory-only behaviour and logs `ring_session_secret_missing` once.
 
+## Symptom 3 — auto-analysis shows "AI unavailable" / stuck at "Capturing evidence"
+
+**Observed (compute logs):** `matan_auto_queued` inside a 166 ms request, then nothing until the next request wakes the instance: `ring_snapshot_failed: TimeoutError`, later `matan_ai_bedrock_error … MATAN_AI_TIMEOUT`, `matan_auto_failed`. The list said *AI unavailable* while the detail panel said *Capturing evidence* (two instances, two memories). No `AccessDenied` — Bedrock and IAM were fine.
+
+**Root cause:** the auto-analysis pipeline ran as fire-and-forget background work *after* the sync response, and the alert email was fire-and-forget after the analysis response. Lambda freezes the instance as soon as a response is sent, so the abort timers fire on the next wake-up. In addition the scheduler's watermark/queue and the in-flight/failure marks lived in memory, so every new instance behaved like a first sync and showed a different state.
+
+**Fix (commit below):**
+- The sync only **records pending event ids**, persisted per user with the watermark and rate window (`SK=AUTO_STATE`).
+- The browser drives execution: while the overview reports `autoPending > 0`, it calls **`POST /api/matan/auto/step`**, which analyzes one event fully inside that request (Ring media → Nova → decision → DynamoDB/S3 → alert email, all awaited), then repeats. Each step is well under Amplify's 30 s response limit for snapshot analysis.
+- `notifyForIntelligence` is awaited inside the pipeline (manual and automatic).
+- Analysis failures are persisted (`SK=AIFAIL#<eventId>`) and hydrated with analyses, so all instances show the same *AI unavailable* state until a manual retry; the browser overlays *analyzing* on the event it is currently stepping.
+
 ## Amplify configuration checklist
 
 1. **Add `RING_SESSION_SECRET`** (Environment variables or Secrets; 32+ random characters, e.g. `openssl rand -base64 48`). Rotating it simply signs everyone out of Ring.
@@ -46,6 +58,7 @@ MATAN AI runs on **AWS Amplify Hosting (Next.js SSR compute)** with a compute ro
 | Settings → Send test alert | email arrives via SES (or SMTP fallback while SES is in sandbox) |
 | Home → Send Report | `POST /api/matan/report` → `sent` |
 | Media route without token | `401` |
+| Trigger a Playground simulation | logs: `matan_auto_queued` → `POST /api/matan/auto/step` → `matan_ai_escalation` / `matan_auto_analyzed` in the **same** request; email sent; the event shows *AI analysis complete* within ~20 s |
 
 ## Files
-`amplify.yml`, `lib/aws/s3.ts`, `lib/auth/scope.ts`, `lib/ring/session.ts`, `lib/ring/session-seal.ts`, `app/api/ring/refresh/route.ts`, `tests/ring-session-seal.test.ts`, `.env.example`.
+`amplify.yml`, `lib/aws/s3.ts`, `lib/auth/scope.ts`, `lib/ring/session.ts`, `lib/ring/session-seal.ts`, `app/api/ring/refresh/route.ts`, `tests/ring-session-seal.test.ts`, `.env.example`, `lib/matan/auto.ts`, `lib/matan/store.ts`, `lib/matan/pipeline.ts`, `lib/ring/overview.ts`, `app/api/matan/auto/step/route.ts`, `components/layout/AppDataProvider.tsx`, `lib/data/get-data-source.ts`.

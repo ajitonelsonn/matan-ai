@@ -7,6 +7,7 @@ import { hydrateUserSettings } from "@/lib/matan/user-settings";
 import { hydrateMedia } from "@/lib/matan/media-store";
 import { hydrateNotifications } from "@/lib/matan/notifications";
 import { hydrateCare } from "@/lib/matan/rules/store";
+import { hydrateAutoState } from "@/lib/matan/auto";
 import { isS3Configured } from "@/lib/aws/s3";
 
 declare global {
@@ -24,7 +25,7 @@ function logRuntimeConfig() {
 /** Warm every per-user cache from DynamoDB (each is a single Query/GetItem, once per process per user). */
 export async function hydrateUserScope(user: ServerUser) {
   logRuntimeConfig();
-  await Promise.all([hydrateConnected(user.sub), hydrateRingEvents(user.sub), hydrateIntelligence(user.sub), hydrateUserSettings(user.sub), hydrateMedia(user.sub), hydrateNotifications(user.sub), hydrateCare(user.sub)]);
+  await Promise.all([hydrateConnected(user.sub), hydrateRingEvents(user.sub), hydrateIntelligence(user.sub), hydrateUserSettings(user.sub), hydrateMedia(user.sub), hydrateNotifications(user.sub), hydrateCare(user.sub), hydrateAutoState(user.sub)]);
 }
 
 /** Route wrapper for user-scoped API routes (Ring, Matan AI, settings). */

@@ -5,7 +5,8 @@ import { dashboardApi } from "@/lib/api/dashboard";
 import { request } from "@/lib/api/client";
 import type { DashboardData } from "@/lib/types";
 import { useAppMode } from "@/components/experience/experience-provider";
-import { getDataSource } from "@/lib/data/get-data-source";
+import { getDataSource, markClientAnalyzing } from "@/lib/data/get-data-source";
+import { refreshBus } from "@/lib/loading/store";
 import type { RingSessionInfo } from "@/lib/ring/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { firstNameOf, type MatanUser } from "@/lib/auth/user";
@@ -56,9 +57,42 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  // Real Mode: poll so new Ring events and automatic analyses show up on Home without a click.
+  // Real Mode: the server only records which new events need auto-analysis; this browser drives
+  // the work by calling /api/matan/auto/step one event at a time (each step is one awaited request,
+  // so it also works on stateless hosting where nothing runs after a response). While a step is in
+  // flight the event is shown as "analyzing" via the client overlay in the ring data source.
+  const stepping = React.useRef(false);
+  const pending = mode === "ring" ? data?.autoPending ?? 0 : 0;
+  React.useEffect(() => {
+    if (mode !== "ring" || pending <= 0 || stepping.current) return;
+    stepping.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        let next: string | undefined = data?.autoPendingIds?.[0];
+        for (let i = 0; i < 20 && !cancelled; i++) {
+          if (next) markClientAnalyzing(next, true);
+          const r = await request<{ eventId: string | null; ok: boolean; code?: string; pending: number; nextId?: string | null }>("/api/matan/auto/step", { method: "POST", json: {} }).catch(() => null);
+          if (next) markClientAnalyzing(next, false);
+          if (r?.eventId) markClientAnalyzing(r.eventId, false);
+          refreshBus.emit();
+          if (!r || r.pending <= 0) break;
+          next = r.nextId ?? undefined;
+        }
+      } finally {
+        stepping.current = false;
+        if (!cancelled) void refresh();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, pending, refresh]);
+
+  // Poll so new Ring events and automatic analyses show up on Home without a click.
   // 6 s while Matan is capturing/analyzing something, 30 s otherwise (same cadence as the Events page).
-  const busy = mode === "ring" && Boolean(data?.latestEvents.some((e) => isProcessing(e)));
+  const busy = mode === "ring" && (Boolean(data?.latestEvents.some((e) => isProcessing(e))) || pending > 0);
   React.useEffect(() => {
     if (mode !== "ring") return;
     const id = setInterval(() => void refresh(), busy ? 6_000 : 30_000);

@@ -130,12 +130,15 @@ export async function runMatanPipeline(event: RingEvent, recent: RingEvent[], se
     console.info({ event: "matan_ai_escalation", eventId: event.id, auto: Boolean(opts.auto), padSeconds: pad, ...escalation, budgetUsedPct: budget.usedPct });
     // Decision is final here (manual and automatic paths alike) → notification service. Fire-and-forget,
     // never throws, so SES problems can't fail the analysis response or Ring sync.
-    clearAnalysisFailure(event.id);
-    void notifyForIntelligence(event, intelligence);
+    await clearAnalysisFailure(event.id);
+    // Awaited: on a stateless runtime (Amplify SSR compute) nothing runs after the response is
+    // sent, so the email must complete inside this request. notifyForIntelligence never throws
+    // for delivery problems; the guard below only protects the analysis result itself.
+    await notifyForIntelligence(event, intelligence).catch((err) => console.error({ event: "matan_notify_unexpected", eventId: event.id, reason: (err as Error)?.message }));
     return { intelligence, escalation };
   } catch (e) {
     const code = (e as { code?: string })?.code ?? "MATAN_AI_UNAVAILABLE";
-    if (code !== "MATAN_AI_THROTTLED") markAnalysisFailed(event.id, code);
+    if (code !== "MATAN_AI_THROTTLED") await markAnalysisFailed(event.id, code);
     throw e;
   } finally {
     endAnalysis(event.id);

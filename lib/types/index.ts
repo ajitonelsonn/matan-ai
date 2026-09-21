@@ -321,6 +321,9 @@ export interface EventCounts {
 }
 
 export interface DashboardData {
+  /** Real Mode: events waiting for a browser-driven auto-analysis step (count and the first ids). */
+  autoPending?: number;
+  autoPendingIds?: string[];
   user: UserProfile;
   weather: Weather;
   notifications: Notification[];

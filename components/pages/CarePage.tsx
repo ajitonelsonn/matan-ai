@@ -41,7 +41,8 @@ export function CarePage() {
   const toast = useToast();
   const confirm = useConfirm();
   const appMode = useAppMode();
-  const q = useApi(() => familyApi.get(), []);
+  // Demo family data is never fetched in Real Mode (RealModeCare has its own, per-user sources).
+  const q = useApi(() => (appMode === "ring" ? Promise.resolve(null) : familyApi.get()), [appMode]);
   const [search, setSearch] = React.useState("");
   const [addOpen, setAddOpen] = React.useState(false);
   const [addForm, setAddForm] = React.useState({ name: "", role: "Family" });

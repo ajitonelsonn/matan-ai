@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Toggle } from "@/components/ui/Toggle";
 import { Menu } from "@/components/ui/Menu";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ErrorState } from "@/components/ui/EmptyState";
+import { EmptyState, ErrorState } from "@/components/ui/EmptyState";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -125,7 +125,7 @@ export function LivePage() {
   const confirm = useConfirm();
   const { data: shell } = useAppData();
 
-  const { mode: experienceMode } = useExperience();
+  const { mode: experienceMode, openConnect } = useExperience();
   const isRingMode = experienceMode === "ring";
   // Real Mode never loads the sample cameras - the Playground devices are the only source.
   const devicesQ = useApi(() => (experienceMode === "ring" ? Promise.resolve(null) : devicesApi.list()), [experienceMode]);
@@ -140,11 +140,28 @@ export function LivePage() {
   const ringLive = ringCountdown.status === "valid" || ringCountdown.status === "expiring";
   const ringCam = camId.startsWith("ring:") ? ringDevices.find((d) => `ring:${d.id}` === camId) : undefined;
   const [reconnectOpen, setReconnectOpen] = React.useState(false);
-  // Real Mode defaults to the first connected Ring device when no camera was requested.
+  // A mode switch always resets the selection to the new mode's own camera.
+  const lastLiveMode = React.useRef<boolean | null>(null);
   React.useEffect(() => {
-    if (isRingMode && !params.get("camera") && ringDevices[0] && !camId.startsWith("ring:")) setCamId(`ring:${ringDevices[0].id}`);
+    if (lastLiveMode.current === null) {
+      lastLiveMode.current = isRingMode;
+      return;
+    }
+    if (lastLiveMode.current === isRingMode) return;
+    lastLiveMode.current = isRingMode;
+    if (!isRingMode && camId.startsWith("ring:")) setCamId(cameras[0]?.id ?? "cam-front");
+    // Real Mode is handled by the effect below (it also covers the first load).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRingMode, ringDevices.length]);
+  }, [isRingMode]);
+
+  // Real Mode always shows a Ring device: keep a valid `ring:<id>` selection, and drop a demo
+  // camera id left over from Demo Mode (switching modes must never leave the player hanging).
+  React.useEffect(() => {
+    if (!isRingMode) return;
+    if (camId.startsWith("ring:") && ringDevices.some((d) => `ring:${d.id}` === camId)) return;
+    if (ringDevices[0]) setCamId(`ring:${ringDevices[0].id}`);
+    else if (camId) setCamId("");
+  }, [isRingMode, ringDevices, camId]);
 
   const cam = isRingMode ? undefined : (cameras.find((c) => c.id === camId) ?? cameras[0]);
 
@@ -208,7 +225,7 @@ export function LivePage() {
   const nowFrac = hourFraction(nowIso);
   const important = shell?.todayCounts.important ?? 0;
 
-  const loading = devicesQ.loading || !cam;
+  const loading = !isRingMode && (devicesQ.loading || !cam);
 
   return (
     <>
@@ -224,12 +241,22 @@ export function LivePage() {
               <div ref={frameRef}>
                 <RingLivePlayer key={ringCam.id} device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} autoStart={params.get("autoplay") === "1"} />
               </div>
+            ) : isRingMode ? (
+              <div className="card">
+                <EmptyState
+                  icon={<Video />}
+                  title={ringQ.loading ? "Loading your Ring devices…" : ringLive ? "No Ring camera selected" : "No Ring session"}
+                  description={ringQ.loading ? "" : ringLive ? "Pick a connected Ring device below to start the live stream." : "Connect the Ring Developer Playground to stream your simulator device. Your stored events stay available."}
+                  action={!ringQ.loading && !ringLive ? <Button onClick={() => openConnect()}>Connect Ring</Button> : undefined}
+                  className="py-16"
+                />
+              </div>
             ) : loading ? (
               <div className="relative">
                 <Skeleton className="aspect-video w-full rounded-hero" />
                 <LoadingOverlay label="Connecting to camera" />
               </div>
-            ) : (
+            ) : cam ? (
               <div ref={frameRef} className="rounded-hero">
                 <LiveCameraFrame device={cam} imageUrl={sceneImage[cam.id] ?? cam.previewUrl} timestamp={`${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: TIME_ZONE }).format(new Date(MOCK_NOW))}  ${formatTime(MOCK_NOW)}`} topRight={<span className="inline-flex items-center gap-1.5 rounded-full border border-purple/40 bg-bg/60 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-purple backdrop-blur">✨ Demo camera</span>} priority>
                   {/* Side controls */}
@@ -270,7 +297,7 @@ export function LivePage() {
                   </div>
                 </LiveCameraFrame>
               </div>
-            )}
+            ) : null}
 
             {/* Camera selector */}
             <section className="card p-4" aria-labelledby="cam-selector">

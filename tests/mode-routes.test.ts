@@ -21,11 +21,11 @@ test("automations are Smart Rules in Real Mode and sample automations in Demo Mo
   assert.equal(routeForMode("/automations/rule-package", "", "demo"), "/automations");
 });
 
-test("the Live View camera parameter must match the mode", () => {
+test("Real Mode never holds a demo camera; Demo Mode may show a Ring one it offers itself", () => {
   assert.equal(routeForMode("/live", "?camera=ring:ring-98e393d9", "ring"), null);
   assert.equal(routeForMode("/live", "?camera=cam-front", "ring"), "/live");
   assert.equal(routeForMode("/live", "camera=cam-front", "demo"), null);
-  assert.equal(routeForMode("/live", "?camera=ring:ring-98e393d9", "demo"), "/live");
+  assert.equal(routeForMode("/live", "?camera=ring:ring-98e393d9", "demo"), null, "the demo selector offers the Ring device");
   assert.equal(routeForMode("/live", "", "ring"), null, "no camera selected is always fine");
 });
 

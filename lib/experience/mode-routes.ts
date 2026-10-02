@@ -40,13 +40,12 @@ export function routeForMode(pathname: string, search: string, mode: ExperienceM
     if (!id) return s.list;
     return s.owns(id, mode) ? null : s.list;
   }
-  // Live View keeps the selected camera in the query string: `ring:<id>` in Real Mode,
-  // a demo camera id otherwise.
-  if (pathname === "/live") {
+  // Live View keeps the selected camera in the query string. Real Mode must never hold a demo
+  // camera; Demo Mode may show a connected Ring device, because its selector offers one on
+  // purpose ("try the real simulator stream") - switching mode still resets the selection.
+  if (pathname === "/live" && mode === "ring") {
     const camera = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("camera");
-    if (!camera) return null;
-    const ringCam = camera.startsWith("ring:");
-    return (mode === "ring") === ringCam ? null : "/live";
+    if (camera && !camera.startsWith("ring:")) return "/live";
   }
   return null;
 }

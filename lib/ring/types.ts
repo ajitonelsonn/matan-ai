@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
-   Ring Partner API (JSON:API) raw shapes + MATAN AI normalized types.
+   Ring API (JSON:API) raw shapes + MATAN AI normalized types.
    Raw shapes are only used inside lib/ring; the UI consumes normalized types.
 --------------------------------------------------------------------------- */
 
@@ -92,9 +92,21 @@ export interface RingDiscoveredDevice {
     ratio?: string;
     supportedResolutions?: number[];
     /** Which video / motion / image settings Ring says are configurable (e.g. resolution_mode, motion_zones). */
-    configurable?: { video?: string[]; motion?: string[]; imageEnhancements?: string[] };
+    configurable?: {
+      video?: string[];
+      motion?: string[];
+      imageEnhancements?: string[];
+    };
     /** Sensor-type capabilities Ring reports (null on cameras/doorbells = absent). */
-    sensors?: { co?: boolean; smoke?: boolean; glassBreak?: boolean; tamper?: boolean; flood?: boolean; freeze?: boolean; contact?: boolean };
+    sensors?: {
+      co?: boolean;
+      smoke?: boolean;
+      glassBreak?: boolean;
+      tamper?: boolean;
+      flood?: boolean;
+      freeze?: boolean;
+      contact?: boolean;
+    };
     /** Chime audio: customizable slot count / supported actions (null on non-chimes). */
     audioSlots?: number | null;
     audioActions?: string[] | null;
@@ -147,7 +159,13 @@ export interface RingAccount {
   fetchedAt: string;
 }
 
-export type TokenStatus = "missing" | "validating" | "valid" | "expiring" | "expired" | "invalid";
+export type TokenStatus =
+  | "missing"
+  | "validating"
+  | "valid"
+  | "expiring"
+  | "expired"
+  | "invalid";
 
 export interface RingSessionInfo {
   status: Exclude<TokenStatus, "validating" | "missing">;

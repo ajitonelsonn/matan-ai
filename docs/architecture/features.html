@@ -7,56 +7,277 @@
       /* Source for docs/architecture/matan-ai-features.png — what powers every page.
          Rendered with Chrome at deviceScaleFactor 2 (see README). */
       :root {
-        --bg: #031326; --surface: #071c34; --surface2: #0a2341;
-        --border: rgba(53,154,255,0.22); --border-strong: rgba(53,181,255,0.5);
-        --text: #f5f9ff; --text2: #c4d3e6; --text3: #7f95b0;
-        --primary: #12a8ff; --success: #16df9b; --warning: #ffc34a; --danger: #ff4d5e; --purple: #9a71ff;
+        --bg: #031326;
+        --surface: #071c34;
+        --surface2: #0a2341;
+        --border: rgba(53, 154, 255, 0.22);
+        --border-strong: rgba(53, 181, 255, 0.5);
+        --text: #f5f9ff;
+        --text2: #c4d3e6;
+        --text3: #7f95b0;
+        --primary: #12a8ff;
+        --success: #16df9b;
+        --warning: #ffc34a;
+        --danger: #ff4d5e;
+        --purple: #9a71ff;
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #01080f; font-family: Inter, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #01080f;
+        font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
       #canvas {
-        position: relative; width: 1720px; height: 1086px; overflow: hidden; color: var(--text);
+        position: relative;
+        width: 1720px;
+        height: 1086px;
+        overflow: hidden;
+        color: var(--text);
         background:
-          radial-gradient(1000px 560px at 14% 2%, rgba(18,168,255,0.15), transparent 60%),
-          radial-gradient(900px 520px at 90% 96%, rgba(154,113,255,0.13), transparent 58%),
+          radial-gradient(
+            1000px 560px at 14% 2%,
+            rgba(18, 168, 255, 0.15),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 520px at 90% 96%,
+            rgba(154, 113, 255, 0.13),
+            transparent 58%
+          ),
           linear-gradient(160deg, #041628 0%, var(--bg) 46%, #020c18 100%);
       }
-      #grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(53,154,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(53,154,255,0.05) 1px, transparent 1px); background-size: 48px 48px; }
+      #grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(53, 154, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(53, 154, 255, 0.05) 1px, transparent 1px);
+        background-size: 48px 48px;
+      }
 
-      header { position: absolute; left: 48px; top: 38px; display: flex; align-items: center; gap: 18px; }
-      header img { width: 58px; height: 58px; }
-      header h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
-      header h1 span { color: var(--primary); }
-      header p { margin-top: 5px; font-size: 14px; color: var(--text2); }
+      header {
+        position: absolute;
+        left: 48px;
+        top: 38px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      header img {
+        width: 58px;
+        height: 58px;
+      }
+      header h1 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+      }
+      header h1 span {
+        color: var(--primary);
+      }
+      header p {
+        margin-top: 5px;
+        font-size: 14px;
+        color: var(--text2);
+      }
 
-      .key { position: absolute; right: 48px; top: 40px; display: flex; flex-direction: column; gap: 7px; align-items: flex-end; }
-      .key .row { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--text3); font-weight: 600; }
-      .key img { width: 17px; height: 17px; object-fit: contain; }
-      .key .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-      .pill.real { color: var(--success); background: rgba(22,223,155,0.12); border: 1px solid rgba(22,223,155,0.4); }
-      .pill.future { color: var(--text3); background: rgba(127,149,176,0.1); border: 1px solid rgba(127,149,176,0.35); }
+      .key {
+        position: absolute;
+        right: 48px;
+        top: 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        align-items: flex-end;
+      }
+      .key .row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 12px;
+        color: var(--text3);
+        font-weight: 600;
+      }
+      .key img {
+        width: 17px;
+        height: 17px;
+        object-fit: contain;
+      }
+      .key .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .pill.real {
+        color: var(--success);
+        background: rgba(22, 223, 155, 0.12);
+        border: 1px solid rgba(22, 223, 155, 0.4);
+      }
+      .pill.future {
+        color: var(--text3);
+        background: rgba(127, 149, 176, 0.1);
+        border: 1px solid rgba(127, 149, 176, 0.35);
+      }
 
-      .grid { position: absolute; left: 48px; top: 168px; width: 1624px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-      .f { border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(10,35,65,0.96), rgba(7,28,52,0.95)); box-shadow: 0 12px 30px rgba(0,0,0,0.4); padding: 14px 15px 13px; min-height: 246px; display: flex; flex-direction: column; }
-      .f.lead { border-color: var(--border-strong); box-shadow: 0 0 0 1px rgba(18,168,255,0.1), 0 14px 34px rgba(0,0,0,0.5); }
-      .f h3 { display: flex; align-items: center; gap: 9px; font-size: 16.5px; font-weight: 750; letter-spacing: -0.01em; }
-      .f h3 em { font-style: normal; font-size: 17px; }
-      .f .route { margin-top: 2px; font-size: 11.5px; color: var(--text3); font-family: ui-monospace, Menlo, monospace; }
-      .f ul { margin-top: 9px; display: flex; flex-direction: column; gap: 4px; list-style: none; flex: 1; }
-      .f li { position: relative; padding-left: 13px; font-size: 12.3px; line-height: 1.38; color: var(--text2); }
-      .f li::before { content: ""; position: absolute; left: 0; top: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--success); }
-      .f li.fut { color: var(--text3); }
-      .f li.fut::before { background: var(--text3); opacity: 0.7; }
-      .powered { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(53,154,255,0.16); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-      .powered span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-right: 2px; }
-      .powered img { width: 22px; height: 22px; object-fit: contain; }
-      .powered .tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--text2); border: 1px solid rgba(53,154,255,0.3); background: rgba(18,168,255,0.1); }
+      .grid {
+        position: absolute;
+        left: 48px;
+        top: 168px;
+        width: 1624px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .f {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: linear-gradient(
+          180deg,
+          rgba(10, 35, 65, 0.96),
+          rgba(7, 28, 52, 0.95)
+        );
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        padding: 14px 15px 13px;
+        min-height: 246px;
+        display: flex;
+        flex-direction: column;
+      }
+      .f.lead {
+        border-color: var(--border-strong);
+        box-shadow:
+          0 0 0 1px rgba(18, 168, 255, 0.1),
+          0 14px 34px rgba(0, 0, 0, 0.5);
+      }
+      .f h3 {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 16.5px;
+        font-weight: 750;
+        letter-spacing: -0.01em;
+      }
+      .f h3 em {
+        font-style: normal;
+        font-size: 17px;
+      }
+      .f .route {
+        margin-top: 2px;
+        font-size: 11.5px;
+        color: var(--text3);
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .f ul {
+        margin-top: 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        list-style: none;
+        flex: 1;
+      }
+      .f li {
+        position: relative;
+        padding-left: 13px;
+        font-size: 12.3px;
+        line-height: 1.38;
+        color: var(--text2);
+      }
+      .f li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 6px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      .f li.fut {
+        color: var(--text3);
+      }
+      .f li.fut::before {
+        background: var(--text3);
+        opacity: 0.7;
+      }
+      .powered {
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px solid rgba(53, 154, 255, 0.16);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .powered span {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-right: 2px;
+      }
+      .powered img {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+      }
+      .powered .tag {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text2);
+        border: 1px solid rgba(53, 154, 255, 0.3);
+        background: rgba(18, 168, 255, 0.1);
+      }
 
-      .note { position: absolute; left: 48px; right: 48px; bottom: 28px; display: flex; gap: 14px; }
-      .note div { flex: 1; border-radius: 14px; border: 1px solid rgba(53,154,255,0.2); background: rgba(7,28,52,0.75); padding: 11px 14px; }
-      .note b { display: block; font-size: 12.5px; font-weight: 700; }
-      .note span { display: block; margin-top: 2px; font-size: 11.6px; color: var(--text3); line-height: 1.4; }
-      .note .g b { color: var(--success); } .note .p b { color: var(--purple); } .note .w b { color: var(--warning); }
+      .note {
+        position: absolute;
+        left: 48px;
+        right: 48px;
+        bottom: 28px;
+        display: flex;
+        gap: 14px;
+      }
+      .note div {
+        flex: 1;
+        border-radius: 14px;
+        border: 1px solid rgba(53, 154, 255, 0.2);
+        background: rgba(7, 28, 52, 0.75);
+        padding: 11px 14px;
+      }
+      .note b {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 700;
+      }
+      .note span {
+        display: block;
+        margin-top: 2px;
+        font-size: 11.6px;
+        color: var(--text3);
+        line-height: 1.4;
+      }
+      .note .g b {
+        color: var(--success);
+      }
+      .note .p b {
+        color: var(--purple);
+      }
+      .note .w b {
+        color: var(--warning);
+      }
     </style>
   </head>
   <body>
@@ -67,20 +288,28 @@
         <img src="../../public/brand/matan-ai-logo.png" alt="" />
         <div>
           <h1>MATAN <span>AI</span> — Feature map</h1>
-          <p>Every page in Real Mode, what powers it, and what is openly labelled a future integration</p>
+          <p>
+            Every page in Real Mode, what powers it, and what is openly labelled
+            a future integration
+          </p>
         </div>
       </header>
 
       <div class="key">
         <div class="row">
-          <img src="logos/ring.svg" alt="" /> Ring Partner API
+          <img src="logos/ring.svg" alt="" /> Ring API
           <img src="logos/aws-bedrock.png" alt="" /> Nova Pro
           <img src="logos/aws-dynamodb.svg" alt="" /> DynamoDB
           <img src="logos/aws-s3.svg" alt="" /> S3
           <img src="logos/aws-ses.svg" alt="" /> SES
           <img src="logos/aws-cognito.svg" alt="" /> Cognito
         </div>
-        <div class="row"><span class="pill real">● live</span> <span class="pill future">○ future integration — shown, never faked</span></div>
+        <div class="row">
+          <span class="pill real">● live</span>
+          <span class="pill future"
+            >○ future integration — shown, never faked</span
+          >
+        </div>
       </div>
 
       <div class="grid">
@@ -95,7 +324,13 @@
             <li>Send daily report email</li>
             <li class="fut">Weather · voice input</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/aws-bedrock.png" /><img src="logos/aws-dynamodb.svg" /><img src="logos/aws-s3.svg" /><img src="logos/aws-ses.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/aws-bedrock.png"
+            /><img src="logos/aws-dynamodb.svg" /><img
+              src="logos/aws-s3.svg"
+            /><img src="logos/aws-ses.svg" />
+          </div>
         </div>
         <!-- 2 -->
         <div class="f">
@@ -108,7 +343,12 @@
             <li>Matan AI analysis toggle</li>
             <li class="fut">Siren · lights · lock · record</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/webrtc.svg" style="filter:brightness(2.4)" /><img src="logos/aws-s3.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/webrtc.svg"
+              style="filter: brightness(2.4)"
+            /><img src="logos/aws-s3.svg" />
+          </div>
         </div>
         <!-- 3 -->
         <div class="f lead">
@@ -121,7 +361,11 @@
             <li>Notification outcome · 7-step timeline</li>
             <li class="fut">Editing or deleting Ring history</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/aws-bedrock.png" /><img src="logos/aws-dynamodb.svg" /><img src="logos/aws-s3.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/aws-bedrock.png"
+            /><img src="logos/aws-dynamodb.svg" /><img src="logos/aws-s3.svg" />
+          </div>
         </div>
         <!-- 4 -->
         <div class="f">
@@ -133,20 +377,31 @@
             <li>Nova-written period summary</li>
             <li>Recommendations from your own data</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/aws-bedrock.png" /><img src="logos/aws-dynamodb.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/aws-bedrock.png"
+            /><img src="logos/aws-dynamodb.svg" />
+          </div>
         </div>
         <!-- 5 -->
         <div class="f lead">
           <h3><em>💬</em> AI Assistant</h3>
           <div class="route">/assistant</div>
           <ul>
-            <li>Nova answers grounded in <b style="color:var(--text)">your</b> data</li>
+            <li>
+              Nova answers grounded in
+              <b style="color: var(--text)">your</b> data
+            </li>
             <li>Devices, events, decisions, rules, alerts</li>
             <li>Related events linked in the answer</li>
             <li>Chat history per user (DynamoDB)</li>
             <li class="fut">Attachments · voice · device control</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-bedrock.png" /><img src="logos/aws-dynamodb.svg" /><img src="logos/ring.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-bedrock.png" /><img
+              src="logos/aws-dynamodb.svg"
+            /><img src="logos/ring.svg" />
+          </div>
         </div>
         <!-- 6 -->
         <div class="f">
@@ -159,7 +414,11 @@
             <li>Create / edit / pause rules</li>
             <li class="fut">Lights · locks · Alexa / IFTTT</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-dynamodb.svg" /><img src="logos/ring.svg" /><span class="tag">Rules engine</span></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-dynamodb.svg" /><img
+              src="logos/ring.svg"
+            /><span class="tag">Rules engine</span>
+          </div>
         </div>
         <!-- 7 -->
         <div class="f">
@@ -172,7 +431,12 @@
             <li>Away = strict unknown person/vehicle</li>
             <li class="fut">Schedules · per-mode toggles</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-dynamodb.svg" /><span class="tag">Decision Engine</span></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-dynamodb.svg" /><span
+              class="tag"
+              >Decision Engine</span
+            >
+          </div>
         </div>
         <!-- 8 -->
         <div class="f">
@@ -185,7 +449,11 @@
             <li>Per-device Matan AI switch</li>
             <li class="fut">Device control · chime · lifecycle</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/aws-dynamodb.svg" /><img src="logos/aws-s3.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/aws-dynamodb.svg"
+            /><img src="logos/aws-s3.svg" />
+          </div>
         </div>
         <!-- 9 -->
         <div class="f">
@@ -198,7 +466,11 @@
             <li>Person detections stay “person”</li>
             <li class="fut">Family presence · call home</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-dynamodb.svg" /><img src="logos/ring.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-dynamodb.svg" /><img
+              src="logos/ring.svg"
+            />
+          </div>
         </div>
         <!-- 10 -->
         <div class="f">
@@ -211,7 +483,11 @@
             <li>Daily report email on demand</li>
             <li class="fut">Multi-site · team roles · POS</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/ring.svg" /><img src="logos/aws-bedrock.png" /><img src="logos/aws-ses.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/ring.svg" /><img
+              src="logos/aws-bedrock.png"
+            /><img src="logos/aws-ses.svg" />
+          </div>
         </div>
         <!-- 11 -->
         <div class="f">
@@ -224,7 +500,11 @@
             <li>Export everything as JSON</li>
             <li class="fut">Push/SMS · retention · 2FA · plan</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-cognito.svg" /><img src="logos/aws-dynamodb.svg" /><img src="logos/aws-ses.svg" /><img src="logos/aws-s3.svg" /></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-cognito.svg" /><img
+              src="logos/aws-dynamodb.svg"
+            /><img src="logos/aws-ses.svg" /><img src="logos/aws-s3.svg" />
+          </div>
         </div>
         <!-- 12 -->
         <div class="f">
@@ -237,15 +517,44 @@
             <li>Demo / Real chooser after sign-in</li>
             <li class="fut">MFA · profile editing</li>
           </ul>
-          <div class="powered"><span>powered</span><img src="logos/aws-cognito.svg" /><span class="tag">Google IdP</span></div>
+          <div class="powered">
+            <span>powered</span><img src="logos/aws-cognito.svg" /><span
+              class="tag"
+              >Google IdP</span
+            >
+          </div>
         </div>
       </div>
 
       <div class="note">
-        <div class="g"><b>Every page is per-user</b><span>Events, media, rules, modes, chats and settings are keyed by the verified Cognito sub.</span></div>
-        <div class="p"><b>One AI, three jobs</b><span>Nova Pro analyses event media, writes period summaries, and answers the assistant — always from your own data.</span></div>
-        <div class="w"><b>Future work is visible</b><span>Anything Ring's Partner API or this build cannot do is labelled in the UI, not silently faked.</span></div>
-        <div><b>Demo Mode</b><span>A parallel sample dataset for exploring the product without a Ring connection; the two never mix.</span></div>
+        <div class="g">
+          <b>Every page is per-user</b
+          ><span
+            >Events, media, rules, modes, chats and settings are keyed by the
+            verified Cognito sub.</span
+          >
+        </div>
+        <div class="p">
+          <b>One AI, three jobs</b
+          ><span
+            >Nova Pro analyses event media, writes period summaries, and answers
+            the assistant — always from your own data.</span
+          >
+        </div>
+        <div class="w">
+          <b>Future work is visible</b
+          ><span
+            >Anything Ring's Partner API or this build cannot do is labelled in
+            the UI, not silently faked.</span
+          >
+        </div>
+        <div>
+          <b>Demo Mode</b
+          ><span
+            >A parallel sample dataset for exploring the product without a Ring
+            connection; the two never mix.</span
+          >
+        </div>
       </div>
     </div>
   </body>

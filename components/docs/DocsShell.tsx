@@ -7,8 +7,10 @@ import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import rehypeSlug from "rehype-slug";
 import { ArrowLeft, BookOpen, Code2, Menu, Search, X } from "lucide-react";
 import { DOCS, DOC_GROUPS, type DocEntry } from "@/lib/docs/generated";
+import { Mermaid } from "./Mermaid";
 import { ThemeToggle } from "@/components/experience/theme-toggle";
 import { cn } from "@/lib/utils/cn";
 
@@ -160,11 +162,11 @@ export function Markdown({ markdown }: { markdown: string }) {
     <div className="max-w-[860px]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSlug]}
         components={{
           h1: ({ children }) => <h1 className="mt-2 text-[30px] font-extrabold leading-tight tracking-tight text-text sm:text-[34px]">{children}</h1>,
-          h2: ({ children }) => <h2 className="mt-9 border-t border-border pt-7 text-[21px] font-bold tracking-tight text-text">{children}</h2>,
-          h3: ({ children }) => <h3 className="mt-7 text-[17px] font-bold text-text">{children}</h3>,
+          h2: ({ children, id }) => <h2 id={id} className="mt-9 scroll-mt-20 border-t border-border pt-7 text-[21px] font-bold tracking-tight text-text">{children}</h2>,
+          h3: ({ children, id }) => <h3 id={id} className="mt-7 scroll-mt-20 text-[17px] font-bold text-text">{children}</h3>,
           h4: ({ children }) => <h4 className="mt-5 text-[15px] font-bold text-text-2">{children}</h4>,
           p: ({ children }) => <p className="mt-3.5 text-[14.5px] leading-relaxed text-text-2">{children}</p>,
           a: ({ href, children }) => {
@@ -185,13 +187,20 @@ export function Markdown({ markdown }: { markdown: string }) {
           strong: ({ children }) => <strong className="font-semibold text-text">{children}</strong>,
           blockquote: ({ children }) => <blockquote className="mt-4 rounded-r-lg border-l-[3px] border-primary/60 bg-primary/[0.06] py-2 pl-4 pr-3 text-[14px] text-text-2 [&>p]:mt-0">{children}</blockquote>,
           hr: () => <hr className="my-8 border-border" />,
-          img: ({ src, alt }) => (
-            <span className="mt-5 block overflow-hidden rounded-xl border border-border bg-surface-2/50">
-              {/* documentation screenshots and diagrams, already optimised at build time */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={typeof src === "string" ? src : ""} alt={alt ?? ""} className="block h-auto w-full" loading="lazy" />
-            </span>
-          ),
+          img: ({ src, alt, width }) => {
+            const url = typeof src === "string" ? src : "";
+            const w = Number(width) || undefined;
+            /* eslint-disable @next/next/no-img-element */
+            // badges sit inline in a sentence; small images keep their own width; the rest are figures
+            if (/shields\.io|badge/i.test(url)) return <img src={url} alt={alt ?? ""} className="mr-1.5 inline-block h-[22px] w-auto align-middle" loading="lazy" />;
+            if (w && w <= 260) return <img src={url} alt={alt ?? ""} width={w} className="mx-auto block h-auto" loading="lazy" />;
+            return (
+              <span className="mt-5 block overflow-hidden rounded-xl border border-border bg-surface-2/50">
+                <img src={url} alt={alt ?? ""} className="block h-auto w-full" loading="lazy" />
+              </span>
+            );
+            /* eslint-enable @next/next/no-img-element */
+          },
           table: ({ children }) => (
             <div className="mt-5 overflow-x-auto rounded-xl border border-border">
               <table className="w-full border-collapse text-left text-[13.5px]">{children}</table>
@@ -203,10 +212,11 @@ export function Markdown({ markdown }: { markdown: string }) {
           code: ({ className, children }) => {
             const lang = /language-(\w+)/.exec(className ?? "")?.[1];
             if (!lang) return <code className="rounded-[5px] border border-border bg-surface-2/80 px-1.5 py-0.5 font-mono text-[12.5px] text-text">{children}</code>;
+            if (lang === "mermaid") return <Mermaid chart={String(children).replace(/\n$/, "")} />;
             return (
               <span className="mt-5 block overflow-hidden rounded-xl border border-border bg-[#02101f]">
                 <span className="flex items-center justify-between border-b border-border px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-3">
-                  {lang === "mermaid" ? "Mermaid diagram · source" : lang}
+                  {lang}
                 </span>
                 <span className="block overflow-x-auto px-3.5 py-3">
                   <code className="whitespace-pre font-mono text-[12.5px] leading-relaxed text-text-2">{children}</code>

@@ -6,7 +6,7 @@
 
 **Ring sees the event. Matan AI understands the situation, decides what deserves attention, and tells you.**
 
-*Matan* means **“eye”** in Tetum, the language of Timor-Leste.
+_Matan_ means **“eye”** in Tetum, the language of Timor-Leste.
 
 [![Ring Track](https://img.shields.io/badge/Hackathon-Ring%20Track-1C9AD6?style=flat-square)](https://amazonappdev2026.devpost.com/)
 [![AWS Builder Challenge](https://img.shields.io/badge/AWS%20Builder-Mini%20Challenge-FF9900?style=flat-square)](https://amazonappdev2026.devpost.com/)
@@ -18,7 +18,7 @@
 
 ---
 
-A Ring camera tells you *something moved*. It cannot tell you whether that something matters. MATAN AI closes that gap: every Ring event is read by **Amazon Nova Pro**, scored by a deterministic **Decision Engine**, checked against **Smart Rules** you control, and only then — if it deserves your attention — turned into one clear email.
+A Ring camera tells you _something moved_. It cannot tell you whether that something matters. MATAN AI closes that gap: every Ring event is read by **Amazon Nova Pro**, scored by a deterministic **Decision Engine**, checked against **Smart Rules** you control, and only then — if it deserves your attention — turned into one clear email.
 
 Built for the **Build, Ship, Shape: Amazon Developer Hackathon** (Ring track + AWS Builder mini challenge) against the real **Ring Developer Playground**, running on AWS.
 
@@ -26,34 +26,34 @@ Built for the **Build, Ship, Shape: Amazon Developer Hackathon** (Ring track + A
 
 ## What it does
 
-| | |
-| --- | --- |
-| 🧠 **Understands, not just detects** | Nova Pro reads the snapshot (and the clip when it helps) and returns a summary, category, confidence, observations and what it is unsure about. |
-| ⚖️ **Decides, and explains why** | A deterministic Decision Engine turns the reading into a priority and an action; your Smart Rules have the last word. Every decision stores its reason. |
-| 🔕 **Stays quiet on purpose** | Most events end as *Ignore* or *Monitor*. Email is reserved for *Notify* and *Escalate* — with quiet hours, sensitivity and repeat detection you control. |
-| 💬 **Answers questions about your home** | The assistant is grounded in your own devices, events, decisions and rules — never invented. |
-| 📺 **Real Ring integration** | WebRTC live view, on-demand snapshots, event history, device capabilities — all from the Ring Partner API. |
-| 🤝 **Honest by design** | Anything the Ring API or this build cannot do is labelled *future integration* in the UI instead of being faked. |
+|                                          |                                                                                                                                                           |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧠 **Understands, not just detects**     | Nova Pro reads the snapshot (and the clip when it helps) and returns a summary, category, confidence, observations and what it is unsure about.           |
+| ⚖️ **Decides, and explains why**         | A deterministic Decision Engine turns the reading into a priority and an action; your Smart Rules have the last word. Every decision stores its reason.   |
+| 🔕 **Stays quiet on purpose**            | Most events end as _Ignore_ or _Monitor_. Email is reserved for _Notify_ and _Escalate_ — with quiet hours, sensitivity and repeat detection you control. |
+| 💬 **Answers questions about your home** | The assistant is grounded in your own devices, events, decisions and rules — never invented.                                                              |
+| 📺 **Real Ring integration**             | WebRTC live view, on-demand snapshots, event history, device capabilities — all from the Ring API.                                                        |
+| 🤝 **Honest by design**                  | Anything the Ring API or this build cannot do is labelled _future integration_ in the UI instead of being faked.                                          |
 
 ## See it
 
-| | |
-| --- | --- |
-| **Live demo** | `https://main.d3q4rxuohabv2i.amplifyapp.com` |
+|                            |                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Live demo**              | `https://main.d3q4rxuohabv2i.amplifyapp.com`                                                                   |
 | **Documentation (in-app)** | [`/docs`](https://main.d3q4rxuohabv2i.amplifyapp.com/docs) — architecture, integrations and every page audited |
-| **Demo Mode** | Sign in and choose *Demo Mode* to explore with sample data, no Ring account needed |
-| **Real Mode** | Paste a 30-minute Ring Developer Playground token and the whole app runs on real Ring data |
+| **Demo Mode**              | Sign in and choose _Demo Mode_ to explore with sample data, no Ring account needed                             |
+| **Real Mode**              | Paste a 30-minute Ring Developer Playground token and the whole app runs on real Ring data                     |
 
 ## Architecture at a glance
 
-| Diagram | What it answers |
-| --- | --- |
-| [System architecture](docs/architecture/matan-ai-architecture.png) | How the browser, the Next.js server, AWS and Ring fit together |
-| [Event → alert lifecycle](docs/architecture/matan-ai-lifecycle.png) | What happens in the 2.7 seconds after Ring records something |
-| [Feature map](docs/architecture/matan-ai-features.png) | What powers each page, and what is a future integration |
-| [Deployment & security](docs/architecture/matan-ai-deployment.png) | How it ships to AWS and what it refuses to do with your data |
+| Diagram                                                             | What it answers                                                |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [System architecture](docs/architecture/matan-ai-architecture.png)  | How the browser, the Next.js server, AWS and Ring fit together |
+| [Event → alert lifecycle](docs/architecture/matan-ai-lifecycle.png) | What happens in the 2.7 seconds after Ring records something   |
+| [Feature map](docs/architecture/matan-ai-features.png)              | What powers each page, and what is a future integration        |
+| [Deployment & security](docs/architecture/matan-ai-deployment.png)  | How it ships to AWS and what it refuses to do with your data   |
 
-**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · Amazon Cognito · Amazon Bedrock (Nova Pro) · Amazon DynamoDB · Amazon S3 · Amazon SES · AWS Amplify Hosting · Ring Partner API (Developer Playground).
+**Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · Amazon Cognito · Amazon Bedrock (Nova Pro) · Amazon DynamoDB · Amazon S3 · Amazon SES · AWS Amplify Hosting · Ring API (Developer Playground).
 
 ## Run it yourself
 
@@ -90,7 +90,7 @@ Everything is in [`docs/`](docs/) and is also browsable inside the app at `/docs
 
 ## Built in Timor-Leste 🇹🇱
 
-Made in Dili for *Safer Homes, Stronger Communities*. The product is designed for places where a neighbour, a grandparent or a small shop owner needs to know what matters — without wading through a hundred motion alerts.
+Made in Dili for _Safer Homes, Stronger Communities_. The product is designed for places where a neighbour, a grandparent or a small shop owner needs to know what matters — without wading through a hundred motion alerts.
 
 ## License
 

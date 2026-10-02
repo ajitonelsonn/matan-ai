@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/experience/theme-provider";
 import { ExperienceProvider } from "@/components/experience/experience-provider";
 import { ModeSelection } from "@/components/experience/mode-selection";
 import { ModeTransition } from "@/components/experience/mode-transition";
+import { ModeRouteGuard } from "@/components/experience/mode-route-guard";
 import { ExperienceModals } from "@/components/experience/experience-modals";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AuthGuard } from "@/components/auth/AuthGuard";
@@ -41,6 +42,7 @@ function AuthenticatedApp({ children }: { children: React.ReactNode }) {
         <AppShell>{children}</AppShell>
         <TopProgress />
         <ModeTransition />
+        <ModeRouteGuard />
         <ModeSelection />
         <ExperienceModals />
         <SplashGate />

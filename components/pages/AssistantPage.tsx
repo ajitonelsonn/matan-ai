@@ -50,11 +50,11 @@ const ringQuickAsk = [
   { q: "Which alerts did you email me and why?", icon: FileText },
 ];
 
-const greeting = (name: string): AssistantMessage => ({
+const greeting = (name: string, now: string = MOCK_NOW): AssistantMessage => ({
   id: "greeting",
   role: "assistant",
   content: `Hello, ${name}! 👋\nI'm Matan AI, your intelligent home assistant. I can help you understand your Ring events, summarize activity, find important moments, and automate actions.`,
-  timestamp: MOCK_NOW,
+  timestamp: now,
   suggestions: ["What happened today?", "Is my home safe now?", "How many deliveries this week?"],
 });
 
@@ -102,7 +102,7 @@ export function AssistantPage() {
       setDraft(null);
     } else if (!convQ.data.conversations.length) {
       setActiveId(null);
-      setDraft([greeting(firstName)]);
+      setDraft([greeting(firstName, isRing ? new Date().toISOString() : MOCK_NOW)]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convQ.data]);
@@ -116,7 +116,7 @@ export function AssistantPage() {
 
   const newChat = React.useCallback(() => {
     setActiveId(null);
-    setDraft([greeting(firstName)]);
+    setDraft([greeting(firstName, isRing ? new Date().toISOString() : MOCK_NOW)]);
     setInput("");
     requestAnimationFrame(() => textRef.current?.focus());
   }, [firstName]);
@@ -127,8 +127,9 @@ export function AssistantPage() {
       if (!message || sending) return;
       setInput("");
       setSending(true);
-      const optimistic: AssistantMessage = { id: `tmp-${Date.now()}`, role: "user", content: message, timestamp: MOCK_NOW };
-      if (draft || !activeId) setDraft((d) => [...(d ?? [greeting(firstName)]), optimistic]);
+      const nowIso = isRing ? new Date().toISOString() : MOCK_NOW;
+      const optimistic: AssistantMessage = { id: `tmp-${Date.now()}`, role: "user", content: message, timestamp: nowIso };
+      if (draft || !activeId) setDraft((d) => [...(d ?? [greeting(firstName, nowIso)]), optimistic]);
       else setConversations((list) => list.map((c) => (c.id === activeId ? { ...c, messages: [...c.messages, optimistic] } : c)));
       try {
         const { conversation } = await assistantApi.send(message, activeId ?? undefined, ds.mode);
@@ -153,7 +154,7 @@ export function AssistantPage() {
     const q = params.get("q");
     if (q && !autoSent.current && convQ.data) {
       autoSent.current = true;
-      setDraft([greeting(firstName)]);
+      setDraft([greeting(firstName, isRing ? new Date().toISOString() : MOCK_NOW)]);
       setActiveId(null);
       void send(q);
       window.history.replaceState(null, "", "/assistant");

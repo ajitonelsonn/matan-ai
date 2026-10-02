@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Filter, LayoutGrid, Users, Package, Car, PawPrint, Bell, MoreHorizontal, ListFilter, Inbox } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -50,9 +51,10 @@ const PAGE = 12;
 export function EventsPage({ initialEventId }: { initialEventId?: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const toast = useToast();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const ds = useDataSource();
-  const { openConnect, ring } = useExperience();
+  const { openConnect, ring, mode: rawMode } = useExperience();
   const isRing = ds.mode === "ring";
 
   const [search, setSearch] = React.useState(params.get("search") ?? "");
@@ -83,12 +85,21 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
       return merged.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
     });
   }, [q.data, page]);
-  // Never mix sources: clear the list + selection when the mode changes.
+  // Never mix sources: clear the list + selection when the user SWITCHES mode. `rawMode` is
+  // null until the experience hydrates - treating that first value as a switch would drop the
+  // event id the URL asked for (/events/<id>).
+  const lastMode = React.useRef<string | null>(null);
   React.useEffect(() => {
+    if (!rawMode) return;
+    if (lastMode.current === null || lastMode.current === rawMode) {
+      lastMode.current = rawMode;
+      return;
+    }
+    lastMode.current = rawMode;
     setItems([]);
     setSelectedId(null);
     setPage(1);
-  }, [ds.mode]);
+  }, [rawMode]);
 
   // Real Mode: poll Ring history so new events and automatic analyses land without a click.
   const anyAnalyzing = items.some((e) => isProcessing(e));
@@ -105,6 +116,16 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
 
   // Keep a valid selection: the deep-linked event, else the first item.
   const detailQ = useApi(() => (selectedId ? ds.getEvent(selectedId) : Promise.resolve(null)), [selectedId, ds.mode]);
+  // A deep link to an event this mode doesn't have (deleted, or from the other experience)
+  // must not leave an empty detail pane: go back to the list and say why.
+  React.useEffect(() => {
+    if (!initialEventId || !detailQ.error || detailQ.loading) return;
+    toast.info("Event not available", isRing ? "That event is not in your Ring history." : "That event is not part of the demo dataset.");
+    setSelectedId(null);
+    setDrawerOpen(false);
+    router.replace("/events");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEventId, detailQ.error, detailQ.loading]);
   React.useEffect(() => {
     if (!selectedId && items.length) setSelectedId(items[0].id);
   }, [items, selectedId]);

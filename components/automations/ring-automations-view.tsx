@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Zap, Plus, Pencil, Trash2, ScrollText, Lock, Lightbulb, Siren, DoorClosed, MessageSquareReply, Cable, ShieldAlert, HeartHandshake, CircleCheck, Clock, ChevronRight } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/Button";
@@ -72,7 +73,9 @@ const FUTURE = [
   { label: "Alexa / IFTTT routines", icon: <Cable />, why: "Third-party routine triggers are not part of this build." },
 ];
 
-export function RingAutomationsView() {
+export function RingAutomationsView({ initialRuleId }: { initialRuleId?: string } = {}) {
+  const router = useRouter();
+  const params = useSearchParams();
   const toast = useToast();
   const confirm = useConfirm();
   const rulesQ = useApi(() => careApi.rules(), []);
@@ -89,6 +92,26 @@ export function RingAutomationsView() {
   const events = eventsQ.data?.items ?? [];
   const care = careQ.data?.context;
   const stats = React.useMemo(() => ruleStats(rules, events), [rules, events]);
+  // "Create automation" links (Home, AI Insights) open the rule editor in Real Mode.
+  React.useEffect(() => {
+    if (params.get("create") === "1") {
+      setEditing("new");
+      router.replace("/automations");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
+  // Deep link to a rule: open its editor, or fall back to the list when it no longer exists.
+  React.useEffect(() => {
+    if (!initialRuleId || rulesQ.loading || !rulesQ.data) return;
+    const rule = rulesQ.data.rules.find((r) => r.id === initialRuleId);
+    if (rule) setEditing(rule);
+    else {
+      toast.info("Rule not available", "That Smart Rule no longer exists.");
+      router.replace("/automations");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRuleId, rulesQ.loading, rulesQ.data]);
   const q = search.trim().toLowerCase();
   const visible = rules.filter((r) => (filter === "all" || (filter === "builtin" ? Boolean(r.builtin) : !r.builtin)) && (!q || r.name.toLowerCase().includes(q) || describeConditions(r).toLowerCase().includes(q)));
   const runsTotal = Object.values(stats).reduce((n, s) => n + s.runs7d, 0);

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, LayoutGrid, List, BellRing, Camera, Speaker, WifiOff, Radio, Activity, Pencil, Trash2, Star, StarOff, Clock, MapPin, ExternalLink, BookOpen, CircleHelp, ListOrdered, FlaskConical, ChevronRight, Video } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Tabs } from "@/components/ui/Tabs";
@@ -75,6 +76,18 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
   const [addOpen, setAddOpen] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [detailId, setDetailId] = React.useState<string | null>(initialDeviceId ?? null);
+  const router = useRouter();
+  // Deep link to a device that is no longer connected (removed, or from Demo Mode): the
+  // drawer would stay shut on a dead URL, so return to the list instead.
+  React.useEffect(() => {
+    if (!initialDeviceId || q.loading || !q.data) return;
+    if (!q.data.connected.some((d) => d.id === initialDeviceId)) {
+      toast.info("Device not available", "That device is not connected to Matan AI any more.");
+      setDetailId(null);
+      router.replace("/devices");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDeviceId, q.loading, q.data]);
   const [editing, setEditing] = React.useState<ConnectedRingDevice | null>(null);
   const [editForm, setEditForm] = React.useState({ displayName: "", locationLabel: "", aiEnabled: true, favorite: false });
   const [eventsOpenFor, setEventsOpenFor] = React.useState<string | null>(null);

@@ -125,9 +125,12 @@ export function LivePage() {
   const confirm = useConfirm();
   const { data: shell } = useAppData();
 
-  const devicesQ = useApi(() => devicesApi.list(), []);
-  const cameras = React.useMemo(() => (devicesQ.data?.items ?? []).filter((d) => d.kind === "camera" || d.kind === "doorbell"), [devicesQ.data]);
-  const [camId, setCamId] = React.useState<string>(params.get("camera") ?? "cam-front");
+  const { mode: experienceMode } = useExperience();
+  const isRingMode = experienceMode === "ring";
+  // Real Mode never loads the sample cameras - the Playground devices are the only source.
+  const devicesQ = useApi(() => (experienceMode === "ring" ? Promise.resolve(null) : devicesApi.list()), [experienceMode]);
+  const cameras = React.useMemo(() => (isRingMode ? [] : (devicesQ.data?.items ?? []).filter((d) => d.kind === "camera" || d.kind === "doorbell")), [devicesQ.data, isRingMode]);
+  const [camId, setCamId] = React.useState<string>(params.get("camera") ?? (isRingMode ? "" : "cam-front"));
 
   // Real Ring devices connected through the Playground join the camera list.
   const ringQ = useApi(() => ringApi.devices(), []);
@@ -137,21 +140,20 @@ export function LivePage() {
   const ringLive = ringCountdown.status === "valid" || ringCountdown.status === "expiring";
   const ringCam = camId.startsWith("ring:") ? ringDevices.find((d) => `ring:${d.id}` === camId) : undefined;
   const [reconnectOpen, setReconnectOpen] = React.useState(false);
-  const { mode } = useExperience();
-  const isRingMode = mode === "ring";
   // Real Mode defaults to the first connected Ring device when no camera was requested.
   React.useEffect(() => {
     if (isRingMode && !params.get("camera") && ringDevices[0] && !camId.startsWith("ring:")) setCamId(`ring:${ringDevices[0].id}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRingMode, ringDevices.length]);
 
-  const cam = cameras.find((c) => c.id === camId) ?? cameras[0];
+  const cam = isRingMode ? undefined : (cameras.find((c) => c.id === camId) ?? cameras[0]);
 
   // Real Mode: today's real Ring events (with Matan priorities); Demo Mode: the sample dataset.
   const eventsQ = useApi(() => (isRingMode ? getDataSource("ring").getEvents({ range: "today", pageSize: 100 }) : eventsApi.list({ range: "today", pageSize: 100 })), [isRingMode]);
   const [snap, setSnap] = React.useState<{ src: string; capturedAt?: string } | null>(null);
   const todays = eventsQ.data?.items ?? [];
-  const camEvents = todays.filter((e) => e.cameraId === cam?.id);
+  // Real Mode: the timeline belongs to the selected Ring device; Demo Mode: the sample camera.
+  const camEvents = isRingMode ? (ringCam ? todays.filter((e) => e.cameraId === ringCam.id) : todays) : todays.filter((e) => e.cameraId === cam?.id);
   const latest = camEvents[0];
   const ai = analysisFor(latest, cam);
 
@@ -169,8 +171,8 @@ export function LivePage() {
 
   React.useEffect(() => {
     if (ringCam) window.history.replaceState(null, "", `/live?camera=ring:${ringCam.id}`);
-    else if (cam) window.history.replaceState(null, "", `/live?camera=${cam.id}`);
-  }, [cam, ringCam]);
+    else if (cam && !isRingMode) window.history.replaceState(null, "", `/live?camera=${cam.id}`);
+  }, [cam, ringCam, isRingMode]);
 
   const fullscreen = () => {
     if (frameRef.current && document.fullscreenEnabled) void frameRef.current.requestFullscreen().catch(() => toast.info("Fullscreen isn't available here"));

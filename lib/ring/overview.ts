@@ -157,7 +157,8 @@ export async function buildRingDashboard(): Promise<DashboardData & { stale: boo
   const active = activeRingMode();
   const inbox = buildInbox(events);
   return {
-    user,
+    // Neutral profile: the browser fills in the signed-in Cognito identity. Never the demo persona.
+    user: { ...user, name: "", firstName: "", email: "", role: "Owner", location: "", avatarUrl: undefined, plan: "", twoFactor: false },
     weather,
     notifications: inbox.notifications,
     unreadNotifications: inbox.unread,

@@ -58,7 +58,7 @@ export function AutomationsPage({ initialAutomationId }: { initialAutomationId?:
   const appMode = useAppMode();
   // Real Mode automations are Matan Smart Rules on real Ring events; the demo automations
   // (shared sample store, simulated actions) are never shown there.
-  if (appMode === "ring") return <RingAutomationsView />;
+  if (appMode === "ring") return <RingAutomationsView initialRuleId={initialAutomationId} />;
   return <DemoAutomationsPage initialAutomationId={initialAutomationId} />;
 }
 

@@ -28,5 +28,16 @@ The rule applied on every page: **nothing is simulated in Real Mode.** A functio
 - **Relative times** in Real Mode use the real clock instead of the demo clock.
 - **Nova text generation** (`generateTextWithNova`) powers the Insights/Business summaries and the assistant; every call is grounded in the user's own data and cached where it makes sense.
 
+## Responsive behaviour
+
+Every page is checked at 375 px (phone), 768 px (tablet) and 1024 px, in both modes and signed
+out, with no horizontal scrolling anywhere. The rule that keeps it that way: **page columns and
+cards are grid/flex items, so they need `min-w-0`** (their default `min-width: auto` prevents
+shrinking below content, and a single truncated line of text has a very wide min-content).
+Card grids use `[&>*]:min-w-0`. On phones, stat rows become two columns, card headers wrap their
+action badge, the Live View player uses a fixed height (an `aspect-video` box with a `min-height`
+grows sideways instead of taller), and the assistant conversation scrolls inside the viewport so
+the composer stays reachable.
+
 ## How the audit was run
 Each page was opened in a signed-in Real Mode session with a Playwright-driven Chrome profile, every control was exercised against the real APIs (Ring Playground, Bedrock, SES/SMTP, DynamoDB, S3), the outcome was recorded in the page's *Verified* section, and the screenshots were taken from that session. Playground tokens expire after 30 minutes; several screenshots therefore show the *session expired* banner, which is itself part of what the audit verified.

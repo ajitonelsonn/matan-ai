@@ -20,6 +20,9 @@ The rule applied on every page: **nothing is simulated in Real Mode.** A functio
 | Settings | [settings.md](settings.md) | alerts (address, level, test), Care & Rules, auto-analysis, theme, export, account / Ring / Google status | inert preferences, push/SMS, retention, recognition, language/region, import, 2FA, plan |
 
 ## Cross-cutting fixes made during the audit
+- **No demo data in Real Mode**: Live View stopped loading/selecting the sample cameras (it fell back to `cam-front`, so the timeline filtered on a demo id), the assistant stamps messages with the real clock, and `/api/ring/overview` returns a neutral profile instead of the demo persona. Verified by scanning all 13 Real Mode pages for demo fixture strings (devices, family names, `EVT-`, demo automations, `ajito@example.com`, `Pro Plan`) - all clean.
+- **Links always stay inside the active experience** (`lib/experience/mode-routes.ts` + `ModeRouteGuard`): a detail URL that belongs to the other mode - after a switch, from an old link, a bookmark or a notification - is replaced with that section's list page. Real Mode owns `ring-…` events/devices and `rule-…` Smart Rules; Demo Mode owns the sample ids.
+- **Never a dead end**: an id that no longer exists returns to its list page with a short explanation (events, devices, Smart Rules); `/events/<id>` now opens that exact event (the source-reset effect used to drop the deep link on hydration); `/automations?create=1` opens the rule editor in Real Mode; the 404 page offers the relevant section and goes there by itself.
 - **Expired Ring token → status is "last known"**, never a live *Online* (Devices, Home tile, Security Modes counts).
 - **Per-user state** where the demo store was being shared across users: assistant conversations (DynamoDB `CHAT#`), active security mode (`SETTINGS.security`).
 - **Relative times** in Real Mode use the real clock instead of the demo clock.

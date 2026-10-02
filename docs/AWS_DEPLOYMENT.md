@@ -54,7 +54,16 @@ MATAN AI runs on **AWS Amplify Hosting (Next.js SSR compute)** with a compute ro
 2. Keep the existing variables (`S3_MEDIA_BUCKET`, `SES_*`, `SMTP_*`, `APP_BASE_URL`, `BEDROCK_MODEL_ID`, `NEXT_PUBLIC_COGNITO_*`). `SMTP_PASSWORD` must be a regular environment variable (Amplify Secrets are not visible to the build); it is copied into the private server build only.
 3. Do **not** add `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`; the compute role provides credentials and Lambda sets `AWS_REGION`.
 4. Redeploy `main`.
-5. Cognito app client: the production callback/sign-out URLs (`https://main.<app>.amplifyapp.com/auth/callback`, `/login`) must be listed; Google OAuth client must have the Cognito domain redirect URI.
+5. **Cognito app client → Login pages → Managed login pages configuration** must list every origin the app runs on, exactly as the browser sends them (`lib/auth/config.ts` → `oauthRedirects`):
+
+   | Field | Values (comma-separated) |
+   | --- | --- |
+   | Allowed callback URLs | `http://localhost:3000/auth/callback`, `https://main.<app-id>.amplifyapp.com/auth/callback` |
+   | Allowed sign-out URLs | `http://localhost:3000/` , `https://main.<app-id>.amplifyapp.com/` |
+
+   The **trailing slash on the sign-out URLs is part of the value** — Cognito matches the string exactly. A missing entry does not show a useful error: `/logout` is bounced to `/login` without the OAuth parameters and the managed login page says only *Invalid request*. Symptoms: Google sign-in works locally but not on the deployed origin (callback URL missing), or sign-out lands on *Invalid request* (sign-out URL missing).
+
+   The Google OAuth client needs **no** change for a new app origin: its only authorized redirect URI is the Cognito domain (`https://<cognito-domain>/oauth2/idpresponse`).
 
 ## Production verification
 

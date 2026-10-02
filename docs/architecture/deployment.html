@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MATAN AI — Deployment &amp; security</title>
+    <style>
+      /* Source for docs/architecture/matan-ai-deployment.png — deployment architecture.
+         Rendered with Chrome at deviceScaleFactor 2 (see README). */
+      :root { --bg:#031326; --text:#f5f9ff; --text2:#c4d3e6; --text3:#7f95b0; --primary:#12a8ff; --success:#16df9b; --warning:#ffc34a; --danger:#ff4d5e; --purple:#9a71ff; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #01080f; font-family: Inter, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      #canvas { position: relative; width: 1720px; height: 1010px; overflow: hidden; color: var(--text);
+        background: radial-gradient(1000px 520px at 10% 0%, rgba(18,168,255,0.15), transparent 60%),
+                    radial-gradient(900px 520px at 94% 100%, rgba(255,195,74,0.09), transparent 58%),
+                    linear-gradient(160deg,#041628 0%, var(--bg) 46%, #020c18 100%); }
+      #grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(53,154,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(53,154,255,0.05) 1px, transparent 1px); background-size: 48px 48px; }
+      header { position: absolute; left: 48px; top: 36px; display: flex; align-items: center; gap: 16px; }
+      header img { width: 54px; height: 54px; }
+      header h1 { font-size: 31px; font-weight: 800; letter-spacing: -0.02em; }
+      header h1 span { color: var(--primary); }
+      header p { margin-top: 4px; font-size: 13.5px; color: var(--text2); }
+      .region { position: absolute; right: 48px; top: 46px; display: flex; gap: 10px; }
+      .region div { border: 1px solid rgba(53,154,255,0.3); background: rgba(18,168,255,0.1); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: var(--text2); }
+
+      .box { position: absolute; border-radius: 16px; border: 1px solid rgba(53,154,255,0.24); background: linear-gradient(180deg, rgba(10,35,65,0.96), rgba(7,28,52,0.95)); box-shadow: 0 12px 28px rgba(0,0,0,0.4); padding: 14px 16px; }
+      .box.accent { border-color: rgba(53,181,255,0.5); }
+      .box h3 { display: flex; align-items: center; gap: 9px; font-size: 15.5px; font-weight: 750; letter-spacing: -0.01em; }
+      .box h3 img { width: 24px; height: 24px; object-fit: contain; }
+      .box p { margin-top: 5px; font-size: 12.3px; color: var(--text3); line-height: 1.45; }
+      .box ul { margin-top: 9px; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+      .box li { position: relative; padding-left: 13px; font-size: 12.2px; color: var(--text2); line-height: 1.4; }
+      .box li::before { content:""; position:absolute; left:0; top:6px; width:5px; height:5px; border-radius:50%; background: var(--primary); }
+      .box li.g::before { background: var(--success); } .box li.w::before { background: var(--warning); } .box li.d::before { background: var(--danger); }
+      code { font-family: ui-monospace, Menlo, monospace; font-size: 11.6px; color: var(--text2); }
+
+      .zone { position: absolute; border: 1px dashed rgba(255,195,74,0.35); border-radius: 20px; background: rgba(255,195,74,0.04); }
+      .zone > span { position: absolute; top: -11px; left: 20px; padding: 2px 11px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--warning); background: #041628; border: 1px solid rgba(255,195,74,0.4); border-radius: 999px; }
+      .zone.blue { border-color: rgba(53,154,255,0.3); background: rgba(18,168,255,0.03); }
+      .zone.blue > span { color: var(--primary); border-color: rgba(53,154,255,0.4); }
+
+      .iam { position: absolute; left: 596px; top: 596px; width: 528px; border-radius: 15px; border: 1px solid rgba(22,223,155,0.4); background: rgba(8,36,30,0.6); padding: 13px 16px; }
+      .iam h4 { font-size: 14px; font-weight: 750; color: var(--success); display: flex; align-items: center; gap: 8px; }
+      .iam table { margin-top: 9px; width: 100%; border-collapse: collapse; }
+      .iam td { font-size: 11.8px; color: var(--text2); padding: 3px 0; vertical-align: top; }
+      .iam td:first-child { width: 112px; color: var(--text3); font-weight: 650; }
+
+      svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+      .box, .zone > span, .iam, header, .region { z-index: 2; }
+      .zone { z-index: 1; }
+
+      .foot { position: absolute; left: 48px; right: 48px; bottom: 32px; display: flex; gap: 14px; }
+      .foot div { flex: 1; border-radius: 13px; border: 1px solid rgba(53,154,255,0.2); background: rgba(7,28,52,0.78); padding: 11px 14px; }
+      .foot b { display: block; font-size: 12.4px; } .foot span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--text3); line-height: 1.4; }
+      .foot .g b { color: var(--success); } .foot .w b { color: var(--warning); } .foot .d b { color: var(--danger); }
+    </style>
+  </head>
+  <body>
+    <div id="canvas">
+      <div id="grid"></div>
+      <header>
+        <img src="../../public/brand/matan-ai-logo.png" alt="" />
+        <div>
+          <h1>Deployment &amp; <span>security</span></h1>
+          <p>How MATAN AI ships to AWS — and what it refuses to do with your data</p>
+        </div>
+      </header>
+      <div class="region"><div>Region <b style="color:var(--primary)">us-east-1</b></div><div>No long-lived AWS keys</div></div>
+
+      <!-- pipeline -->
+      <div class="box accent" style="left:48px; top:150px; width:300px">
+        <h3>📦 GitHub repository</h3>
+        <p>Open source · <code>main</code> is the production branch</p>
+        <ul>
+          <li>Push triggers an Amplify build</li>
+          <li><code>.env</code> is never committed</li>
+        </ul>
+      </div>
+
+      <div class="box" style="left:48px; top:316px; width:300px">
+        <h3><img src="logos/aws-amplify.svg" alt="" /> Amplify build</h3>
+        <p><code>amplify.yml</code> · pnpm via corepack</p>
+        <ul>
+          <li>Console variables are copied into <code>.env.production</code> — the SSR runtime does not inherit them</li>
+          <li class="g">Only an allow-list is copied; nothing starting with <code>AWS_</code></li>
+        </ul>
+      </div>
+
+      <div class="box" style="left:48px; top:548px; width:300px">
+        <h3>⚙️ Configuration</h3>
+        <ul>
+          <li><code>S3_MEDIA_BUCKET</code>, <code>DYNAMODB_TABLE_NAME</code></li>
+          <li><code>SES_FROM_EMAIL</code>, <code>SMTP_*</code>, <code>APP_BASE_URL</code></li>
+          <li><code>BEDROCK_MODEL_ID</code>, token budget</li>
+          <li class="w"><code>RING_SESSION_SECRET</code> — seals the Ring cookie</li>
+          <li><code>NEXT_PUBLIC_COGNITO_*</code> — public by design</li>
+        </ul>
+      </div>
+
+      <!-- runtime zone -->
+      <div class="zone blue" style="left:398px; top:128px; width:726px; height:446px"><span>Amplify Hosting · SSR compute</span></div>
+
+      <div class="box accent" style="left:424px; top:166px; width:674px">
+        <h3><img src="logos/aws-lambda.svg" alt="" /> Next.js server runtime</h3>
+        <p>Short-lived instances behind the Amplify CDN — any request can land on a cold one</p>
+        <ul>
+          <li class="g">Ring session travels in a sealed, HttpOnly cookie, so any instance can continue it</li>
+          <li class="g">Scheduler state lives in DynamoDB, not in process memory</li>
+          <li class="d">No fire-and-forget work: analysis and email finish inside the request</li>
+        </ul>
+      </div>
+
+      <div class="box" style="left:424px; top:364px; width:326px">
+        <h3>🔑 Request identity</h3>
+        <ul>
+          <li>Cognito access token verified per request (<code>aws-jwt-verify</code>)</li>
+          <li>Everything keyed by the verified <code>sub</code></li>
+        </ul>
+      </div>
+
+      <div class="box" style="left:772px; top:364px; width:326px">
+        <h3><img src="logos/aws-cloudwatch.svg" alt="" /> Observability</h3>
+        <ul>
+          <li>Structured logs: sync, analysis, email, <code>runtime_config</code></li>
+          <li>Never logs tokens, keys or recipients</li>
+        </ul>
+      </div>
+
+      <div class="iam">
+        <h4>🛡 MatanAI-Amplify-ComputeRole <span style="font-weight:600;color:var(--text3);font-size:11.5px">— least privilege, no access keys</span></h4>
+        <table>
+          <tr><td>Bedrock</td><td><code>InvokeModel</code> on the Nova Pro model</td></tr>
+          <tr><td>DynamoDB</td><td><code>GetItem · PutItem · UpdateItem · DeleteItem · Query</code> on one table (no Scan)</td></tr>
+          <tr><td>S3</td><td><code>GetObject · PutObject · ListBucket</code> on one private bucket</td></tr>
+          <tr><td>SES</td><td><code>SendEmail · SendRawEmail</code> on the verified identity + configuration set</td></tr>
+        </table>
+      </div>
+
+      <!-- services -->
+      <div class="box" style="left:1174px; top:150px; width:238px"><h3><img src="logos/aws-cognito.svg" alt="" /> Cognito</h3><p>User pool · email + Google · hosted login with per-origin callback URLs</p></div>
+      <div class="box" style="left:1434px; top:150px; width:238px"><h3><img src="logos/aws-bedrock.png" alt="" /> Bedrock</h3><p>Nova Pro · on-demand inference, monthly token budget enforced in app</p></div>
+      <div class="box" style="left:1174px; top:306px; width:238px"><h3><img src="logos/aws-dynamodb.svg" alt="" /> DynamoDB</h3><p>Single table <code>MatanAI</code> · PK <code>USER#sub</code> · query-only access</p></div>
+      <div class="box" style="left:1434px; top:306px; width:238px"><h3><img src="logos/aws-s3.svg" alt="" /> S3</h3><p>Private bucket · Block Public Access on · SSE-S3 · keys under <code>users/{sub}/…</code></p></div>
+      <div class="box" style="left:1174px; top:462px; width:238px"><h3><img src="logos/aws-ses.svg" alt="" /> SES</h3><p>Verified domain + DKIM · configuration set · SMTP fallback while in sandbox</p></div>
+      <div class="box" style="left:1434px; top:462px; width:238px"><h3><img src="logos/ring.svg" alt="" /> Ring API</h3><p>Partner API over HTTPS · 30-minute Playground token, server-side only</p></div>
+
+      <!-- data protection -->
+      <div class="zone" style="left:1150px; top:600px; width:522px; height:258px"><span>Data protection</span></div>
+      <div class="box" style="left:1174px; top:634px; width:474px">
+        <h3>🔒 Boundaries that are enforced, not promised</h3>
+        <ul>
+          <li class="w">The browser never receives the Ring token, AWS credentials or S3 keys</li>
+          <li class="w">Media is served only through an authenticated route after an ownership check</li>
+          <li class="g">One user's query can only ever read their own partition</li>
+          <li class="g">Deleting an event deletes its media and analysis with it</li>
+        </ul>
+      </div>
+
+      <svg class="wires" viewBox="0 0 1720 1010">
+        <defs>
+          <marker id="a1" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#12a8ff" /></marker>
+          <marker id="a2" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#16df9b" /></marker>
+        </defs>
+        <g fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M198,266 V310" stroke="#12a8ff" marker-end="url(#a1)" />
+          <path d="M348,360 H386 V214 H420" stroke="#12a8ff" marker-end="url(#a1)" />
+          <path d="M198,478 V542" stroke="#12a8ff" marker-end="url(#a1)" opacity="0.65" stroke-dasharray="6 6" />
+          <path d="M1098,196 H1170" stroke="#12a8ff" marker-end="url(#a1)" />
+          <path d="M1098,214 H1136 V196 H1430" stroke="#12a8ff" marker-end="url(#a1)" opacity="0.5" />
+          <path d="M1124,648 H1150 V352 H1170" stroke="#16df9b" marker-end="url(#a2)" />
+          <path d="M1124,660 H1160 V352 H1430" stroke="#16df9b" marker-end="url(#a2)" opacity="0.5" />
+          <path d="M1124,672 H1146 V508 H1170" stroke="#16df9b" marker-end="url(#a2)" opacity="0.75" />
+        </g>
+      </svg>
+
+      <div class="foot">
+        <div class="g"><b>Reproducible by anyone</b><span>Provisioning scripts create the table, bucket and pool; <code>.env.example</code> lists every variable.</span></div>
+        <div class="w"><b>Fails loudly, not silently</b><span>One <code>runtime_config</code> log line per instance says which integrations are actually configured.</span></div>
+        <div class="d"><b>Honest about limits</b><span>SES sandbox, 30-minute Ring tokens and read-only Ring settings are surfaced in the UI.</span></div>
+        <div><b>Cost shape</b><span>Serverless end to end: pay-per-request compute, on-demand DynamoDB, per-event inference.</span></div>
+      </div>
+    </div>
+  </body>
+</html>

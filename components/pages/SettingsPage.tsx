@@ -452,7 +452,7 @@ export function SettingsPage() {
     <section className="card p-5" aria-labelledby="hlp">
       <CardHeader icon={<LifeBuoy />} title={<span id="hlp">Help & Support</span>} subtitle="Need help? We're here for you." />
       <div className="space-y-1">
-        <Row icon={<BookOpen />} title="User Guide" hint="Learn how to use Matan AI." onClick={() => setModal("guide")} />
+        <Row icon={<BookOpen />} title={isRing ? "Documentation" : "User Guide"} hint={isRing ? "Architecture, integrations and every page explained." : "Learn how to use Matan AI."} onClick={() => (isRing ? window.open("/docs", "_blank", "noopener") : setModal("guide"))} control={isRing ? <ExternalLink className="size-4 text-text-3" /> : undefined} />
         {isRing ? <Row icon={<LifeBuoy />} title="Project & source" hint="MATAN AI is an open hackathon build - issues and questions go to the GitHub repository." onClick={() => window.open("https://github.com/ajitonelsonn/matan-ai", "_blank", "noopener")} control={<ExternalLink className="size-4 text-text-3" />} /> : <Row icon={<LifeBuoy />} title="Contact Support" hint="Get help from our team." onClick={() => toast.success("Support request opened", "We'll reply to ajito@example.com within 24 hours.")} />}
         {isRing ? <FutureRow icon={<MessageSquare />} title="Send Feedback" hint="In-app feedback is not stored yet; use GitHub issues." /> : <Row icon={<MessageSquare />} title="Send Feedback" hint="Help us improve Matan AI." onClick={() => setModal("feedback")} />}
       </div>

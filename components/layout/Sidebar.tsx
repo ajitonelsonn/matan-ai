@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
+import { ArrowUpRight, BookOpen, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTheme } from "@/components/experience/theme-provider";
@@ -76,6 +76,15 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="px-3 pb-4 pt-2 space-y-3">
+        <Link
+          href="/docs"
+          onClick={onNavigate}
+          className="flex items-center gap-2.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-text-2 transition-colors hover:border-border-strong hover:text-text"
+        >
+          <BookOpen className="size-4 text-primary" aria-hidden />
+          Documentation
+          <ArrowUpRight className="ml-auto size-3.5 text-text-3" aria-hidden />
+        </Link>
         <TimorIdentityCard />
         <div className="flex items-center justify-between rounded-2xl px-3 py-2">
           <span className="flex items-center gap-2.5 text-sm text-text-2">

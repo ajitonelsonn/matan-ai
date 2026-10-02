@@ -15,8 +15,8 @@ export const authConfig = {
 
 export const isAuthConfigured = Boolean(authConfig.userPoolId && authConfig.userPoolClientId);
 
-/** Routes that never require authentication. */
-export const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/forgot-password", "/auth/callback"];
+/** Routes that never require authentication (the docs are public so anyone can read the project). */
+export const PUBLIC_ROUTES = ["/login", "/register", "/verify-email", "/forgot-password", "/auth/callback", "/docs"];
 
 export function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MATAN AI — Event to alert</title>
+    <style>
+      /* Source for docs/architecture/matan-ai-lifecycle.png — application data flow.
+         Rendered with Chrome at deviceScaleFactor 2 (see README). */
+      :root {
+        --bg: #031326; --text: #f5f9ff; --text2: #c4d3e6; --text3: #7f95b0;
+        --primary: #12a8ff; --success: #16df9b; --warning: #ffc34a; --danger: #ff4d5e; --purple: #9a71ff;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #01080f; font-family: Inter, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      #canvas { position: relative; width: 1720px; height: 928px; overflow: hidden; color: var(--text);
+        background: radial-gradient(1000px 520px at 12% 0%, rgba(18,168,255,0.16), transparent 60%),
+                    radial-gradient(900px 520px at 92% 100%, rgba(22,223,155,0.1), transparent 58%),
+                    linear-gradient(160deg, #041628 0%, var(--bg) 46%, #020c18 100%); }
+      #grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(53,154,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(53,154,255,0.05) 1px, transparent 1px); background-size: 48px 48px; }
+      header { position: absolute; left: 48px; top: 36px; display: flex; align-items: center; gap: 16px; }
+      header img { width: 54px; height: 54px; }
+      header h1 { font-size: 31px; font-weight: 800; letter-spacing: -0.02em; }
+      header h1 span { color: var(--primary); }
+      header p { margin-top: 4px; font-size: 13.5px; color: var(--text2); }
+      .badge-top { position: absolute; right: 48px; top: 48px; display: flex; gap: 10px; align-items: center; }
+      .badge-top div { border: 1px solid rgba(53,154,255,0.3); background: rgba(18,168,255,0.1); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 700; color: var(--text2); }
+      .badge-top b { color: var(--success); }
+
+      .rail { position: absolute; left: 60px; top: 232px; width: 1600px; height: 3px; background: linear-gradient(90deg, rgba(18,168,255,0.65), rgba(22,223,155,0.65) 55%, rgba(255,195,74,0.7)); border-radius: 2px; }
+      .stage { position: absolute; top: 150px; width: 212px; }
+      .stage .num { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #02101f; margin: 0 auto 10px; box-shadow: 0 0 0 5px #041628; }
+      .stage .card { border-radius: 15px; border: 1px solid rgba(53,154,255,0.24); background: linear-gradient(180deg, rgba(10,35,65,0.97), rgba(7,28,52,0.96)); box-shadow: 0 12px 28px rgba(0,0,0,0.42); padding: 13px 13px 12px; min-height: 196px; }
+      .stage h3 { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 750; letter-spacing: -0.01em; }
+      .stage h3 img { width: 22px; height: 22px; object-fit: contain; }
+      .stage p { margin-top: 6px; font-size: 12.2px; line-height: 1.45; color: var(--text2); }
+      .stage .art { margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(53,154,255,0.16); font-size: 11.3px; color: var(--text3); line-height: 1.4; }
+      .stage .art b { color: var(--text2); font-weight: 650; }
+
+      .ladder { position: absolute; left: 60px; top: 452px; width: 760px; border-radius: 16px; border: 1px solid rgba(154,113,255,0.35); background: rgba(10,35,65,0.9); padding: 15px 18px 16px; }
+      .ladder h4 { font-size: 15px; font-weight: 750; display: flex; align-items: center; gap: 9px; }
+      .ladder .steps { margin-top: 11px; display: flex; flex-direction: column; gap: 7px; }
+      .ladder .s { display: flex; align-items: center; gap: 10px; font-size: 12.6px; color: var(--text2); }
+      .ladder .s i { font-style: normal; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #02101f; background: rgba(154,113,255,0.85); flex: none; }
+      .ladder .s b { color: var(--text); font-weight: 650; }
+      .ladder .out { margin-top: 12px; display: flex; gap: 8px; }
+      .ladder .out span { flex: 1; text-align: center; border-radius: 10px; padding: 7px 4px; font-size: 11.8px; font-weight: 750; border: 1px solid; }
+
+      .seen { position: absolute; left: 860px; top: 452px; width: 800px; border-radius: 16px; border: 1px solid rgba(53,154,255,0.24); background: rgba(10,35,65,0.9); padding: 15px 18px 16px; }
+      .seen h4 { font-size: 15px; font-weight: 750; display: flex; align-items: center; gap: 9px; }
+      .seen .tl { margin-top: 13px; display: flex; align-items: flex-start; gap: 0; }
+      .seen .tl div { flex: 1; position: relative; padding-top: 24px; font-size: 11.6px; color: var(--text2); line-height: 1.35; padding-right: 10px; }
+      .seen .tl div::before { content: ""; position: absolute; top: 6px; left: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgba(18,168,255,0.16); }
+      .seen .tl div::after { content: ""; position: absolute; top: 11px; left: 11px; right: 0; height: 2px; background: rgba(53,154,255,0.3); }
+      .seen .tl div:last-child::after { display: none; }
+      .seen .tl div.ok::before { background: var(--success); box-shadow: 0 0 0 4px rgba(22,223,155,0.16); }
+      .seen .tl div.warn::before { background: var(--warning); box-shadow: 0 0 0 4px rgba(255,195,74,0.16); }
+      .seen .tl b { display: block; color: var(--text); font-size: 12.3px; font-weight: 700; margin-bottom: 2px; }
+      .seen .note { margin-top: 13px; font-size: 11.8px; color: var(--text3); line-height: 1.45; border-top: 1px solid rgba(53,154,255,0.16); padding-top: 10px; }
+
+      .foot { position: absolute; left: 60px; right: 60px; bottom: 36px; display: flex; gap: 14px; }
+      .foot div { flex: 1; border-radius: 13px; border: 1px solid rgba(53,154,255,0.2); background: rgba(7,28,52,0.78); padding: 11px 14px; }
+      .foot b { display: block; font-size: 12.4px; } .foot span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--text3); line-height: 1.4; }
+      .foot .g b { color: var(--success); } .foot .w b { color: var(--warning); } .foot .p b { color: var(--purple); }
+    </style>
+  </head>
+  <body>
+    <div id="canvas">
+      <div id="grid"></div>
+      <header>
+        <img src="../../public/brand/matan-ai-logo.png" alt="" />
+        <div>
+          <h1>From Ring event to <span>a decision you can act on</span></h1>
+          <p>Application data flow · one Ring event, seven stages, all inside a single server request</p>
+        </div>
+      </header>
+      <div class="badge-top">
+        <div>measured in production: <b>2.7 s</b> end to end</div>
+        <div>Nova Pro <b>1.4 s</b></div>
+      </div>
+
+      <div class="rail"></div>
+
+      <!-- stages -->
+      <div class="stage" style="left:60px">
+        <div class="num" style="background:#12a8ff">1</div>
+        <div class="card">
+          <h3><img src="logos/ring.svg" alt="" /> Ring records</h3>
+          <p>Motion, package, vehicle or a doorbell press on the Playground device. Matan polls the history and sees a new entry.</p>
+          <div class="art"><b>Kept:</b> event id, type, device, timestamp, duration</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:292px">
+        <div class="num" style="background:#12a8ff">2</div>
+        <div class="card">
+          <h3>🧮 Should we analyze?</h3>
+          <p>Cost and noise gate: skip Matan's own media requests, respect the auto-analysis setting, the hourly budget and the watermark.</p>
+          <div class="art"><b>Kept:</b> pending list + watermark (<code>AUTO_STATE</code>)</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:524px">
+        <div class="num" style="background:#9a71ff">3</div>
+        <div class="card">
+          <h3>📸 Capture evidence</h3>
+          <p>The server pulls the snapshot for the event window from Ring — the clip only when the snapshot is not enough.</p>
+          <div class="art"><b>Kept:</b> media in <b>S3</b> (private) + <code>MEDIA#</code> metadata</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:756px">
+        <div class="num" style="background:#16df9b">4</div>
+        <div class="card">
+          <h3><img src="logos/aws-bedrock.png" alt="" /> Nova Pro reads it</h3>
+          <p>Amazon Bedrock returns a structured reading: summary, category, confidence, observations and what it is unsure about.</p>
+          <div class="art"><b>Kept:</b> <code>ANALYSIS#</code> with model id and token usage</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:988px">
+        <div class="num" style="background:#16df9b">5</div>
+        <div class="card">
+          <h3>⚖️ Decision Engine</h3>
+          <p>Deterministic scoring from the reading plus context: security mode, quiet hours, repeats, device. Produces priority and action.</p>
+          <div class="art"><b>Kept:</b> priority · action · plain-language reasons</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:1220px">
+        <div class="num" style="background:#9a71ff">6</div>
+        <div class="card">
+          <h3>📏 Smart Rules</h3>
+          <p>Your rules have the last word, in a fixed precedence. The matched rule ids are stored so the UI can explain the outcome.</p>
+          <div class="art"><b>Kept:</b> <code>careDecision</code> + matched rule ids</div>
+        </div>
+      </div>
+
+      <div class="stage" style="left:1452px">
+        <div class="num" style="background:#ffc34a">7</div>
+        <div class="card">
+          <h3><img src="logos/aws-ses.svg" alt="" /> Tell the human</h3>
+          <p>Notify or Escalate sends one branded email with the analyzed frame, the decision and the reason. Ignore and Monitor stay silent.</p>
+          <div class="art"><b>Kept:</b> <code>NOTIFICATION#</code> — status, provider, time</div>
+        </div>
+      </div>
+
+      <!-- decision ladder -->
+      <div class="ladder">
+        <h4>📏 How the final decision is reached <span style="font-weight:600;font-size:12px;color:var(--text3)">— first match wins</span></h4>
+        <div class="steps">
+          <div class="s"><i>1</i> <b>Low-confidence guard</b> — an unsure reading is monitored, never escalated</div>
+          <div class="s"><i>2</i> <b>High risk</b> — escalates even during quiet hours</div>
+          <div class="s"><i>3</i> <b>Your rules</b> — event type, risk, time window, confidence, repeats</div>
+          <div class="s"><i>4</i> <b>Repeated activity</b> — the same thing again within your window</div>
+          <div class="s"><i>5</i> <b>Quiet hours</b> — monitor instead of waking you</div>
+          <div class="s"><i>6</i> <b>Sensitivity</b> — per event type: low · medium · high</div>
+          <div class="s"><i>7</i> <b>Decision Engine default</b></div>
+        </div>
+        <div class="out">
+          <span style="color:var(--text3);border-color:rgba(127,149,176,0.4);background:rgba(127,149,176,0.1)">IGNORE</span>
+          <span style="color:var(--primary);border-color:rgba(18,168,255,0.45);background:rgba(18,168,255,0.1)">MONITOR</span>
+          <span style="color:var(--warning);border-color:rgba(255,195,74,0.45);background:rgba(255,195,74,0.1)">NOTIFY → email</span>
+          <span style="color:var(--danger);border-color:rgba(255,77,94,0.45);background:rgba(255,77,94,0.1)">ESCALATE → email</span>
+        </div>
+      </div>
+
+      <!-- what the user sees -->
+      <div class="seen">
+        <h4>👁 What you see while it happens</h4>
+        <div class="tl">
+          <div><b>Event received</b>Appears in the list within seconds of Ring recording it</div>
+          <div><b>Capturing evidence</b>Getting the snapshot for the event window</div>
+          <div class="ok"><b>Analyzing</b>Nova Pro reads the frame</div>
+          <div class="ok"><b>Analysis complete</b>Summary, confidence, observations</div>
+          <div class="warn"><b>Notification</b>“Sent via email” — or “not required”, with the reason</div>
+        </div>
+        <div class="note">The same seven stages are shown on the event page as a processing timeline, so nothing about the decision is a black box: you can read the model's observations, the engine's reasons, the rule that matched and whether an email went out.</div>
+      </div>
+
+      <div class="foot">
+        <div class="g"><b>Explainable by design</b><span>Every decision stores why: model observations, engine reasons and the matched rule.</span></div>
+        <div class="p"><b>Cost-aware</b><span>Snapshot first, clip only when it adds information; per-hour caps and a token budget.</span></div>
+        <div class="w"><b>Quiet by default</b><span>Most events end as Ignore or Monitor — email is reserved for what deserves attention.</span></div>
+        <div><b>Fits one request</b><span>Analysis, storage and the email all complete before the response returns.</span></div>
+      </div>
+    </div>
+  </body>
+</html>

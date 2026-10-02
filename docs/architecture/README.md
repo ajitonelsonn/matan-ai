@@ -1,5 +1,9 @@
 # MATAN AI — system architecture
 
+Four views of the same system, following the [AWS architecture-diagramming](https://aws.amazon.com/what-is/architecture-diagramming/) taxonomy — a system view, an application data-flow view, a frontend/feature view and a deployment view.
+
+## 1. System architecture
+
 ![MATAN AI system architecture](matan-ai-architecture.png)
 
 > Source: [`architecture.html`](architecture.html) · logos in [`logos/`](logos/) · the PNG is a 2× render of that page (see *Regenerating* below).
@@ -36,10 +40,30 @@
 - **Secrets stay server-side** — Ring token in a sealed cookie, AWS access through the compute role, S3 private with Block Public Access.
 - **Built for serverless** — no fire-and-forget work: analysis and email complete inside the request that started them (see [`../AWS_DEPLOYMENT.md`](../AWS_DEPLOYMENT.md)).
 
+## 2. Event → alert (application data flow)
+
+![From a Ring event to a decision](matan-ai-lifecycle.png)
+
+One Ring event, seven stages, all inside a single server request: the cost gate, the snapshot, Nova Pro's reading, the Decision Engine, your Smart Rules and the email — with the decision ladder that produces Ignore / Monitor / Notify / Escalate. Source: [`lifecycle.html`](lifecycle.html).
+
+## 3. Feature map (frontend architecture)
+
+![Feature map](matan-ai-features.png)
+
+Every page in Real Mode, what powers it (Ring, Nova, DynamoDB, S3, SES, Cognito) and what is openly labelled a future integration. Source: [`features.html`](features.html).
+
+## 4. Deployment & security
+
+![Deployment and security](matan-ai-deployment.png)
+
+GitHub → Amplify build → SSR compute with an IAM compute role, the environment variables that matter, the least-privilege policy and the boundaries the app enforces. Source: [`deployment.html`](deployment.html). See also [`../AWS_DEPLOYMENT.md`](../AWS_DEPLOYMENT.md).
+
 ## Regenerating
 
+Each diagram is an HTML file rendered to PNG at 2× with Chrome, then compressed with `pngquant`:
+
 ```bash
-# any Chrome-based renderer works; this is what produced the committed PNG
+# architecture.html → matan-ai-architecture.png (same pattern for the other three)
 node -e '
 const { chromium } = require("playwright");
 (async () => {

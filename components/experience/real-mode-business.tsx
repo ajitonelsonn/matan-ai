@@ -91,11 +91,11 @@ export function RealModeBusiness() {
   ];
 
   return (
-    <div className="grid gap-5 xl:grid-cols-12">
-      <div className="space-y-5 xl:col-span-8">
+    <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+      <div className="min-w-0 space-y-5 xl:col-span-8">
         <div>
           <p className="mb-2 text-[12px] uppercase tracking-wide text-text-3">Last 7 days · from your Ring events</p>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 [&>*]:min-w-0">
             <MetricCard icon={<Package />} label="Deliveries" value={deliveries.length} tone="success" />
             <MetricCard icon={<Car />} label="Vehicles" value={vehicles.length} tone="purple" />
             <MetricCard icon={<Users />} label="Visitors" value={people.length} tone="primary" />
@@ -140,7 +140,7 @@ export function RealModeBusiness() {
           )}
         </section>
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
           <section className="card p-5" aria-labelledby="hours-real">
             <SectionHeader icon={<BarChart3 />} title={<span id="hours-real">Busiest hours</span>} subtitle="Events per hour · last 7 days" />
             {eventsQ.loading ? <Skeleton className="h-40" /> : hours.length ? <HBarList rows={hours} /> : <p className="text-[13.5px] text-text-3">No events in the last 7 days.</p>}
@@ -158,7 +158,7 @@ export function RealModeBusiness() {
         </div>
       </div>
 
-      <div className="space-y-5 xl:col-span-4">
+      <div className="min-w-0 space-y-5 xl:col-span-4">
         <section className="card p-5" aria-labelledby="ins-real">
           <SectionHeader icon={<Sparkles />} title={<span id="ins-real">AI Business Summary</span>} subtitle="Written by Matan AI from this week's analyzed events" iconTone="purple" action={<Button size="sm" onClick={() => void generate()} loading={generating}>Generate</Button>} />
           <div className="relative min-h-[80px]">

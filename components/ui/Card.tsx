@@ -49,8 +49,8 @@ export function CardHeader({
     purple: "bg-purple/12 text-purple border-purple/25",
   };
   return (
-    <div className={cn("mb-4 flex items-start justify-between gap-3", className)}>
-      <div className="flex min-w-0 items-center gap-3">
+    <div className={cn("mb-4 flex flex-wrap items-start justify-between gap-3", className)}>
+      <div className="flex min-w-0 flex-1 basis-64 items-center gap-3">
         {icon && <span className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl border [&>svg]:size-[18px]", tones[iconTone])}>{icon}</span>}
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-text leading-tight truncate">{title}</h3>

@@ -114,18 +114,18 @@ export function SecurityModesPage() {
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-12">
-          <div className="space-y-5 xl:col-span-9">
+        <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+          <div className="min-w-0 space-y-5 xl:col-span-9">
             {/* Mode cards */}
             {q.loading || !d ? (
-              <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 min-h-[340px]">
+              <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 min-h-[340px] [&>*]:min-w-0">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-[330px] rounded-card" />
                 ))}
                 <LoadingOverlay label="Loading security modes" />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 [&>*]:min-w-0">
                 {d.modes.map((m) => (
                   <SecurityModeCard key={m.id} mode={m} active={m.id === activeId} busy={activating === m.id} onActivate={() => void activate(m.id)} onCustomize={() => setViewId(m.id)} className={cn(view?.id === m.id && m.id !== activeId && "border-border-strong")} />
                 ))}
@@ -233,7 +233,7 @@ export function SecurityModesPage() {
           </div>
 
           {/* Right rail */}
-          <div className="space-y-5 xl:col-span-3">
+          <div className="min-w-0 space-y-5 xl:col-span-3">
             <section className="card p-5" aria-labelledby="sched-title">
               <SectionHeader icon={<Clock />} title={<span id="sched-title">Schedule & Automation</span>} subtitle={isRing ? "Automatic mode switching is a future integration." : "Let Matan AI switch modes automatically."} action={isRing ? <Badge tone="neutral" size="xs" icon={<Lock className="size-2.5" />}>Future</Badge> : d ? <Toggle checked={d.scheduleEnabled} onChange={(v) => void setScheduleMaster(v)} label="Automatic mode switching" /> : <Skeleton className="h-6 w-11 rounded-full" />} />
               {isRing ? (
@@ -290,7 +290,7 @@ export function SecurityModesPage() {
               {q.loading || !d ? (
                 <Skeleton className="h-24" />
               ) : (
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 gap-2.5 [&>*]:min-w-0">
                   <div className="card-inset flex flex-col items-center gap-1 p-3 text-center">
                     <Video className="size-5 text-primary" aria-hidden />
                     <span className="text-[22px] font-bold leading-none text-text tabular-nums">{d.status.camerasOnline}</span>

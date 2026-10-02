@@ -224,9 +224,9 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
         <Select value={sort} onChange={setSort} options={sortOptions} prefix="Sort by" size="sm" align="end" label="Sort events" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid gap-5 lg:grid-cols-12 [&>*]:min-w-0">
         {/* List */}
-        <div className="lg:col-span-7 xl:col-span-7" ref={listRef} onKeyDown={onListKey}>
+        <div className="min-w-0 lg:col-span-7 xl:col-span-7" ref={listRef} onKeyDown={onListKey}>
           {q.error && !items.length ? (
             <ErrorState onRetry={() => void q.refetch()} message={q.error} />
           ) : initialLoading && !items.length ? (
@@ -284,7 +284,7 @@ export function EventsPage({ initialEventId }: { initialEventId?: string }) {
         </div>
 
         {/* Detail (desktop) */}
-        <aside className="hidden lg:block lg:col-span-5 xl:col-span-5">
+        <aside className="min-w-0 hidden lg:block lg:col-span-5 xl:col-span-5">
           <div className="card sticky top-6 p-5">
             {selected ? (
               <EventDetail key={selected.id} event={selected} onChange={onChanged} onDeleted={onDeleted} compact />

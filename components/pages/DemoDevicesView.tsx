@@ -251,10 +251,10 @@ export function DemoDevicesView({ initialDeviceId, onAddRing, sourceSwitch }: De
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-12">
-          <div className="xl:col-span-9">
+        <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+          <div className="min-w-0 xl:col-span-9">
             {q.loading ? (
-              <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-3 min-h-[480px]">
+              <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-3 min-h-[480px] [&>*]:min-w-0">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-[360px] rounded-card" />
                 ))}
@@ -265,7 +265,7 @@ export function DemoDevicesView({ initialDeviceId, onAddRing, sourceSwitch }: De
                 <EmptyState icon={tab === "offline" ? <WifiOff /> : <Cctv />} title={tab === "offline" ? "All devices are online" : "No devices found"} description={tab === "offline" ? "Nothing needs your attention." : "Try another category or add a new Ring device."} action={<Button leftIcon={<Plus className="size-4" />} onClick={onAddRing}>Add Ring Device</Button>} />
               </div>
             ) : view === "grid" ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
                 {filtered.map((d) => (
                   <DeviceCard key={d.id} device={d} onLive={() => router.push(`/live?camera=${d.id}`)} onEvents={() => router.push(`/events?search=${encodeURIComponent(d.name)}`)} menu={menuFor(d)} />
                 ))}
@@ -287,11 +287,11 @@ export function DemoDevicesView({ initialDeviceId, onAddRing, sourceSwitch }: De
             )}
           </div>
 
-          <div className="space-y-5 xl:col-span-3">
+          <div className="min-w-0 space-y-5 xl:col-span-3">
             <section className="card p-5" aria-labelledby="sum-title">
               <SectionHeader icon={<Activity />} title={<span id="sum-title">Device Summary</span>} />
               {summary ? (
-                <div className="grid grid-cols-3 divide-x divide-border">
+                <div className="grid grid-cols-3 divide-x divide-border [&>*]:min-w-0">
                   <div className="pr-3">
                     <div className="text-[26px] font-bold leading-none text-text tabular-nums">{summary.total}</div>
                     <div className="mt-1 text-[12px] text-text-3">Total Devices</div>
@@ -370,7 +370,7 @@ export function DemoDevicesView({ initialDeviceId, onAddRing, sourceSwitch }: De
           <Field label="Device name" htmlFor="dev-name">
             <Input id="dev-name" value={addForm.name} onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Garage Camera" data-autofocus />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
             <Field label="Type">
               <Select fullWidth value={addForm.kind} onChange={(v) => setAddForm((f) => ({ ...f, kind: v }))} options={(["camera", "doorbell", "lock", "chime"] as DeviceKind[]).map((k) => ({ value: k, label: deviceKindLabel[k] }))} />
             </Field>

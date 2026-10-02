@@ -161,9 +161,9 @@ export function HomeDashboard() {
         <ErrorState onRetry={() => void refresh()} message={error} />
       ) : (
         <>
-          <div className="grid gap-5 xl:grid-cols-12">
+          <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
             {/* Left column */}
-            <div className="space-y-5 xl:col-span-7">
+            <div className="min-w-0 space-y-5 xl:col-span-7">
               {isRing && featuredRing ? (
                 <RingLivePlayer key={featuredRing.id} device={featuredRing} sessionLive={ringLive} onReconnect={() => openConnect()} />
               ) : isRing && !loading ? (
@@ -219,7 +219,7 @@ export function HomeDashboard() {
               <section className="card p-4 sm:p-5" aria-labelledby="latest-events">
                 <SectionHeader icon={<Camera />} title={<span id="latest-events">Latest Intelligence Events</span>} href="/events" />
                 {loading || !data ? (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 [&>*]:min-w-0">
                     {Array.from({ length: 4 }).map((_, i) => (
                       <SkeletonCard key={i} lines={2} />
                     ))}
@@ -230,7 +230,7 @@ export function HomeDashboard() {
                     <p className="mt-1 text-[13px] text-text-3">Trigger a Package, Vehicle or Motion simulation in the Ring Playground, then refresh.</p>
                   </div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 [&>*]:min-w-0">
                     {data.latestEvents.map((e) => (
                       <EventCard key={e.id} event={e} isNew={newIds.has(e.id)} onClick={(ev) => router.push(`/events/${ev.id}`)} />
                     ))}
@@ -240,13 +240,13 @@ export function HomeDashboard() {
             </div>
 
             {/* Right column */}
-            <div className="space-y-5 xl:col-span-5">
+            <div className="min-w-0 space-y-5 xl:col-span-5">
               {loading || !data ? (
                 <SkeletonCard lines={4} className="min-h-[280px]" />
               ) : (
                 <section className="card-hero p-5" aria-labelledby="status-title">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3.5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3.5">
                       <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10">
                         <Image src="/brand/matan-ai-logo.png" alt="" width={44} height={44} />
                       </span>
@@ -277,7 +277,7 @@ export function HomeDashboard() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr]">
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr] [&>*]:min-w-0">
                     {isRing ? (
                       <>
                         <StatTile icon={<CalendarDays />} value={data.todayCounts.total} label="Events today" tone="primary" onClick={() => router.push("/events?range=today")} />
@@ -320,7 +320,7 @@ export function HomeDashboard() {
                     Try example
                   </Button>
                 </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 [&>*]:min-w-0">
                   {(data?.quickQuestions ?? Array.from({ length: 6 }).map(() => "")).map((q, i) => {
                     const Icon = quickIcons[i % quickIcons.length];
                     return q ? (
@@ -364,11 +364,11 @@ export function HomeDashboard() {
           </div>
 
           {/* Bottom row */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-12">
-            <section className="card p-5 lg:col-span-5" aria-labelledby="devices-title">
+          <div className="mt-5 grid gap-5 lg:grid-cols-12 [&>*]:min-w-0">
+            <section className="min-w-0 card p-5 lg:col-span-5" aria-labelledby="devices-title">
               <SectionHeader icon={<Video />} title={<span id="devices-title">Device Status</span>} href="/devices" linkLabel="View all devices" />
               {loading || !data ? (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 [&>*]:min-w-0">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Skeleton key={i} className="h-[118px]" />
                   ))}
@@ -376,7 +376,7 @@ export function HomeDashboard() {
               ) : data.devices.length === 0 ? (
                 <div className="card-inset p-5 text-center text-[13px] text-text-3">No Ring devices connected. <button type="button" onClick={() => openConnect()} className="font-semibold text-primary hover:text-primary-2">Connect Ring →</button></div>
               ) : (
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 [&>*]:min-w-0">
                   {data.devices.slice(0, 5).map((d) => (
                     <DeviceMini key={d.id} device={d} onClick={() => router.push(`/devices/${d.id}`)} />
                   ))}
@@ -384,9 +384,9 @@ export function HomeDashboard() {
               )}
             </section>
 
-            <section className="card p-5 lg:col-span-3" aria-labelledby="quick-title">
+            <section className="min-w-0 card p-5 lg:col-span-3" aria-labelledby="quick-title">
               <SectionHeader icon={<Zap />} title={<span id="quick-title">Quick Actions</span>} iconTone="warning" />
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5 [&>*]:min-w-0">
                 <QuickAction icon={<Video />} label="View Live" href="/live" primary />
                 <QuickAction icon={<ShieldCheck />} label="Security Mode" href="/security-modes" description={data?.activeModeName} />
                 <QuickAction icon={<Mail />} label="Send Report" onClick={() => void sendReport()} loading={sendingReport} />
@@ -397,7 +397,7 @@ export function HomeDashboard() {
               </div>
             </section>
 
-            <section className="card p-5 lg:col-span-4" aria-labelledby="activity-title">
+            <section className="min-w-0 card p-5 lg:col-span-4" aria-labelledby="activity-title">
               <SectionHeader icon={<BarChart3 />} title={<span id="activity-title">Today&apos;s Activity</span>} href="/insights?range=today" linkLabel="View details" />
               {loading || !data ? (
                 <div className="flex items-center gap-5">

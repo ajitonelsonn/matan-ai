@@ -540,9 +540,9 @@ export function SettingsPage() {
         </div>
       ) : (
         <div className="grid gap-5 xl:grid-cols-12">
-          <div className={cn("grid gap-5 xl:col-span-8", tab === "general" ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
+          <div className={cn("grid min-w-0 gap-5 [&>*]:min-w-0 xl:col-span-8", tab === "general" ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
             {(tab === "general" || tab === "about") && (
-              <div className={tab === "general" ? "lg:col-span-2" : undefined}>
+              <div className={cn("min-w-0", tab === "general" && "lg:col-span-2")}>
                 <ExperienceSettingsCard />
               </div>
             )}
@@ -557,7 +557,7 @@ export function SettingsPage() {
             {(tab === "general" || tab === "about") && helpCard}
             {tab === "about" && aboutCard}
           </div>
-          <div className="space-y-5 xl:col-span-4">
+          <div className="min-w-0 space-y-5 [&>*]:min-w-0 xl:col-span-4">
             {accountCard}
             <div className="relative overflow-hidden rounded-hero border border-border min-h-[150px]">
               <SafeImage src={images.houseEvening} alt="" sizes="360px" />

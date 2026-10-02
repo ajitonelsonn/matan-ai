@@ -231,8 +231,8 @@ function DemoAutomationsPage({ initialAutomationId }: { initialAutomationId?: st
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-12">
-          <div className="space-y-3.5 xl:col-span-8">
+        <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+          <div className="min-w-0 space-y-3.5 xl:col-span-8">
             {q.loading ? (
               <div className="relative space-y-3.5 min-h-[520px]">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -286,7 +286,7 @@ function DemoAutomationsPage({ initialAutomationId }: { initialAutomationId?: st
           </div>
 
           {/* Right rail */}
-          <div className="space-y-5 xl:col-span-4">
+          <div className="min-w-0 space-y-5 xl:col-span-4">
             <section ref={wizardRef} className="card-hero p-5 scroll-mt-6" aria-labelledby="create-title">
               <div className="flex items-center gap-3">
                 <span className="inline-flex size-11 items-center justify-center rounded-xl bg-gradient-to-b from-primary-2 to-primary text-white shadow-[0_6px_18px_rgba(18,168,255,0.35)]">
@@ -443,7 +443,7 @@ function DemoAutomationsPage({ initialAutomationId }: { initialAutomationId?: st
       >
         {editing && (
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
               <Field label="Name" htmlFor="edit-name">
                 <Input id="edit-name" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} data-autofocus />
               </Field>
@@ -456,7 +456,7 @@ function DemoAutomationsPage({ initialAutomationId }: { initialAutomationId?: st
             <Field label="Description" htmlFor="edit-desc">
               <Input id="edit-desc" value={editForm.description ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
               <Field label="Trigger">
                 <Select fullWidth value={editForm.trigger ?? null} onChange={(v) => setEditForm((f) => ({ ...f, trigger: v }))} options={toOpts([...(options?.triggers ?? []), ...(editing.trigger && !options?.triggers.includes(editing.trigger) ? [editing.trigger] : [])])} />
               </Field>

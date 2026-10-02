@@ -48,8 +48,8 @@ export function RealModeCare() {
   return (
     <div className="space-y-5">
       {/* Status row */}
-      <div className="grid gap-5 xl:grid-cols-12">
-        <section className={cn("card p-5 xl:col-span-7", care && !care.enabled && "border-warning/40")} aria-labelledby="care-status">
+      <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+        <section className={cn("card min-w-0 p-5 xl:col-span-7", care && !care.enabled && "border-warning/40")} aria-labelledby="care-status">
           <SectionHeader icon={<Heart />} title={<span id="care-status">Care status</span>} subtitle="How Matan is looking after your home this week, from your real Ring events." iconTone="danger" />
           {careQ.loading || eventsQ.loading ? (
             <Skeleton className="h-28" />
@@ -61,7 +61,7 @@ export function RealModeCare() {
                 {care && <Badge tone="neutral" size="md">{care.timezone}</Badge>}
                 {!care?.enabled && <span className="text-[12.5px] text-text-3">Rules are not applied until Care Context is on - turn it on below.</span>}
               </div>
-              <dl className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <dl className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 [&>*]:min-w-0">
                 {[
                   ["Events decided", decided.length, "primary"],
                   ["Notified", count("NOTIFY"), "warning"],
@@ -81,7 +81,7 @@ export function RealModeCare() {
           )}
         </section>
 
-        <section className="card p-5 xl:col-span-5" aria-labelledby="fam-real">
+        <section className="min-w-0 card p-5 xl:col-span-5" aria-labelledby="fam-real">
           <SectionHeader icon={<Users />} title={<span id="fam-real">Family members</span>} subtitle="Only associations you configure explicitly would be shown." action={<Badge tone="neutral" size="xs" icon={<Lock className="size-2.5" />}>Future</Badge>} />
           <EmptyState
             compact
@@ -102,8 +102,8 @@ export function RealModeCare() {
       </section>
 
       {/* Person detections + future integrations */}
-      <div className="grid gap-5 xl:grid-cols-12">
-        <section className="card p-5 xl:col-span-7" aria-labelledby="person-events">
+      <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+        <section className="min-w-0 card p-5 xl:col-span-7" aria-labelledby="person-events">
           <SectionHeader icon={<BellRing />} title={<span id="person-events">Person & doorbell detections</span>} subtitle="Last 7 days from Ring - shown as “Person detected”, never as a named family member." action={<SourceBadge source={live ? "ring" : "ring-expired"} size="xs" />} />
           {eventsQ.loading ? (
             <Skeleton className="h-24" />
@@ -125,7 +125,7 @@ export function RealModeCare() {
           )}
         </section>
 
-        <section className="card p-5 xl:col-span-5" aria-labelledby="care-future">
+        <section className="min-w-0 card p-5 xl:col-span-5" aria-labelledby="care-future">
           <SectionHeader icon={<Lock />} title={<span id="care-future">Future integrations</span>} subtitle="Care features Matan cannot run on Ring data today" iconTone="purple" />
           <ul className="space-y-2">
             {future.map((f) => (

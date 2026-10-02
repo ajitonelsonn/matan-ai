@@ -141,8 +141,8 @@ export function CarePage() {
       ) : (
         <>
           {/* Row 1: members + status */}
-          <div className="grid gap-5 xl:grid-cols-12">
-            <div className="xl:col-span-8">
+          <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+            <div className="min-w-0 xl:col-span-8">
               {q.loading ? (
                 <div className="relative flex gap-3 overflow-hidden min-h-[132px]">
                   {Array.from({ length: 6 }).map((_, i) => (
@@ -164,7 +164,7 @@ export function CarePage() {
                 </div>
               )}
             </div>
-            <button type="button" onClick={() => router.push("/security-modes")} className={cn("card flex items-center gap-4 p-5 text-left transition-[border-color] hover:border-border-strong xl:col-span-4", d?.status === "attention" && "border-danger/40")}>
+            <button type="button" onClick={() => router.push("/security-modes")} className={cn("card flex min-w-0 items-center gap-4 p-5 text-left transition-[border-color] hover:border-border-strong xl:col-span-4", d?.status === "attention" && "border-danger/40")}>
               <span className={cn("inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border", d?.status === "safe" ? "bg-success/12 border-success/25 text-success" : "bg-warning/12 border-warning/25 text-warning")}>
                 <Heart className="size-6" />
               </span>
@@ -178,13 +178,13 @@ export function CarePage() {
           </div>
 
           {/* Row 2 */}
-          <div className="mt-5 grid gap-5 xl:grid-cols-12">
-            <section className="card p-5 xl:col-span-5" aria-labelledby="glance">
+          <div className="mt-5 grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+            <section className="min-w-0 card p-5 xl:col-span-5" aria-labelledby="glance">
               <SectionHeader icon={<Users />} title={<span id="glance">Family at a Glance</span>} subtitle="Real-time status from your Ring devices" href="/events?category=people" />
               {q.loading ? (
                 <Skeleton className="h-44" />
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&>*]:min-w-0">
                   {glance.map((g) => {
                     const t = toneStyles[g.tone];
                     return (
@@ -207,7 +207,7 @@ export function CarePage() {
               )}
             </section>
 
-            <section className="card p-5 xl:col-span-4" aria-labelledby="recent">
+            <section className="min-w-0 card p-5 xl:col-span-4" aria-labelledby="recent">
               <SectionHeader icon={<Clock />} title={<span id="recent">Recent Family Activity</span>} href="/events?category=people" />
               {q.loading ? (
                 <Skeleton className="h-44" />
@@ -230,7 +230,7 @@ export function CarePage() {
               )}
             </section>
 
-            <section className="card p-5 xl:col-span-3" aria-labelledby="care-ins">
+            <section className="min-w-0 card p-5 xl:col-span-3" aria-labelledby="care-ins">
               <SectionHeader icon={<Sparkles />} title={<span id="care-ins">AI Care Insights</span>} subtitle="Matan AI looks for important patterns to keep your family safe." iconTone="purple" />
               {q.loading ? (
                 <Skeleton className="h-44" />
@@ -247,14 +247,14 @@ export function CarePage() {
           </div>
 
           {/* Row 3 */}
-          <div className="mt-5 grid gap-5 xl:grid-cols-12">
-            <div className="space-y-5 xl:col-span-6">
+          <div className="mt-5 grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+            <div className="min-w-0 space-y-5 xl:col-span-6">
               <section className="card p-5" aria-labelledby="live-fam">
                 <SectionHeader icon={<Video />} title={<span id="live-fam">Live Family Views</span>} subtitle="Quick access to important areas" href="/live" />
                 {q.loading ? (
                   <Skeleton className="h-32" />
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&>*]:min-w-0">
                     {(d?.liveViews ?? []).map((v) => (
                       <CameraTile key={v.cameraId} name={v.label} imageUrl={v.imageUrl} onClick={() => router.push(`/live?camera=${v.cameraId === "cam-kids" ? "cam-indoor" : v.cameraId}`)} aspect="aspect-[4/3]" />
                     ))}
@@ -274,7 +274,7 @@ export function CarePage() {
               </div>
             </div>
 
-            <section className="card p-5 xl:col-span-3" aria-labelledby="features">
+            <section className="min-w-0 card p-5 xl:col-span-3" aria-labelledby="features">
               <SectionHeader icon={<Heart />} title={<span id="features">Care Features</span>} iconTone="danger" />
               {q.loading ? (
                 <Skeleton className="h-64" />
@@ -299,7 +299,7 @@ export function CarePage() {
               )}
             </section>
 
-            <div className="space-y-5 xl:col-span-3">
+            <div className="min-w-0 space-y-5 xl:col-span-3">
               <section className="card p-5" aria-labelledby="qa">
                 <SectionHeader icon={<Zap />} title={<span id="qa">Quick Actions</span>} iconTone="warning" />
                 <div className="space-y-2">

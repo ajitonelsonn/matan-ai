@@ -227,8 +227,8 @@ export function RingAutomationsView({ initialRuleId }: { initialRuleId?: string 
       {error ? (
         <ErrorState onRetry={() => { void rulesQ.refetch(); void eventsQ.refetch(); void careQ.refetch(); }} message={error} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-12">
-          <div className="space-y-3.5 xl:col-span-8">
+        <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+          <div className="min-w-0 space-y-3.5 xl:col-span-8">
             {loading && !rules.length ? (
               <div className="relative min-h-[420px] space-y-3.5">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -289,10 +289,10 @@ export function RingAutomationsView({ initialRuleId }: { initialRuleId?: string 
             <p className="text-[11.5px] text-text-3">Precedence: low-confidence guard → high-risk escalation → your rules → repeated activity → quiet hours → sensitivity → Decision Engine default. Care Context, quiet hours and sensitivity live in <Link href="/settings?tab=care" className="text-primary hover:text-primary-2">Settings › Care &amp; Rules</Link>.</p>
           </div>
 
-          <div className="space-y-5 xl:col-span-4">
+          <div className="min-w-0 space-y-5 xl:col-span-4">
             <section className="card p-5" aria-labelledby="ra-stats">
               <SectionHeader icon={<Zap />} title={<span id="ra-stats">This week</span>} subtitle="From your real Ring events" iconTone="warning" />
-              <dl className="grid grid-cols-2 gap-3">
+              <dl className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
                 {[
                   ["Events evaluated", events.filter((e) => e.intelligence?.careDecision && "action" in e.intelligence.careDecision).length],
                   ["Rule matches", runsTotal],

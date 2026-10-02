@@ -215,7 +215,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
             <Video className="size-3.5" /> {l.cameras}
           </span>
         </div>
-        <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px] text-text-3">
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px] text-text-3 [&>*]:min-w-0">
           <div>
             <dt>Manager</dt>
             <dd className="truncate text-text-2">{l.manager}</dd>
@@ -246,32 +246,32 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
       {q.error ? (
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : q.loading || !d ? (
-        <div className="relative grid gap-5 lg:grid-cols-4 min-h-[520px]">
+        <div className="relative grid gap-5 lg:grid-cols-4 min-h-[520px] [&>*]:min-w-0">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[112px] rounded-card" />
           ))}
-          <Skeleton className="h-[300px] rounded-card lg:col-span-2" />
-          <Skeleton className="h-[300px] rounded-card lg:col-span-2" />
+          <Skeleton className="min-w-0 h-[300px] rounded-card lg:col-span-2" />
+          <Skeleton className="min-w-0 h-[300px] rounded-card lg:col-span-2" />
           <LoadingOverlay label="Loading business data" />
         </div>
       ) : (
         <>
           {/* OVERVIEW */}
           {tab === "overview" && (
-            <div className="grid gap-5 xl:grid-cols-12">
-              <div className="space-y-5 xl:col-span-9">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+              <div className="min-w-0 space-y-5 xl:col-span-9">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 [&>*]:min-w-0">
                   <MetricCard icon={<ShieldCheck />} label="Business Locations" value={d.metrics.locations} delta={25} deltaLabel="vs last month" tone="success" />
                   <MetricCard icon={<Video />} label="Total Cameras" value={d.metrics.cameras} delta={14} deltaLabel="vs last month" tone="primary" />
                   <MetricCard icon={<Users />} label="Team Members" value={d.metrics.team} delta={20} deltaLabel="vs last month" tone="purple" />
                   <MetricCard icon={<TriangleAlert />} label="Security Events" value={d.metrics.securityEvents} delta={-40} invertDelta deltaLabel="vs last month" tone="danger" />
                 </div>
-                <div className="grid gap-5 lg:grid-cols-12">
-                  <section className="card p-5 lg:col-span-7" aria-labelledby="act-title">
+                <div className="grid gap-5 lg:grid-cols-12 [&>*]:min-w-0">
+                  <section className="min-w-0 card p-5 lg:col-span-7" aria-labelledby="act-title">
                     <SectionHeader icon={<TrendingUp />} title={<span id="act-title">Activity Overview</span>} subtitle="Key activity across all your business locations." action={<Select size="sm" value={trendRange} onChange={setTrendRange} options={[{ value: "7d", label: "Last 7 days" }, { value: "30d", label: "Last 14 days" }]} align="end" label="Trend range" />} />
                     <BusinessTrendChart data={trend} />
                   </section>
-                  <section className="card p-5 lg:col-span-5" aria-labelledby="loc-title">
+                  <section className="min-w-0 card p-5 lg:col-span-5" aria-labelledby="loc-title">
                     <SectionHeader icon={<MapPin />} title={<span id="loc-title">Location Status</span>} subtitle="All your business locations at a glance." action={<Button variant="ghost" size="xs" onClick={() => setTab("locations")} rightIcon={<ChevronRight className="size-3.5" />}>View all</Button>} />
                     <ul className="divide-y divide-border">
                       {d.locations.filter((l) => match(l.name) || match(l.city)).map((l) => (
@@ -295,7 +295,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                     </ul>
                   </section>
                 </div>
-                <div className="grid gap-5 lg:grid-cols-2">
+                <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
                   <section className="card p-5" aria-labelledby="rev-title">
                     <SectionHeader icon={<Clock />} title={<span id="rev-title">Recent Events</span>} subtitle="Latest activity from your business locations." href="/events" />
                     <div className="space-y-0.5">
@@ -334,7 +334,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                 </div>
               </div>
 
-              <div className="space-y-5 xl:col-span-3">
+              <div className="min-w-0 space-y-5 xl:col-span-3">
                 <div className="relative overflow-hidden rounded-hero border border-border min-h-[168px]">
                   <SafeImage src={images.storefront} alt="" sizes="360px" />
                   <div className="absolute inset-0 bg-gradient-to-r from-bg/95 via-bg/80 to-bg/30" aria-hidden />
@@ -345,7 +345,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                 </div>
                 <section className="card p-5" aria-labelledby="bqa">
                   <SectionHeader icon={<Zap />} title={<span id="bqa">Quick Actions</span>} iconTone="warning" />
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
                     <QuickAction icon={<Video />} label="View Live Cameras" href="/live" />
                     <QuickAction icon={<FileText />} label="Generate Report" onClick={() => void generateReport()} loading={generating} />
                     <QuickAction icon={<Plus />} label="Add Location" onClick={() => setAddLoc(true)} />
@@ -381,18 +381,18 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                 <p className="text-[13.5px] text-text-3">{d.locations.length} locations · {d.locations.filter((l) => l.status === "online").length} online</p>
                 <Button leftIcon={<Plus className="size-4" />} onClick={() => setAddLoc(true)}>Add Location</Button>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{d.locations.filter((l) => match(l.name) || match(l.city)).map(locationCard)}</div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">{d.locations.filter((l) => match(l.name) || match(l.city)).map(locationCard)}</div>
             </div>
           )}
 
           {/* ANALYTICS */}
           {tab === "analytics" && (
-            <div className="grid gap-5 xl:grid-cols-12">
-              <section className="card p-5 xl:col-span-8" aria-labelledby="an-trend">
+            <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+              <section className="min-w-0 card p-5 xl:col-span-8" aria-labelledby="an-trend">
                 <SectionHeader icon={<TrendingUp />} title={<span id="an-trend">Activity Overview</span>} subtitle="People, vehicles, packages and security events across all locations." action={<Select size="sm" value={trendRange} onChange={setTrendRange} options={[{ value: "7d", label: "Last 7 days" }, { value: "30d", label: "Last 14 days" }]} align="end" label="Trend range" />} />
                 <BusinessTrendChart data={trend} height={320} />
               </section>
-              <section className="card p-5 xl:col-span-4" aria-labelledby="an-cams">
+              <section className="min-w-0 card p-5 xl:col-span-4" aria-labelledby="an-cams">
                 <SectionHeader icon={<Video />} title={<span id="an-cams">Cameras by Location</span>} />
                 <div className="flex flex-col items-center gap-4">
                   <DonutChart data={d.locations.map((l, i) => ({ name: l.name, value: l.cameras, color: [chartColors.people, chartColors.packages, chartColors.vehicles, chartColors.animals, chartColors.others][i % 5] }))} size={160} thickness={22} center={<><span className="text-[24px] font-bold text-text">{d.metrics.cameras}</span><span className="text-xs text-text-3">Cameras</span></>} />
@@ -406,11 +406,11 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                   </ul>
                 </div>
               </section>
-              <section className="card p-5 xl:col-span-6" aria-labelledby="an-today">
+              <section className="min-w-0 card p-5 xl:col-span-6" aria-labelledby="an-today">
                 <SectionHeader icon={<BarChart3 />} title={<span id="an-today">Events Today by Location</span>} />
                 <HBarList rows={d.locations.map((l) => ({ key: l.id, label: l.name, count: l.eventsToday, icon: "Store", tone: l.status === "online" ? "primary" : "danger" }))} />
               </section>
-              <section className="card p-5 xl:col-span-6" aria-labelledby="an-ins">
+              <section className="min-w-0 card p-5 xl:col-span-6" aria-labelledby="an-ins">
                 <SectionHeader icon={<Sparkles />} title={<span id="an-ins">AI Business Insights</span>} iconTone="purple" />
                 <ul className="space-y-2">
                   {d.insights.map((i) => (
@@ -444,8 +444,8 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
 
           {/* REPORTS */}
           {tab === "reports" && (
-            <div className="grid gap-5 xl:grid-cols-12">
-              <div className="card p-5 xl:col-span-8">
+            <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+              <div className="min-w-0 card p-5 xl:col-span-8">
                 <SectionHeader icon={<FileText />} title="Reports" subtitle="Generated summaries and incident reports." action={<Button leftIcon={<Sparkles className="size-4" />} onClick={() => void generateReport()} loading={generating}>Generate Report</Button>} />
                 {d.reports.length === 0 ? (
                   <EmptyState compact icon={<FileText />} title="No reports yet" description="Generate your first business report." />
@@ -467,7 +467,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                   </ul>
                 )}
               </div>
-              <div className="card p-5 xl:col-span-4">
+              <div className="min-w-0 card p-5 xl:col-span-4">
                 <SectionHeader icon={<Clock />} title="Scheduled reports" />
                 <ul className="space-y-3">
                   {[["Weekly Security Summary", "Every Monday · 6:00 AM", true], ["Foot Traffic Analysis", "Monthly · 1st", true], ["Delivery Log", "Daily · 8:00 PM", false]].map(([n, s, on]) => (
@@ -483,7 +483,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
 
           {/* INTEGRATIONS */}
           {tab === "integrations" && (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
               {d.integrations.filter((i) => match(i.name)).map((i) => (
                 <div key={i.id} className={cn("card flex flex-col p-5", i.connected && "border-success/30")}>
                   <div className="flex items-start justify-between gap-3">
@@ -503,10 +503,10 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
 
           {/* SETTINGS */}
           {tab === "settings" && (
-            <div className="grid gap-5 xl:grid-cols-12">
-              <div className="card p-5 xl:col-span-7 space-y-4">
+            <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
+              <div className="min-w-0 card p-5 xl:col-span-7 space-y-4">
                 <SectionHeader icon={<Building2 />} title="Business profile" />
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
                   <Field label="Business name" htmlFor="bn"><Input id="bn" value={settings.name} onChange={(e) => setSettings((s) => ({ ...s, name: e.target.value }))} /></Field>
                   <Field label="Time zone"><Select fullWidth value={settings.tz} onChange={(v) => setSettings((s) => ({ ...s, tz: v }))} options={[{ value: "(GMT+9) Dili, Timor-Leste", label: "(GMT+9) Dili, Timor-Leste" }, { value: "(GMT+8) Bali, Indonesia", label: "(GMT+8) Bali, Indonesia" }, { value: "(GMT+10) Darwin, Australia", label: "(GMT+10) Darwin, Australia" }]} /></Field>
                   <Field label="Team digest"><Select fullWidth value={settings.digest} onChange={(v) => setSettings((s) => ({ ...s, digest: v }))} options={["Daily at 6:00 PM", "Daily at 8:00 AM", "Weekly on Monday", "Off"].map((v) => ({ value: v, label: v }))} /></Field>
@@ -521,7 +521,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
                 </ul>
                 <div className="flex justify-end"><Button onClick={() => void saveSettings()} loading={saving}>Save changes</Button></div>
               </div>
-              <div className="card p-5 xl:col-span-5">
+              <div className="min-w-0 card p-5 xl:col-span-5">
                 <SectionHeader icon={<ShieldCheck />} title="Business Mode" subtitle="Apply opening-hours rules across all locations." iconTone="success" />
                 <p className="text-[14px] text-text-2">Business Mode counts foot traffic during hours and treats any after-hours presence as important. Activate it from Security Modes.</p>
                 <Button variant="secondary" className="mt-4" href="/security-modes" rightIcon={<ChevronRight className="size-4" />}>Open Security Modes</Button>
@@ -542,7 +542,7 @@ export function BusinessPage({ initialLocationSlug }: { initialLocationSlug?: st
               <SafeImage src={location.imageUrl} alt="" sizes="480px" grayscale={location.status === "offline"} fallbackIcon={<Store className="size-6" />} />
               <div className="absolute left-3 top-3"><Badge tone={location.status === "online" ? "success" : "danger"} dot>{location.status === "online" ? "Online" : "Offline"}</Badge></div>
             </div>
-            <dl className="grid grid-cols-2 gap-3 text-[13.5px]">
+            <dl className="grid grid-cols-2 gap-3 text-[13.5px] [&>*]:min-w-0">
               {[["Cameras", `${location.cameras}`], ["Manager", location.manager], ["Opening hours", location.openHours], ["Events today", `${location.eventsToday}`]].map(([k, v]) => (
                 <div key={k} className="card-inset p-3"><dt className="text-[11.5px] uppercase tracking-wide text-text-3">{k}</dt><dd className="mt-0.5 font-semibold text-text">{v}</dd></div>
               ))}

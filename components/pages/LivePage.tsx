@@ -234,9 +234,9 @@ export function LivePage() {
       {devicesQ.error ? (
         <ErrorState onRetry={() => void devicesQ.refetch()} message={devicesQ.error} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-12">
+        <div className="grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
           {/* Left */}
-          <div className="space-y-5 xl:col-span-8">
+          <div className="min-w-0 space-y-5 xl:col-span-8">
             {ringCam ? (
               <div ref={frameRef}>
                 <RingLivePlayer key={ringCam.id} device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} autoStart={params.get("autoplay") === "1"} />
@@ -396,7 +396,7 @@ export function LivePage() {
           </div>
 
           {/* Right */}
-          <div className="space-y-5 xl:col-span-4">
+          <div className="min-w-0 space-y-5 xl:col-span-4">
             {/* AI analysis */}
             {ringCam ? (
               <RingLiveSidePanel device={ringCam} sessionLive={ringLive} onReconnect={() => setReconnectOpen(true)} />
@@ -440,11 +440,11 @@ export function LivePage() {
                     ))}
                   </div>
                   <h4 className="mt-5 text-[15px] font-semibold text-text">Actions</h4>
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <Button leftIcon={<Mic className="size-4" />} onClick={() => setTalking((t) => !t)} className="flex-1">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <Button leftIcon={<Mic className="size-4" />} onClick={() => setTalking((t) => !t)} className="min-w-[8rem] flex-1">
                       {talking ? "Stop talking" : "Talk to visitor"}
                     </Button>
-                    <div ref={reply.rootRef} className="relative flex-1">
+                    <div ref={reply.rootRef} className="relative min-w-[8rem] flex-1">
                       <Button ref={reply.triggerRef} variant="secondary" fullWidth leftIcon={<MessageSquare className="size-4" />} rightIcon={<ChevronDown className="size-4 text-text-3" />} onClick={() => reply.setOpen((o) => !o)} aria-expanded={reply.open} aria-haspopup="listbox">
                         Quick reply
                       </Button>
@@ -485,7 +485,7 @@ export function LivePage() {
             ) : (
             <section className="card p-5" aria-labelledby="controls-title">
               <SectionHeader icon={<Video />} title={<span id="controls-title">Live Controls</span>} />
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-2 [&>*]:min-w-0">
                 {[
                   { label: "Siren", icon: <Siren />, tone: "danger", onClick: () => void siren(), active: false },
                   { label: "Lights", icon: <Lightbulb />, tone: "warning", onClick: () => { setLights((l) => !l); toast.success(lights ? "Lights turned off" : "Lights turned on", "Smart lights near the front door"); }, active: lights },
@@ -514,13 +514,13 @@ export function LivePage() {
             </section>
             )}
 
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2 [&>*]:min-w-0">
               {ringCam ? (
                 <RingQuickActions device={ringCam} frameRef={frameRef} live={ringLive} />
               ) : (
               <section className="card p-5" aria-labelledby="qa-title">
                 <SectionHeader icon={<Zap />} title={<span id="qa-title">Quick Actions</span>} iconTone="warning" />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
                   {[
                     { label: "Screenshot", icon: <Camera />, onClick: () => toast.success("Screenshot saved") },
                     { label: "Record Clip", icon: <Film />, onClick: () => { setRecording(true); toast.success("Recording a 30s clip"); } },

@@ -212,9 +212,9 @@ export function AssistantPage() {
     <>
       <Topbar title={<span className="flex flex-wrap items-center gap-3">AI Assistant <SourceBadge source={isRing ? "ring" : "demo"} short /></span>} subtitle={isRing ? "Matan AI (Amazon Nova) answers from your Ring devices, event history, analyses and Smart Rules." : "Ask anything about your home, business, or Ring devices."} search={{ value: search, onChange: setSearch, placeholder: "Search conversations…" }} />
 
-      <div className="grid gap-5 xl:grid-cols-12 xl:items-start">
+      <div className="grid gap-5 xl:grid-cols-12 xl:items-start [&>*]:min-w-0">
         {/* Recent chats */}
-        <aside className="card flex flex-col p-4 xl:col-span-3 max-h-[70vh] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]">
+        <aside className="min-w-0 card flex flex-col p-4 xl:col-span-3 max-h-[70vh] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]">
           <Button fullWidth leftIcon={<Plus className="size-4" />} onClick={newChat} size="lg">
             New Chat
           </Button>
@@ -271,7 +271,7 @@ export function AssistantPage() {
         </aside>
 
         {/* Conversation */}
-        <section className="card relative flex flex-col p-4 sm:p-5 xl:col-span-6 min-h-[560px] xl:h-[calc(100dvh-176px)] xl:max-h-[900px]" aria-label="Conversation">
+        <section className="min-w-0 card relative flex h-[calc(100dvh-13rem)] max-h-[720px] min-h-[420px] flex-col p-4 sm:p-5 xl:col-span-6 xl:h-[calc(100dvh-176px)] xl:max-h-[900px]" aria-label="Conversation">
           <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
             <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-semibold ${isRing ? "border-primary/30 bg-primary/10 text-primary" : "border-purple/30 bg-purple/10 text-purple"}`}>
               {isRing ? <><span className="size-2 rounded-full bg-current" /> Matan AI · Nova · your Ring data</> : <>✨ Demo AI (scripted)</>}
@@ -338,7 +338,7 @@ export function AssistantPage() {
         </section>
 
         {/* Right rail */}
-        <div className="space-y-5 xl:col-span-3">
+        <div className="min-w-0 space-y-5 xl:col-span-3">
           <button type="button" onClick={() => router.push("/security-modes")} className="card flex w-full items-center gap-3.5 p-4 text-left transition-[border-color] hover:border-border-strong">
             <span className={cn("inline-flex size-12 shrink-0 items-center justify-center rounded-2xl border", importantOpen ? "bg-warning/12 border-warning/25 text-warning" : "bg-success/12 border-success/25 text-success")}>
               <ShieldCheck className="size-6" />

@@ -47,7 +47,7 @@ export function RingLivePlayer({ device, sessionLive, onReconnect, className, au
   const fullscreen = () => frameRef.current?.requestFullscreen?.().catch(() => undefined);
 
   return (
-    <div ref={frameRef} className={cn("relative aspect-video overflow-hidden rounded-hero border border-primary/40 glow bg-black", className)}>
+    <div ref={frameRef} className={cn("relative h-[17rem] w-full overflow-hidden rounded-hero border border-primary/40 glow bg-black sm:aspect-video sm:h-auto", className)}>
       {/* Poster (Ring product image) while not streaming */}
       {state !== "live" && (
         <div className="absolute inset-0">
@@ -82,24 +82,24 @@ export function RingLivePlayer({ device, sessionLive, onReconnect, className, au
         </div>
       )}
       {(state === "idle" || state === "ended") && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto px-6 pb-16 pt-4 text-center sm:gap-3 sm:pb-20">
           {sessionLive ? (
             <>
-              <button type="button" onClick={() => void start()} aria-label="Start live view" className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-bg/55 text-text backdrop-blur transition-transform hover:scale-105">
-                <Play className="size-9 fill-current pl-1" />
+              <button type="button" onClick={() => void start()} aria-label="Start live view" className="flex size-14 shrink-0 items-center justify-center rounded-full border border-white/20 bg-bg/55 text-text backdrop-blur transition-transform hover:scale-105 sm:size-20">
+                <Play className="size-7 fill-current pl-1 sm:size-9" />
               </button>
               <p className="text-[15px] font-semibold text-text">{state === "ended" ? "Stream ended" : "Start Ring live view"}</p>
-              <p className="max-w-md text-[13px] text-text-2">
+              <p className="hidden max-w-md text-[13px] text-text-2 sm:block">
                 Real WebRTC stream from the Ring Playground device. Tip: trigger a <span className="text-text">Package</span>, <span className="text-text">Vehicle</span> or <span className="text-text">Motion</span> simulation in the Playground to see an event clip.
               </p>
             </>
           ) : (
             <>
-              <span className="inline-flex size-14 items-center justify-center rounded-2xl border border-danger/30 bg-danger/12 text-danger">
-                <Lock className="size-6" />
+              <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl border border-danger/30 bg-danger/12 text-danger sm:size-14">
+                <Lock className="size-5 sm:size-6" />
               </span>
               <p className="text-[15px] font-semibold text-text">Ring session expired</p>
-              <p className="max-w-sm text-[13px] text-text-2">Generate a new Playground token to stream live video.</p>
+              <p className="hidden max-w-sm text-[13px] text-text-2 sm:block">Generate a new Playground token to stream live video.</p>
               <Button onClick={onReconnect}>Reconnect Ring</Button>
             </>
           )}

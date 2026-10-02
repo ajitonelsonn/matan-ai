@@ -157,21 +157,21 @@ export function InsightsPage() {
       ) : (
         <div className="relative">
           {/* Metrics */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7 [&>*]:min-w-0">
             {q.loading || !d
               ? Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-[92px] rounded-card" />)
               : metrics.map((m) => <MetricCard key={m.label} icon={m.icon} label={m.label} value={m.value} delta={m.delta} invertDelta={m.invert} tone={m.tone} compact />)}
           </div>
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-12">
+          <div className="mt-5 grid gap-5 xl:grid-cols-12 [&>*]:min-w-0">
             {/* Left 8 */}
-            <div className="space-y-5 xl:col-span-8">
-              <div className="grid gap-5 lg:grid-cols-8">
-                <section className="card p-5 lg:col-span-5" aria-labelledby="trends">
+            <div className="min-w-0 space-y-5 xl:col-span-8">
+              <div className="grid gap-5 lg:grid-cols-8 [&>*]:min-w-0">
+                <section className="min-w-0 card p-5 lg:col-span-5" aria-labelledby="trends">
                   <SectionHeader icon={<TrendingUp />} title={<span id="trends">Event Trends</span>} subtitle="Daily event count by type" />
                   {q.loading || !d ? <Skeleton className="h-[260px]" /> : <EventTrendsChart data={d.trends} />}
                 </section>
-                <section className="card p-5 lg:col-span-3" aria-labelledby="bycam">
+                <section className="min-w-0 card p-5 lg:col-span-3" aria-labelledby="bycam">
                   <SectionHeader icon={<Video />} title={<span id="bycam">Activity by Camera</span>} subtitle="Which cameras see the most activity" />
                   {q.loading || !d ? (
                     <Skeleton className="h-[260px]" />
@@ -207,7 +207,7 @@ export function InsightsPage() {
                 </section>
               </div>
 
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
                 <section className="card p-5" aria-labelledby="common">
                   <SectionHeader icon={<Activity />} title={<span id="common">Common Activities</span>} subtitle="Most frequent event types" />
                   {q.loading || !d ? <Skeleton className="h-[240px]" /> : <HBarList rows={d.activities.filter((a) => match(a.label))} />}
@@ -220,14 +220,14 @@ export function InsightsPage() {
             </div>
 
             {/* Right 4 */}
-            <div className="space-y-5 xl:col-span-4">
+            <div className="min-w-0 space-y-5 xl:col-span-4">
               <section className="card p-5" aria-labelledby="findings">
                 <SectionHeader icon={<Sparkles />} title={<span id="findings">AI Findings</span>} subtitle="Matan AI's analysis of your activity" iconTone="purple" />
                 {q.loading || !d ? (
                   <Skeleton className="h-[170px]" />
                 ) : (
                   <>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 gap-3 [&>*]:min-w-0">
                       <div className="flex flex-col items-center">
                         <ProgressRing value={d.findings.normalPct} size={96} stroke={9} tone="success" label={`${d.findings.normalPct}% normal`}>
                           <span className="text-center leading-tight">
@@ -341,7 +341,7 @@ export function InsightsPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
           <Field label="From" htmlFor="from">
             <Input id="from" type="date" value={custom.from} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} data-autofocus />
           </Field>

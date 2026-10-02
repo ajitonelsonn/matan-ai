@@ -263,9 +263,9 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           {sourceSwitch}
-          {connected.length > 0 && <Tabs items={tabs} value={tab} onChange={setTab} aria-label="Device types" />}
+          {connected.length > 0 && <Tabs items={tabs} value={tab} onChange={setTab} aria-label="Device types" className="min-w-0" />}
         </div>
         {connected.length > 0 && (
           <div className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
         <ErrorState onRetry={() => void q.refetch()} message={q.error} />
       ) : (
         <div className="grid gap-5 xl:grid-cols-12">
-          <div className="xl:col-span-9">
+          <div className="min-w-0 xl:col-span-9">
             {q.loading ? (
               <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-3 min-h-[420px]">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -345,13 +345,13 @@ export function RingDevicesView({ initialDeviceId, sourceSwitch, onBrowseDemo, o
             )}
             {connected.length > 0 && (
               <div className="mt-5 grid gap-5 lg:grid-cols-12">
-                <RingAccountCard account={session?.account} className="lg:col-span-4 lg:self-start" />
-                <RingFutureFeaturesCard devices={connected} className="lg:col-span-8" columns={2} />
+                <RingAccountCard account={session?.account} className="min-w-0 lg:col-span-4 lg:self-start" />
+                <RingFutureFeaturesCard devices={connected} className="min-w-0 lg:col-span-8" columns={2} />
               </div>
             )}
           </div>
 
-          <div className="space-y-5 xl:col-span-3">
+          <div className="min-w-0 space-y-5 xl:col-span-3">
             {q.loading ? (
               <Skeleton className="h-52 rounded-card" />
             ) : (

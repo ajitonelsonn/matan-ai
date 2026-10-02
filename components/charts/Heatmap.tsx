@@ -35,7 +35,12 @@ export function TimeOfDayHeatmap({ cells, className }: { cells: HeatCell[]; clas
                   tabIndex={0}
                   aria-label={`${d} ${b}: ${Math.round(v * 100)}% of peak activity`}
                 >
-                  <span className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-border-strong bg-surface-2/95 px-2 py-1 text-[11px] text-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute -top-8 z-20 max-w-[60vw] truncate rounded-md border border-border-strong bg-surface-2/95 px-2 py-1 text-[11px] text-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+                      di === 0 ? "left-0" : di === days.length - 1 ? "right-0" : "left-1/2 -translate-x-1/2",
+                    )}
+                  >
                     {d} · {b} · {Math.round(v * 100)}%
                   </span>
                 </div>

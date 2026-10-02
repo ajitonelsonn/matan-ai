@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MATAN AI — System Architecture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <style>
+      /* Source for docs/architecture/matan-ai-architecture.png.
+         Render: Playwright/Chrome screenshot of #canvas at deviceScaleFactor 2.
+         Palette mirrors the app's dark theme (app/globals.css). */
+      @font-face { font-family: "Inter"; src: local("Inter"), local("Helvetica Neue"), local("Arial"); }
+      :root {
+        --bg: #031326; --bg2: #061a31; --surface: #071c34; --surface2: #0a2341;
+        --border: rgba(53,154,255,0.22); --border-strong: rgba(53,181,255,0.5);
+        --text: #f5f9ff; --text2: #c4d3e6; --text3: #7f95b0;
+        --primary: #12a8ff; --cyan: #12e6ff; --success: #16df9b; --warning: #ffc34a; --danger: #ff4d5e; --purple: #9a71ff;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #01080f; font-family: Inter, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+      #canvas {
+        position: relative; width: 1720px; height: 1180px; overflow: hidden;
+        background:
+          radial-gradient(1100px 620px at 16% 4%, rgba(18,168,255,0.16), transparent 62%),
+          radial-gradient(900px 560px at 88% 92%, rgba(154,113,255,0.14), transparent 60%),
+          linear-gradient(160deg, #041628 0%, var(--bg) 45%, #020c18 100%);
+        color: var(--text);
+      }
+      #grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(53,154,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(53,154,255,0.05) 1px, transparent 1px); background-size: 48px 48px; }
+      svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+      .card, .svc, .lane > h2, .rules, header, .legend { z-index: 2; }
+      .card, .svc { position: absolute; }
+
+      /* ---- header ---------------------------------------------------- */
+      header { position: absolute; left: 48px; top: 40px; display: flex; align-items: center; gap: 18px; }
+      header img.mark { width: 62px; height: 62px; }
+      header h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+      header h1 span { color: var(--primary); }
+      header p { margin-top: 5px; font-size: 14.5px; color: var(--text2); letter-spacing: 0.01em; }
+      .legend { position: absolute; right: 48px; top: 44px; display: flex; gap: 20px; align-items: center; }
+      .legend div { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+      .legend i { width: 26px; height: 0; border-top-width: 2.5px; border-top-style: solid; display: inline-block; border-radius: 2px; }
+
+      /* ---- lanes ------------------------------------------------------ */
+      .lane { position: absolute; border: 1px dashed rgba(53,154,255,0.22); border-radius: 22px; background: rgba(6,26,49,0.42); }
+      .lane > h2 { position: absolute; top: -11px; left: 22px; padding: 2px 12px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); background: #041628; border-radius: 999px; border: 1px solid rgba(53,154,255,0.25); }
+
+      /* ---- cards ------------------------------------------------------ */
+      .card { position: absolute; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(10,35,65,0.96), rgba(7,28,52,0.96)); box-shadow: 0 14px 34px rgba(0,0,0,0.42); padding: 14px 16px; }
+      .card.accent { border-color: var(--border-strong); box-shadow: 0 0 0 1px rgba(18,168,255,0.12), 0 16px 40px rgba(0,0,0,0.5); }
+      .card h3 { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+      .card h3 img { width: 26px; height: 26px; object-fit: contain; }
+      .card .sub { margin-top: 3px; font-size: 12.5px; color: var(--text3); line-height: 1.45; }
+      .card ul { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; list-style: none; }
+      .card li { font-size: 12.5px; color: var(--text2); line-height: 1.4; padding-left: 13px; position: relative; }
+      .card li::before { content: ""; position: absolute; left: 0; top: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); opacity: 0.85; }
+      .card li.ok::before { background: var(--success); }
+      .card li.warn::before { background: var(--warning); }
+      .chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(53,154,255,0.28); background: rgba(18,168,255,0.1); font-size: 11.5px; font-weight: 600; color: var(--text2); }
+      .chip img { width: 14px; height: 14px; object-fit: contain; }
+
+      .svc { position: absolute; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 15px; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(10,35,65,0.96), rgba(7,28,52,0.96)); box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
+      .svc img { width: 40px; height: 40px; object-fit: contain; flex: none; }
+      .svc b { display: block; font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
+      .svc span { display: block; margin-top: 2px; font-size: 11.8px; color: var(--text3); line-height: 1.38; }
+
+      .dot { position: absolute; width: 23px; height: 23px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #02101f; transform: translate(-50%, -50%); z-index: 3; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+      .dot.b { background: var(--primary); box-shadow: 0 0 0 3px rgba(3,19,38,0.95), 0 2px 10px rgba(0,0,0,0.5); }
+      .dot.g { background: var(--success); box-shadow: 0 0 0 3px rgba(3,19,38,0.95), 0 2px 10px rgba(0,0,0,0.5); }
+      .dot.p { background: var(--purple); color: #fff; box-shadow: 0 0 0 3px rgba(3,19,38,0.95), 0 2px 10px rgba(0,0,0,0.5); }
+      .dot.w { background: var(--warning); box-shadow: 0 0 0 3px rgba(3,19,38,0.95), 0 2px 10px rgba(0,0,0,0.5); }
+      .flow { position: absolute; left: 66px; top: 876px; width: 858px; height: 92px; border-radius: 16px; border: 1px solid rgba(53,154,255,0.22); background: rgba(5,22,42,0.86); padding: 11px 16px 12px; z-index: 2; }
+      .flow h4 { font-size: 11.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); }
+      .flow ol { margin-top: 7px; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 18px; }
+      .flow li { display: flex; align-items: center; gap: 7px; font-size: 11.6px; color: var(--text2); line-height: 1.3; }
+      .flow li i { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 9.5px; font-weight: 800; font-style: normal; color: #02101f; flex: none; }
+      /* ---- flow badges ------------------------------------------------ */
+      .step { position: absolute; display: flex; align-items: center; gap: 7px; transform: translate(-50%, -50%); }
+      .step b { width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; font-weight: 800; color: #02101f; background: var(--primary); box-shadow: 0 0 0 3px rgba(18,168,255,0.2); }
+      .step span { white-space: nowrap; font-size: 11.8px; font-weight: 650; color: var(--text2); background: rgba(3,19,38,0.92); padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(53,154,255,0.22); }
+      .step.good b { background: var(--success); box-shadow: 0 0 0 3px rgba(22,223,155,0.18); }
+      .step.warn b { background: var(--warning); box-shadow: 0 0 0 3px rgba(255,195,74,0.18); }
+      .step.pur b { background: var(--purple); color: #fff; box-shadow: 0 0 0 3px rgba(154,113,255,0.2); }
+
+      /* ---- footer rules ------------------------------------------------ */
+      .rules { position: absolute; left: 48px; right: 48px; bottom: 34px; display: flex; gap: 14px; }
+      .rule { flex: 1; border-radius: 14px; border: 1px solid rgba(53,154,255,0.2); background: rgba(7,28,52,0.75); padding: 11px 14px; }
+      .rule b { display: block; font-size: 12.5px; font-weight: 700; color: var(--text); }
+      .rule span { display: block; margin-top: 2px; font-size: 11.8px; color: var(--text3); line-height: 1.4; }
+      .rule.g { border-color: rgba(22,223,155,0.34); } .rule.g b { color: var(--success); }
+      .rule.p { border-color: rgba(154,113,255,0.34); } .rule.p b { color: var(--purple); }
+      .rule.w { border-color: rgba(255,195,74,0.32); } .rule.w b { color: var(--warning); }
+    </style>
+  </head>
+  <body>
+    <div id="canvas">
+      <div id="grid"></div>
+
+      <header>
+        <img class="mark" src="../../public/brand/matan-ai-logo.png" alt="" />
+        <div>
+          <h1>MATAN <span>AI</span> — System Architecture</h1>
+          <p>Ring sees the event · Matan understands the situation, decides what deserves attention, and tells you</p>
+        </div>
+      </header>
+
+      <div class="legend">
+        <div><i style="border-color:#12a8ff"></i> Request / data</div>
+        <div><i style="border-color:#16df9b"></i> AI &amp; decision</div>
+        <div><i style="border-color:#9a71ff;border-top-style:dashed"></i> Media (WebRTC / S3)</div>
+        <div><i style="border-color:#ffc34a"></i> Notification</div>
+      </div>
+
+      <!-- lanes -->
+      <div class="lane" style="left:40px;  top:148px; width:360px; height:830px"><h2>Client · Browser</h2></div>
+      <div class="lane" style="left:430px; top:148px; width:520px; height:830px"><h2>AWS Amplify Hosting · Next.js SSR compute</h2></div>
+      <div class="lane" style="left:980px; top:148px; width:330px; height:830px"><h2>AWS managed services</h2></div>
+      <div class="lane" style="left:1340px;top:148px; width:340px; height:830px"><h2>External</h2></div>
+
+      <!-- CLIENT -->
+      <div class="card accent" style="left:66px; top:196px; width:308px">
+        <h3><img src="logos/nextjs.svg" alt="" /> Matan AI web app</h3>
+        <p class="sub">Next.js 16 App Router · React 19 · server components + route handlers</p>
+        <div class="chips">
+          <span class="chip"><img src="logos/react.svg" alt="" />React 19</span>
+          <span class="chip"><img src="logos/typescript.svg" alt="" />TypeScript</span>
+          <span class="chip"><img src="logos/tailwind.svg" alt="" />Tailwind v4</span>
+          <span class="chip"><img src="logos/nodejs.svg" alt="" />Node 22</span>
+        </div>
+      </div>
+
+      <div class="card" style="left:66px; top:392px; width:308px">
+        <h3><img src="logos/aws-cognito.svg" alt="" /> Signed-in session</h3>
+        <ul>
+          <li>Amplify Auth holds the Cognito tokens</li>
+          <li>Every API call sends <code>Authorization: Bearer</code></li>
+          <li class="ok">Profile read from ID-token claims</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:66px; top:566px; width:308px">
+        <h3><img src="logos/webrtc.svg" alt="" style="filter:invert(68%) sepia(68%) saturate(540%) hue-rotate(205deg)" /> Live view &amp; media</h3>
+        <ul>
+          <li class="pur">WebRTC/WHEP video straight from Ring</li>
+          <li>Protected media fetched with the token, shown as object URLs</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:66px; top:742px; width:308px">
+        <h3>⏱ Analysis step loop</h3>
+        <p class="sub">The browser drives one analysis per request, so nothing is left running after a response on serverless compute.</p>
+      </div>
+
+      <!-- SERVER -->
+      <div class="card accent" style="left:456px; top:196px; width:468px">
+        <h3><img src="logos/aws-amplify.svg" alt="" /> Route handlers <span style="font-weight:600;font-size:12px;color:var(--text3)">(/api/…)</span></h3>
+        <p class="sub">Verified per request with <b style="color:var(--text2)">aws-jwt-verify</b>; every read and write is scoped to the Cognito <code>sub</code> — users never see each other's data.</p>
+      </div>
+
+      <div class="card" style="left:456px; top:330px; width:224px">
+        <h3>🔐 Ring session</h3>
+        <ul>
+          <li class="warn">Token sealed (AES-256-GCM) in an HttpOnly cookie</li>
+          <li>Any Lambda instance can restore it</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:700px; top:330px; width:224px">
+        <h3>🔄 Event sync</h3>
+        <ul>
+          <li>Ring history ∪ stored events</li>
+          <li>New events marked pending</li>
+        </ul>
+      </div>
+
+      <div class="card accent" style="left:456px; top:498px; width:468px">
+        <h3><img src="logos/aws-bedrock.png" alt="" /> Matan AI pipeline</h3>
+        <p class="sub">One awaited request: media → model → decision → storage → alert.</p>
+        <ul>
+          <li class="ok"><b style="color:var(--text)">Nova Pro</b> reads the snapshot (escalates to the clip when it helps)</li>
+          <li class="ok"><b style="color:var(--text)">Decision Engine</b> — priority &amp; action from the analysis + context</li>
+          <li class="ok"><b style="color:var(--text)">Smart Rules</b> — deterministic Ignore / Monitor / Notify / Escalate</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:456px; top:742px; width:224px">
+        <h3>🖼 Media API</h3>
+        <p class="sub">Streams S3 objects after checking they belong to the caller.</p>
+      </div>
+
+      <div class="card" style="left:700px; top:742px; width:224px">
+        <h3>✉️ Notifier</h3>
+        <p class="sub">Branded email with the analyzed frame; SES first, SMTP fallback.</p>
+      </div>
+
+      <!-- AWS SERVICES -->
+      <div class="svc" style="left:1006px; top:200px; width:278px"><img src="logos/aws-cognito.svg" alt="" /><div><b>Amazon Cognito</b><span>User pool · email + Google · JWT verified server-side</span></div></div>
+      <div class="svc" style="left:1006px; top:300px; width:278px"><img src="logos/aws-bedrock.png" alt="" /><div><b>Amazon Bedrock</b><span>Nova Pro — vision analysis, summaries, assistant</span></div></div>
+      <div class="svc" style="left:1006px; top:400px; width:278px"><img src="logos/aws-dynamodb.svg" alt="" /><div><b>Amazon DynamoDB</b><span>Single table · PK <code>USER#sub</code> — events, analyses, rules, settings</span></div></div>
+      <div class="svc" style="left:1006px; top:512px; width:278px"><img src="logos/aws-s3.svg" alt="" /><div><b>Amazon S3</b><span>Private bucket · snapshots &amp; clips, never public</span></div></div>
+      <div class="svc" style="left:1006px; top:612px; width:278px"><img src="logos/aws-ses.svg" alt="" /><div><b>Amazon SES</b><span>Verified domain + DKIM · configuration set</span></div></div>
+      <div class="svc" style="left:1006px; top:712px; width:278px"><img src="logos/aws-lambda.svg" alt="" /><div><b>SSR compute</b><span>Short-lived instances — no work after a response</span></div></div>
+      <div class="svc" style="left:1006px; top:812px; width:278px"><img src="logos/aws-cloudwatch.svg" alt="" /><div><b>Amazon CloudWatch</b><span>Structured logs: sync, analysis, email, runtime config</span></div></div>
+
+      <!-- EXTERNAL -->
+      <div class="card accent" style="left:1366px; top:196px; width:288px">
+        <h3><img src="logos/ring.svg" alt="" /> Ring Developer Playground</h3>
+        <p class="sub">Partner API · 30-minute token · simulator device</p>
+        <ul>
+          <li>Devices, status, capabilities, configuration</li>
+          <li>Event history (motion, package, vehicle…)</li>
+          <li class="pur">Snapshot &amp; clip download</li>
+          <li class="pur">WHEP live view (WebRTC)</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:1366px; top:470px; width:288px">
+        <h3><img src="logos/gmail.svg" alt="" /> Your mailbox</h3>
+        <p class="sub">Alert and daily-report emails with the snapshot Matan analyzed, the decision and the reason.</p>
+      </div>
+
+      <div class="card" style="left:1366px; top:620px; width:288px">
+        <h3>🔒 What never leaves the server</h3>
+        <ul>
+          <li class="warn">The Ring Playground token</li>
+          <li class="warn">AWS credentials (compute role only)</li>
+          <li class="warn">S3 keys and bucket names</li>
+        </ul>
+      </div>
+
+      <div class="card" style="left:1366px; top:812px; width:288px">
+        <h3>🧪 Demo Mode</h3>
+        <p class="sub">A separate sample dataset for exploring the product. In Real Mode nothing is simulated: every panel is Ring, AWS or Matan's own stored data, or it is labelled a future integration.</p>
+      </div>
+
+      <!-- wires: routed through the gutters between lanes, drawn behind the cards -->
+      <svg class="wires" viewBox="0 0 1720 1180">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#12a8ff" /></marker>
+          <marker id="arg" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#16df9b" /></marker>
+          <marker id="arp" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#9a71ff" /></marker>
+          <marker id="arw" markerWidth="9" markerHeight="9" refX="7.2" refY="3.1" orient="auto"><path d="M0,0 L7.2,3.1 L0,6.2 z" fill="#ffc34a" /></marker>
+        </defs>
+        <g fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- 1 browser -> route handlers -->
+          <path d="M374,250 H450" stroke="#12a8ff" marker-end="url(#ar)" />
+          <!-- 2 browser -> Cognito (Amplify Auth) -->
+          <path d="M374,440 H404 V180 H1146 V194" stroke="#12a8ff" stroke-dasharray="7 6" marker-end="url(#ar)" opacity="0.9" />
+          <!-- 3 server -> Ring Partner API -->
+          <path d="M924,228 V172 H1340 V222 H1360" stroke="#12a8ff" marker-end="url(#ar)" />
+          <!-- 4 event sync -> DynamoDB -->
+          <path d="M924,392 H956 V440 H1000" stroke="#12a8ff" marker-end="url(#ar)" />
+          <!-- 5 pipeline -> Bedrock (Nova Pro) -->
+          <path d="M924,520 H940 V336 H1000" stroke="#16df9b" marker-end="url(#arg)" />
+          <!-- 6 pipeline -> DynamoDB (analysis + decision) -->
+          <path d="M924,540 H964 V456 H1000" stroke="#16df9b" marker-end="url(#arg)" />
+          <!-- 7 pipeline -> S3 (store media) -->
+          <path d="M924,556 H986 V536 H1000" stroke="#9a71ff" stroke-dasharray="7 6" marker-end="url(#arp)" />
+          <!-- 8 Ring media -> pipeline -->
+          <path d="M1360,400 H1325 V930 H950 V612 H926" stroke="#9a71ff" stroke-dasharray="7 6" marker-end="url(#arp)" />
+          <!-- 9 notifier -> SES -->
+          <path d="M924,790 H972 V648 H1000" stroke="#ffc34a" marker-end="url(#arw)" />
+          <!-- 10 SES -> mailbox -->
+          <path d="M1284,654 H1312 V528 H1360" stroke="#ffc34a" marker-end="url(#arw)" />
+          <!-- 11 media API -> S3 (authenticated read) -->
+          <path d="M680,806 V868 H930 V592 H1000" stroke="#9a71ff" stroke-dasharray="7 6" marker-end="url(#arp)" opacity="0.85" />
+          <!-- 12 browser step loop -> pipeline -->
+          <path d="M374,790 H418 V556 H450" stroke="#12a8ff" marker-end="url(#ar)" />
+          <!-- 13 browser <-> Ring: live WebRTC media -->
+          <path d="M220,704 V1044 H1698 V300 H1660" stroke="#9a71ff" stroke-dasharray="7 6" marker-end="url(#arp)" />
+        </g>
+      </svg>
+
+      <!-- numbered dots on the wires -->
+      <div class="dot b" style="left:412px; top:250px">1</div>
+      <div class="dot b" style="left:760px; top:180px">2</div>
+      <div class="dot b" style="left:1184px; top:172px">3</div>
+      <div class="dot b" style="left:956px; top:424px">4</div>
+      <div class="dot g" style="left:940px; top:368px">5</div>
+      <div class="dot g" style="left:964px; top:498px">6</div>
+      <div class="dot p" style="left:950px; top:556px">7</div>
+      <div class="dot p" style="left:1325px; top:744px">8</div>
+      <div class="dot w" style="left:972px; top:716px">9</div>
+      <div class="dot w" style="left:1312px; top:590px">10</div>
+      <div class="dot p" style="left:930px; top:742px">11</div>
+      <div class="dot b" style="left:418px; top:660px">12</div>
+      <div class="dot p" style="left:900px; top:1044px">13</div>
+
+      <!-- flow key -->
+      <div class="flow">
+        <h4>Request flow</h4>
+        <ol>
+          <li><i style="background:#12a8ff">1</i> Signed-in request (Bearer token)</li>
+          <li><i style="background:#12a8ff">2</i> Sign-in / tokens via Cognito</li>
+          <li><i style="background:#12a8ff">3</i> Devices &amp; event history</li>
+          <li><i style="background:#12a8ff">4</i> New events persisted</li>
+          <li><i style="background:#16df9b">5</i> Nova Pro reads the evidence</li>
+          <li><i style="background:#16df9b">6</i> Analysis + decision stored</li>
+          <li><i style="background:#9a71ff">7</i> Snapshot / clip into S3</li>
+          <li><i style="background:#9a71ff">8</i> Ring media pulled server-side</li>
+          <li><i style="background:#ffc34a">9</i> Notify / Escalate → SES</li>
+          <li><i style="background:#ffc34a">10</i> Alert email delivered</li>
+          <li><i style="background:#9a71ff">11</i> Media served with the token</li>
+          <li><i style="background:#12a8ff">12</i> Browser drives each analysis</li>
+          <li><i style="background:#9a71ff">13</i> Live WebRTC, browser ⇄ Ring</li>
+        </ol>
+      </div>
+
+      <!-- design rules -->
+      <div class="rules">
+        <div class="rule g"><b>Per-user by construction</b><span>Every item is keyed by the verified Cognito sub — events, media, rules, chats, settings.</span></div>
+        <div class="rule p"><b>Nothing simulated in Real Mode</b><span>A panel is backed by Ring, AWS or Matan's stored data, or it says “future integration”.</span></div>
+        <div class="rule w"><b>Secrets stay server-side</b><span>Ring token in a sealed cookie, AWS access through the compute role, private S3.</span></div>
+        <div class="rule"><b>Built for serverless</b><span>No fire-and-forget work: analysis and email complete inside the request that started them.</span></div>
+      </div>
+    </div>
+  </body>
+</html>

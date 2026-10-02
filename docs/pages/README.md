@@ -1,5 +1,7 @@
 # MATAN AI — Real Mode page audit
 
+> System architecture (with the AWS, Ring and framework logos): [`../architecture/`](../architecture/)
+
 One document per page, each with: what the page does in **Real Mode** (signed-in user, Ring Developer Playground, AWS), a Mermaid diagram of how it works, a table of every section/function with its data source and state (✅ real · 🔒 future integration), the changes made during the audit, and what was verified against the live Playground. Screenshots live in [`ss/`](ss/).
 
 The rule applied on every page: **nothing is simulated in Real Mode.** A function is either backed by Ring, AWS or Matan's own per-user data, or it is labelled *Future integration* with the reason (usually a Ring Partner API / Playground limitation or something not built in this hackathon scope).

@@ -18,7 +18,7 @@ _Matan_ means **“eye”** in Tetum, the language of Timor-Leste.
 
 ---
 
-A Ring camera tells you _something moved_. It cannot tell you whether that something matters. MATAN AI closes that gap: every Ring event is read by **Amazon Nova Pro**, scored by a deterministic **Decision Engine**, checked against **Smart Rules** you control, and only then — if it deserves your attention — turned into one clear email.
+Ring's own app can already tell a person from a parcel. Through the **Ring Partner API**, though, a developer gets a device, a history entry and a camera frame — the understanding is yours to build. MATAN AI builds it: every Ring event is read by **Amazon Nova Pro**, scored by a deterministic **Decision Engine**, checked against **Smart Rules** you control, and only then — if it deserves your attention — turned into one clear email that says what was seen and which rule decided to send it.
 
 Built for the **Build, Ship, Shape: Amazon Developer Hackathon** (Ring track + AWS Builder mini challenge) against the real **Ring Developer Playground**, running on AWS.
 

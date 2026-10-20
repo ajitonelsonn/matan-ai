@@ -10,7 +10,7 @@ Events is the history of everything the connected Ring device recorded, with Mat
 
 ```mermaid
 flowchart TD
-  A["Ring history<br/>GET /v1/devices/{id}/history"] --> C[getRingEvents]
+  A["Ring history<br/>GET /v1/history/devices/{id}/events"] --> C[getRingEvents]
   B[(DynamoDB<br/>EVENT# · ANALYSIS# · MEDIA# · NOTIFICATION#)] --> C
   C --> D[overlayProcessingState<br/>analysis · notification · stage timestamps]
   D --> E[buildRingEventList<br/>search · category · priority · sort · paging]

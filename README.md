@@ -80,6 +80,7 @@ Everything is in [`docs/`](docs/) and is also browsable inside the app at `/docs
 - **[Real Mode page audit](docs/pages/README.md)** — every page: what is real, what is a future integration, and how it was verified
 - **Implementation notes** — [Bedrock/Nova](docs/BEDROCK_NOVA_IMPLEMENTATION.md) · [Cognito auth](docs/COGNITO_AUTH_IMPLEMENTATION.md) · [DynamoDB](docs/DYNAMODB_IMPLEMENTATION.md) · [S3 media](docs/S3_MEDIA_IMPLEMENTATION.md) · [SES notifications](docs/SES_NOTIFICATIONS_IMPLEMENTATION.md) · [Care Context & Smart Rules](docs/CARE_CONTEXT_SMART_RULES.md) · [Ring device intelligence](docs/RING_ACCOUNT_DEVICE_INTELLIGENCE.md) · [AWS deployment](docs/AWS_DEPLOYMENT.md)
 - **[Hackathon submission notes](docs/HACKATHON.md)** — which AWS services are used and how
+- **[Devpost submission sheet](docs/SUBMISSION.md)** — field-by-field answers, product feedback and the friction log
 
 ## Project principles
 

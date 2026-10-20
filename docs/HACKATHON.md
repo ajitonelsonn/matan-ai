@@ -4,6 +4,8 @@
 
 Repository: <https://github.com/ajitonelsonn/matan-ai> · License: [MIT](../LICENSE) · Live app: `https://main.d3q4rxuohabv2i.amplifyapp.com`
 
+> **Filling in the form?** Every required and optional field — description, product feedback, feature requests and the friction log — is answered and ready to paste in [`SUBMISSION.md`](SUBMISSION.md).
+
 ---
 
 ## Ring track — what the project does with Ring

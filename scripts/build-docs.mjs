@@ -17,10 +17,12 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_TS = join(ROOT, "lib/docs/generated.ts");
 const ASSET_DIR = join(ROOT, "public/docs-assets");
+/** Links to source files (../lib/ring/client.ts, ../LICENSE) point at GitHub in the app. */
+const REPO_URL = "https://github.com/ajitonelsonn/matan-ai";
 
 /** Order and grouping of the documentation in the sidebar. Anything not listed is appended. */
 const GROUPS = [
-  { id: "start", label: "Start here", match: (p) => p === "README.md" || p === "docs/HACKATHON.md" || p === "docs/SETUP.md" },
+  { id: "start", label: "Start here", match: (p) => p === "README.md" || p === "docs/HACKATHON.md" || p === "docs/SUBMISSION.md" || p === "docs/SETUP.md" },
   { id: "architecture", label: "Architecture", match: (p) => p.startsWith("docs/architecture/") },
   { id: "pages", label: "The product, page by page", match: (p) => p.startsWith("docs/pages/") },
   { id: "implementation", label: "Implementation notes", match: () => true },
@@ -33,6 +35,7 @@ const SUMMARY_OVERRIDES = {
 
 const TITLE_OVERRIDES = {
   "README.md": "MATAN AI — overview",
+  "docs/SUBMISSION.md": "Devpost submission sheet",
   "docs/pages/README.md": "Real Mode page audit",
   "docs/architecture/README.md": "Architecture diagrams",
 };
@@ -41,6 +44,7 @@ const ORDER_HINT = [
   "README.md",
   "docs/SETUP.md",
   "docs/HACKATHON.md",
+  "docs/SUBMISSION.md",
   "docs/architecture/README.md",
   "docs/pages/README.md",
   "docs/pages/auth.md",
@@ -134,6 +138,13 @@ for (const repoPath of mdFiles) {
     const candidates = [resolved, `${resolved}/README.md`, resolved.replace(/\/$/, "/README.md")];
     const hit = candidates.find((c) => bySlug.has(c));
     if (hit) return `${bang}[${text}](/docs/${bySlug.get(hit)}${hash ? `#${hash}` : ""})`;
+
+    // a link to a source file or folder in the repo → the same path on GitHub
+    const abs = join(ROOT, resolved);
+    if (existsSync(abs)) {
+      const kind = statSync(abs).isDirectory() ? "tree" : "blob";
+      return `${bang}[${text}](${REPO_URL}/${kind}/main/${resolved.replace(/\/$/, "")}${hash ? `#${hash}` : ""})`;
+    }
     return match;
   });
 

@@ -8,12 +8,14 @@
 
 ## Core Concept
 
-MATAN AI is NOT a Ring replacement — it's an intelligent interpretation layer that:
+MATAN AI is NOT a Ring replacement — it's a decision layer built on the Ring Partner API that:
 - Connects to Ring devices via the Ring Developer Playground API
 - Analyzes events using Amazon Bedrock (Nova Pro vision model)
 - Applies user-configurable care context and smart rules
-- Makes deterministic decisions about what matters
-- Sends intelligent notifications instead of motion spam
+- Makes deterministic, explainable decisions about what matters
+- Emails only what the decision warrants, with the reason and the matched rule attached
+
+**Positioning — keep this accurate.** Ring's own products already classify people, packages and vehicles (Smart Alerts), write AI Video Descriptions, search footage in natural language, merge related alerts and, since CES 2026, flag unusual activity. Never write that Ring "only detects motion" or sends "motion spam". What Matan adds is a layer a *developer* can build and a *user* can audit: the Partner API hands you a device, a history entry and a camera frame, and Matan turns that into a decision driven by rules the user authored, with the matched rule stored on the event — authored and auditable rather than inferred, running in the user's own AWS account.
 
 ## Tech Stack
 
@@ -64,16 +66,18 @@ React UI Dashboard
 - Secure user isolation (all data scoped to Cognito `sub`)
 
 ### 2. Ring Integration
-- Real Ring Developer Playground API connection
-- OAuth-based Ring account linking
-- Device discovery and management
+- Real Ring Developer Playground / Partner API connection
+- Connected with a Playground access token the user pastes — **not** OAuth account linking (`/v1/accounts/me/app-integrations` is not available to a Playground token)
+- Device discovery with status, capabilities, location and configuration
 - Event history retrieval
-- Live snapshot capture
-- Server-side Ring session with HttpOnly cookies
+- Snapshot and clip download, server-side (a snapshot needs a recent live-view session on the device)
+- WebRTC (WHEP) live view, SDP relayed by the server
+- Ring token sealed (AES-256-GCM) in an HttpOnly cookie, 30-minute Playground lifetime with a reconnect flow
 
 ### 3. AI-Powered Event Analysis
-- Amazon Bedrock Nova Pro vision model
-- Analyzes event images/videos for:
+- Amazon Bedrock Nova Pro vision model (Converse API)
+- Analyzes the Ring snapshot for the event window, escalating to the clip when a still is not enough (the Playground serves snapshots only — live-view simulations are not recordings)
+- Reads each frame for:
   - Subject/object detection (person, package, vehicle, animal)
   - Contextual scene understanding
   - Risk assessment
@@ -109,16 +113,18 @@ React UI Dashboard
 ### 7. UI/UX Dashboard
 Premium dark-mode interface with:
 - **Home** — At-a-glance status and recent intelligence
-- **Live View** — Real-time camera feeds with AI overlay
-- **Events** — Intelligent event history (not just motion spam)
-- **AI Insights** — Trends, patterns, and analytics
-- **AI Assistant** — Natural language queries (powered by Nova)
-- **Automations** — Event-driven workflows
-- **Security Modes** — Context-aware monitoring profiles
-- **Devices** — Ring device management
-- **Care & Family** — Family-focused monitoring
-- **Business** — Multi-location business security
+- **Live View** — WebRTC (WHEP) stream, real Ring snapshot, frame screenshot, today's timeline (device controls: future integration)
+- **Events** — Event history with Matan's analysis, decision and notification outcome on every entry
+- **AI Insights** — Trends, charts and a Nova-written period summary over the user's own events
+- **AI Assistant** — Natural language queries answered by Nova, grounded only in the user's own data
+- **Automations** — Smart Rules with real 7-day match counts and an activity log (device actions: future integration)
+- **Security Modes** — Per-user monitoring profile read by the Decision Engine
+- **Devices** — Ring discovery, capabilities and read-only configuration
+- **Care & Family** — Care Context: quiet hours, sensitivity, care status (family members / presence: future integration, the Ring Partner API exposes no household mapping)
+- **Business** — Single-location business view: 7-day metrics, busiest hours, daily report email (multiple locations and team roles: future integration)
 - **Settings** — Configuration and preferences
+
+> Every claim in this list is audited page by page in [`docs/pages/README.md`](../../docs/pages/README.md), with each function marked real or future integration. If this list and that audit ever disagree, the audit is right.
 
 ## Project Structure
 
@@ -352,24 +358,26 @@ The project has special consideration for Timor-Leste:
 
 ## Documentation
 
-Detailed specs available in project root:
-- `MATAN_AI_UI_UX_BUILD_SPEC.md` — Complete UI/UX specification
-- `MATAN_AI_CARE_CONTEXT_SMART_RULES.md` — Care context & rules implementation
-- `MATAN_AI_COGNITO_AUTH_IMPLEMENTATION_SPEC.md` — Authentication system
-- `MATAN_AI_BEDROCK_NOVA_MATAN_DECISION_SPEC.md` — AI analysis & decision engine
-- `MATAN_AI_RING_ADD_DEVICE_INTEGRATION.md` — Ring integration
-- `MATAN_AI_DYNAMODB_IMPLEMENTATION.md` — Database design
-- `MATAN_AI_S3_MEDIA_IMPLEMENTATION.md` — Media storage
-- `MATAN_AI_SES_NOTIFICATIONS_IMPLEMENTATION.md` — Notification system
-- `MATAN_AI_AWS_DEPLOYMENT_CLAUDE_HANDOFF.md` — Deployment guide
+The working specs (`MATAN_AI_*.md`) are local-only and git-ignored. What is in the repository is the implementation report for each milestone, which is what to read:
+
+| Area | Document |
+| --- | --- |
+| AI analysis & Decision Engine | [`docs/BEDROCK_NOVA_IMPLEMENTATION.md`](../../docs/BEDROCK_NOVA_IMPLEMENTATION.md) |
+| Care context & Smart Rules | [`docs/CARE_CONTEXT_SMART_RULES.md`](../../docs/CARE_CONTEXT_SMART_RULES.md) |
+| Authentication | [`docs/COGNITO_AUTH_IMPLEMENTATION.md`](../../docs/COGNITO_AUTH_IMPLEMENTATION.md) |
+| Ring integration | [`docs/RING_ADD_DEVICE_IMPLEMENTATION.md`](../../docs/RING_ADD_DEVICE_IMPLEMENTATION.md) · [`docs/RING_ACCOUNT_DEVICE_INTELLIGENCE.md`](../../docs/RING_ACCOUNT_DEVICE_INTELLIGENCE.md) |
+| Database design | [`docs/DYNAMODB_IMPLEMENTATION.md`](../../docs/DYNAMODB_IMPLEMENTATION.md) |
+| Media storage | [`docs/S3_MEDIA_IMPLEMENTATION.md`](../../docs/S3_MEDIA_IMPLEMENTATION.md) |
+| Notifications | [`docs/SES_NOTIFICATIONS_IMPLEMENTATION.md`](../../docs/SES_NOTIFICATIONS_IMPLEMENTATION.md) |
+| Deployment | [`docs/AWS_DEPLOYMENT.md`](../../docs/AWS_DEPLOYMENT.md) |
+| Every page, audited | [`docs/pages/README.md`](../../docs/pages/README.md) |
 
 ## Target Deployment
 
-- **Platform:** AWS Amplify Gen 2 (SSR compute)
+- **Platform:** AWS Amplify Hosting with Next.js SSR compute (`amplify.yml`, `version: 1`), IAM compute role — no long-lived keys
 - **Region:** us-east-1
-- **Build:** Next.js standalone output
-- **Environment:** Production environment variables via Amplify console
-- **Domain:** Custom domain with HTTPS
+- **Build:** default Next.js build; the build copies an allow-list of server variables into `.env.production`, because Amplify exposes console variables to the build only (see `docs/AWS_DEPLOYMENT.md`)
+- **Domain:** the default `*.amplifyapp.com` domain over HTTPS
 
 ## Key Principles
 
@@ -391,4 +399,4 @@ Detailed specs available in project root:
 
 ---
 
-**Remember:** MATAN AI makes Ring smarter — it doesn't replace Ring or fake Ring features. It's an intelligent interpretation layer that respects what Ring provides and adds contextual understanding on top.
+**Remember:** MATAN AI is a decision layer on top of Ring — it does not replace Ring, compete with Ring's own AI features, or fake capabilities the Partner API does not expose. It's an intelligent interpretation layer that respects what Ring provides and adds contextual understanding on top.

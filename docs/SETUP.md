@@ -64,7 +64,7 @@ pnpm build      # production build
 Sign up, confirm the emailed code, then pick an experience:
 
 - **Demo Mode** — the full product on a sample dataset. No Ring, Bedrock or SES needed.
-- **Real Mode** — open the [Ring Developer Playground](https://developer.ring.com), copy the 30-minute token, paste it into *Add Ring Device*, and the app switches to your real device, events and media.
+- **Real Mode** — open the [Ring Developer Playground](https://developer.amazon.com/ring/console/playground), copy the 30-minute token, paste it into *Add Ring Device*, and the app switches to your real device, events and media.
 
 ## 5. Try the real flow
 

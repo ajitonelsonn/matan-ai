@@ -1,7 +1,6 @@
 # MATAN AI — Ring Add Device Integration: Implementation Report
 
 **Status:** Implemented and verified (September 2026)
-**Spec:** `MATAN_AI_RING_ADD_DEVICE_INTEGRATION.md`
 **Scope:** Add Device → Ring Playground token → server-side Device Discovery → select/configure → persist → Devices page → token-expiry/reconnect UX → **plus** the first slice of the next milestone: real WebRTC (WHEP) Live View for connected Ring devices.
 
 ---

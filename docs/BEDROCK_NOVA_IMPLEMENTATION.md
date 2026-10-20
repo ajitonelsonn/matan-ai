@@ -1,7 +1,8 @@
 # MATAN AI — Amazon Bedrock + Nova Pro Event Analysis & Matan Decision: Implementation Report
 
-**Spec:** `MATAN_AI_BEDROCK_NOVA_MATAN_DECISION_SPEC.md`
 **Status:** Implemented and verified against the live Bedrock endpoint (September 2026).
+
+> **Read this as a dated milestone report.** Two things described below were replaced by later milestones: the intelligence store was in-memory here and is now DynamoDB ([`DYNAMODB_IMPLEMENTATION.md`](DYNAMODB_IMPLEMENTATION.md)), and the email action was "a later milestone" here and now sends through SES with an SMTP fallback ([`SES_NOTIFICATIONS_IMPLEMENTATION.md`](SES_NOTIFICATIONS_IMPLEMENTATION.md)). Everything about the Nova call, the schema validation and the Decision Engine is still current — see [`docs/pages/README.md`](pages/README.md) for the behaviour as it stands today.
 
 ---
 

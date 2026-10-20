@@ -40,7 +40,7 @@ flowchart LR
 ## Future integrations shown on this page
 - **Family members & presence** — no household-member mapping in the Ring API/Playground.
 - **Call home / two-way talk**, **speaker messages** — audio is not exposed to partners / unavailable on the Playground device.
-- **Check-in routines** — need presence data Ring does not provide.
+- **Check-in routines** — need presence data the Ring Partner API does not expose.
 
 ## Changes made during the Real Mode audit
 - Real Mode Care rebuilt around the real per-user Care Context: the previous "Care Features" toggles wrote to the shared demo family store and affected nothing; they are gone. The Care Context / Sensitivity / Notifications panels (the same ones as Settings › Care & Rules, minus the rule list) are embedded here.

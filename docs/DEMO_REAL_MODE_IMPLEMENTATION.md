@@ -1,6 +1,5 @@
 # MATAN AI — Demo Mode & Real Mode: Implementation Report
 
-**Spec:** `MATAN_AI_DEMO_REAL_MODE_UI_UX_SPEC.md`
 **Status:** Implemented (September 2026). Builds on the Ring Add Device integration (`docs/RING_ADD_DEVICE_IMPLEMENTATION.md`), which was left intact.
 
 ---

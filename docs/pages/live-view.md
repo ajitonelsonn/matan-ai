@@ -1,6 +1,6 @@
 # Live View — Real Mode
 
-**Route:** `/live` · **Component:** `components/pages/LivePage.tsx` · **Ring pieces:** `components/devices/RingLivePlayer.tsx`, `components/devices/ring-live-tools.tsx`
+**Route:** `/live` · **Component:** `components/pages/LivePage.tsx` · **Ring pieces:** `components/devices/ring-live-player.tsx`, `components/devices/ring-live-tools.tsx`
 
 ![Live View in Real Mode](ss/live-view-real-mode.png)
 

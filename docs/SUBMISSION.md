@@ -19,12 +19,12 @@ Every field the **Build, Ship, Shape: Amazon Developer Hackathon** form asks for
 | 7 | Product feedback on every tool / API / SDK used (AWS included) | ✅ [below](#5-product-feedback-required) |
 | 8 | Which track(s) and mini challenge(s) | ✅ Ring · AWS Builder · Open Source |
 | 9 | AWS Builder extra fields | ✅ [HACKATHON.md](HACKATHON.md#aws-builder-mini-challenge--which-aws-services-and-how) |
-| 10 | Open Source extra fields (contribution URL, repo URL, username, description) | ⚠️ [read this first](#3-open-source-mini-challenge) |
+| 10 | Open Source extra fields (contribution URL, repo URL, username, description) | ✅ [below](#3-open-source-mini-challenge) — separate library shipped |
 | 11 | If the project existed before the hackathon, say what changed | ✅ [below](#7-did-the-project-exist-before-the-hackathon) |
 | 12 | _Optional_ feature requests with urgency | ✅ [below](#8-feature-requests-optional) |
 | 13 | _Optional_ friction log — **up to 10% judging bonus** | ✅ [below](#9-friction-log-optional-up-to-10-judging-bonus) |
 
-Three things are still on you: **record the video**, **decide the Open Source answer**, and **paste these answers into the form**.
+Two things are still on you: **record the video**, and **paste these answers into the form**.
 
 ---
 
@@ -79,23 +79,26 @@ Entry points: [`app/api/ring/`](../app/api/ring/) (session, devices, events, med
 
 ## 3. Open Source mini challenge
 
-**Read this before you fill the form.** The rule is: *"Ship a **new, additional** open-source project (include an open-source license) **or** a contribution (a branch, a fork, or a pull request) to a public repository during the hackathon window, **alongside** your primary-track submission."*
+The rule asks for *"a **new, additional** open-source project (include an open-source license) **or** a contribution … **alongside** your primary-track submission"*, and the form asks for a **repo URL** and a **contribution URL** separately. So the contribution is a second, standalone project rather than the Ring-track repo pointed at twice:
 
-The MATAN AI repo **is** the primary-track submission. Using the same URL for both fields is defensible — it is a new repository, created in the hackathon window, MIT-licensed — but "additional … alongside" reads as *something beyond the main project*. A judge could score it either way, and the fix is small.
+**[`ring-playground-client`](https://github.com/ajitonelsonn/ring-playground-client)** — the Ring integration from MATAN AI, extracted as a reusable MIT-licensed library.
 
-**Recommended (safe) answer** — do one of these before submitting, then use it as the contribution URL:
-
-- **A.** Extract the Ring Playground client into its own small MIT repo (e.g. `ring-playground-client`): the eleven typed endpoint calls, the JSON:API normaliser, the error taxonomy and the 30-minute-token handling, with tests and a README. It is genuinely reusable by every other Ring entrant, and it is already written — it only has to be lifted out of `lib/ring/`.
-- **B.** Open a PR to a public Ring repo — the obvious target is [`ring-api-helloworld`](https://github.com/) (the canonical starter listed in the hackathon resources): add the snapshot-needs-a-live-session note, the WHEP start/stop pair, or TypeScript types for the JSON:API documents. PRs don't need to be merged.
-
-**Then paste:**
-
-- **Contribution URL:** _<the repo or PR from A or B>_
+- **Contribution URL:** <https://github.com/ajitonelsonn/ring-playground-client>
 - **Project repository URL:** <https://github.com/ajitonelsonn/matan-ai>
 - **GitHub username:** `ajitonelsonn`
-- **Short description (what you did, how it works, why it matters):** the ready-to-paste paragraphs in [HACKATHON.md](HACKATHON.md#open-source-mini-challenge), with the first sentence changed to name the extracted library or the PR.
+- **License:** MIT (both)
 
-If you decide to submit MATAN AI itself as the open-source entry, say so explicitly in the description — *"a new MIT-licensed open-source project created during the hackathon window, published so anyone can deploy their own instance"* — and lean on [`SETUP.md`](SETUP.md) as the evidence that it is genuinely reusable by others.
+**What I did, how it works, why it matters** _(ready to paste)_
+
+I extracted the Ring layer of MATAN AI into `ring-playground-client`, a standalone open-source TypeScript library for the Ring (Amazon Vision) Partner API — the part every Ring developer has to write before they can build anything.
+
+It is dependency-free and server-side (the Ring API cannot be called from a browser, and a token in a browser is a leaked token). `createRingClient({ token })` covers device discovery with side-loaded status, capabilities, location and configuration in one round trip, per-device status, history, image snapshots, video clips, WHEP live-view start and teardown, and the account endpoint, plus a `request()` escape hatch for endpoints it doesn't model. Ring's JSON:API documents are normalised into flat typed objects that keep a distinction the raw API blurs: `undefined` means Ring didn't report a field, `false`/`null` means Ring reported it absent. Every failure is one `RingApiError` with a stable code, and because Ring answers 401 for missing, invalid and expired tokens alike, the library reads the error detail to separate "expired, reconnect" from "invalid, check the token" — the difference the whole reconnect UX depends on. It also ships the token lifecycle: Playground tokens last 30 minutes and cannot be refreshed, so there are helpers for valid/expiring/expired plus a `stale` flag, because once the token dies nothing can re-check whether a camera is online and a device still showing a live green *Online* is lying. The bearer token is sent only to the Ring API host — never to the pre-signed media URLs Ring redirects to, never to the injected logger. 34 tests run against a stubbed `fetch`, so anyone can clone it and run the suite with no Ring account, and CI covers Node 20 and 22.
+
+It matters because the Ring API's real cost is not the HTTP calls, it is the undocumented behaviour: snapshots 404 until a live view has been started, your own media requests reappear in device history as `on_demand` events and get re-analysed, adding `video_options` to a clip request returns 400, `subscriptions` answers 422, webhooks can't be exercised from the Playground. Each of those cost me hours. The README documents eight of them in a table and the code already handles them, so the next person building on Ring starts where I finished instead of rediscovering the same walls.
+
+MATAN AI itself is also a new MIT-licensed open-source project created during the hackathon window, with provisioning scripts, a documented `.env.example`, a least-privilege IAM policy and deployment notes so anyone can run their own instance — see [`SETUP.md`](SETUP.md).
+
+> **Before submitting:** create the GitHub repo and push it — `git remote add origin https://github.com/ajitonelsonn/ring-playground-client.git && git push -u origin main`. The repo is committed locally at `~/Documents/ring-playground-client`.
 
 ---
 
@@ -340,7 +343,7 @@ Each entry: the task, the steps, expected vs actual, severity, the workaround we
 ## Before you hit submit
 
 1. **Record and publish the video** (public, English, under 3:00, shows the Ring simulator or a real device) — [shot list above](#4-demo-video-under-3-minutes).
-2. **Decide the Open Source answer** — [option A or B](#3-open-source-mini-challenge); A is roughly an hour of lifting `lib/ring/` into its own MIT repo.
+2. **Create and push `ring-playground-client`** so the contribution URL resolves — [§3](#3-open-source-mini-challenge).
 3. **Check the repo is public and the MIT file is at the root** (it is, as of 2026-10-20). If you ever make it private, add `knmeiss`, `giolaq`, `anishamalde`, `mosesroth`, `emersonsklar` as collaborators **at submission time** — invitations expire after 7 days.
 4. **Rotate `RING_SESSION_SECRET`** and confirm no screenshot, log or diagram in the repo shows a token, an email address or an AWS account id.
 5. **Paste:** description (§1), AWS write-up ([HACKATHON.md](HACKATHON.md#aws-builder-mini-challenge--which-aws-services-and-how)), Open Source fields (§3), product feedback (§5), pre-existing answer (§7), feature requests (§8), friction log (§9).

@@ -43,11 +43,13 @@ Architecture diagrams: [`docs/architecture/`](architecture/README.md). Deploymen
 ## Open Source Mini Challenge
 
 - **Project repository URL:** <https://github.com/ajitonelsonn/matan-ai>
-- **Contribution URL:** <https://github.com/ajitonelsonn/matan-ai> _(new open-source repository created during the hackathon window)_
+- **Contribution URL:** <https://github.com/ajitonelsonn/ring-playground-client> _(a separate MIT-licensed library extracted from this project during the hackathon window)_
 - **GitHub username:** `ajitonelsonn`
-- **License:** MIT
+- **License:** MIT (both repositories)
 
-**What it is, how it works, why it matters** _(ready to paste)_
+The full ready-to-paste answer for the mini challenge, including what the library does and why it matters to other Ring developers, is in [`SUBMISSION.md`](SUBMISSION.md#3-open-source-mini-challenge).
+
+**What MATAN AI is, how it works, why it matters** _(ready to paste)_
 
 MATAN AI is a new open-source project: an AI home-awareness dashboard for Ring devices. It takes each Ring event, has Amazon Nova Pro read the camera evidence, scores it with a deterministic Decision Engine, applies the user's own Smart Rules (quiet hours, sensitivity, repeat detection), and only emails the person when the decision warrants it — with the analyzed frame and the reason. It runs entirely on AWS (Cognito, Bedrock, DynamoDB, S3, SES, Amplify Hosting) and on the Ring API.
 

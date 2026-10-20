@@ -1,6 +1,6 @@
 # Hackathon submission notes
 
-**Build, Ship, Shape: Amazon Developer Hackathon** — primary track: **Ring**. Also submitted to the **AWS Builder Mini Challenge** and the **Open Source Mini Challenge**.
+**Build, Ship, Shape: Amazon Developer Hackathon** — primary track: **Ring**. Also entered in the **AWS Builder Mini Challenge**.
 
 Repository: <https://github.com/ajitonelsonn/matan-ai> · License: [MIT](../LICENSE) · Live app: `https://main.d3q4rxuohabv2i.amplifyapp.com`
 
@@ -40,14 +40,13 @@ Ring's limits are surfaced, not hidden: device control (siren, lights, lock, rec
 
 Architecture diagrams: [`docs/architecture/`](architecture/README.md). Deployment and the production issues we hit and fixed: [`docs/AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md).
 
-## Open Source Mini Challenge
+## Open source
 
-- **Project repository URL:** <https://github.com/ajitonelsonn/matan-ai>
-- **Contribution URL:** <https://github.com/ajitonelsonn/ring-playground-client> _(a separate MIT-licensed library extracted from this project during the hackathon window)_
+The repository is public and MIT-licensed, which is what the main submission requires. The **Open Source mini challenge is not entered**: it asks for a *new, additional* project or contribution alongside the primary-track submission, and MATAN AI is the primary-track submission. The reasoning is in [`SUBMISSION.md`](SUBMISSION.md#3-open-source-mini-challenge--not-entered).
+
+- **Repository:** <https://github.com/ajitonelsonn/matan-ai>
+- **Licence:** [MIT](../LICENSE)
 - **GitHub username:** `ajitonelsonn`
-- **License:** MIT (both repositories)
-
-The full ready-to-paste answer for the mini challenge, including what the library does and why it matters to other Ring developers, is in [`SUBMISSION.md`](SUBMISSION.md#3-open-source-mini-challenge).
 
 **What MATAN AI is, how it works, why it matters** _(ready to paste)_
 

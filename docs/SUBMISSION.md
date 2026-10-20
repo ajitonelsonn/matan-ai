@@ -2,7 +2,7 @@
 
 Every field the **Build, Ship, Shape: Amazon Developer Hackathon** form asks for, answered and ready to paste. Requirements are from the [official rules](https://amazonappdev2026.devpost.com/); the track context and the AWS write-up live in [`HACKATHON.md`](HACKATHON.md).
 
-**Deadline:** Oct 24, 2026 @ 4:00am GMT+9 · **Primary track:** Ring · **Mini challenges:** AWS Builder, Open Source
+**Deadline:** Oct 24, 2026 @ 4:00am GMT+9 · **Primary track:** Ring · **Mini challenge:** AWS Builder
 
 ---
 
@@ -17,9 +17,9 @@ Every field the **Build, Ship, Shape: Amazon Developer Hackathon** form asks for
 | 5 | Ring: demo shows the project working through a simulator or a real device | ⬜ **record the video** — [shot list](#4-demo-video-under-3-minutes) |
 | 6 | Demo video under 3 minutes, public, English, YouTube or Vimeo | ⬜ **you** |
 | 7 | Product feedback on every tool / API / SDK used (AWS included) | ✅ [below](#5-product-feedback-required) |
-| 8 | Which track(s) and mini challenge(s) | ✅ Ring · AWS Builder · Open Source |
+| 8 | Which track(s) and mini challenge(s) | ✅ Ring · AWS Builder |
 | 9 | AWS Builder extra fields | ✅ [HACKATHON.md](HACKATHON.md#aws-builder-mini-challenge--which-aws-services-and-how) |
-| 10 | Open Source extra fields (contribution URL, repo URL, username, description) | ✅ [below](#3-open-source-mini-challenge) — separate library shipped |
+| 10 | Open Source mini challenge | — not entered ([why](#3-open-source-mini-challenge--not-entered)) |
 | 11 | If the project existed before the hackathon, say what changed | ✅ [below](#7-did-the-project-exist-before-the-hackathon) |
 | 12 | _Optional_ feature requests with urgency | ✅ [below](#8-feature-requests-optional) |
 | 13 | _Optional_ friction log — **up to 10% judging bonus** | ✅ [below](#9-friction-log-optional-up-to-10-judging-bonus) |
@@ -77,28 +77,15 @@ Entry points: [`app/api/ring/`](../app/api/ring/) (session, devices, events, med
 
 ---
 
-## 3. Open Source mini challenge
+## 3. Open Source mini challenge — not entered
 
-The rule asks for *"a **new, additional** open-source project (include an open-source license) **or** a contribution … **alongside** your primary-track submission"*, and the form asks for a **repo URL** and a **contribution URL** separately. So the contribution is a second, standalone project rather than the Ring-track repo pointed at twice:
+This submission enters the **Ring track** and the **AWS Builder mini challenge** only.
 
-**[`ring-playground-client`](https://github.com/ajitonelsonn/ring-playground-client)** — the Ring integration from MATAN AI, extracted as a reusable MIT-licensed library.
+The Open Source rule asks for a *new, additional* open-source project or contribution *alongside* the primary-track submission — something beyond the main project. MATAN AI is itself new, MIT-licensed and public, but it **is** the Ring-track entry, so it would be the same URL in both fields. Rather than stretch the rule, the mini challenge is left blank and the effort goes into the track entry.
 
-- **Contribution URL:** <https://github.com/ajitonelsonn/ring-playground-client>
-- **Project repository URL:** <https://github.com/ajitonelsonn/matan-ai>
-- **GitHub username:** `ajitonelsonn`
-- **License:** MIT (both)
+This changes nothing about the repository: a public repo with an open-source licence is required for the main submission anyway, so MATAN AI stays [MIT](../LICENSE) and public, and [`SETUP.md`](SETUP.md) stays complete enough for anyone to deploy their own instance.
 
-**What I did, how it works, why it matters** _(ready to paste)_
-
-I extracted the Ring layer of MATAN AI into `ring-playground-client`, a standalone open-source TypeScript library for the Ring (Amazon Vision) Partner API — the part every Ring developer has to write before they can build anything.
-
-It is dependency-free and server-side (the Ring API cannot be called from a browser, and a token in a browser is a leaked token). `createRingClient({ token })` covers device discovery with side-loaded status, capabilities, location and configuration in one round trip, per-device status, history, image snapshots, video clips, WHEP live-view start and teardown, and the account endpoint, plus a `request()` escape hatch for endpoints it doesn't model. Ring's JSON:API documents are normalised into flat typed objects that keep a distinction the raw API blurs: `undefined` means Ring didn't report a field, `false`/`null` means Ring reported it absent. Every failure is one `RingApiError` with a stable code, and because Ring answers 401 for missing, invalid and expired tokens alike, the library reads the error detail to separate "expired, reconnect" from "invalid, check the token" — the difference the whole reconnect UX depends on. It also ships the token lifecycle: Playground tokens last 30 minutes and cannot be refreshed, so there are helpers for valid/expiring/expired plus a `stale` flag, because once the token dies nothing can re-check whether a camera is online and a device still showing a live green *Online* is lying. The bearer token is sent only to the Ring API host — never to the pre-signed media URLs Ring redirects to, never to the injected logger. 34 tests run against a stubbed `fetch`, so anyone can clone it and run the suite with no Ring account, and CI covers Node 20 and 22.
-
-It matters because the Ring API's real cost is not the HTTP calls, it is the undocumented behaviour: snapshots 404 until a live view has been started, your own media requests reappear in device history as `on_demand` events and get re-analysed, adding `video_options` to a clip request returns 400, `subscriptions` answers 422, webhooks can't be exercised from the Playground. Each of those cost me hours. The README documents eight of them in a table and the code already handles them, so the next person building on Ring starts where I finished instead of rediscovering the same walls.
-
-MATAN AI itself is also a new MIT-licensed open-source project created during the hackathon window, with provisioning scripts, a documented `.env.example`, a least-privilege IAM policy and deployment notes so anyone can run their own instance — see [`SETUP.md`](SETUP.md).
-
-> **Before submitting:** create the GitHub repo and push it — `git remote add origin https://github.com/ajitonelsonn/ring-playground-client.git && git push -u origin main`. The repo is committed locally at `~/Documents/ring-playground-client`.
+_(If you change your mind before the deadline: `ring-playground-client` — the Ring layer extracted as a standalone MIT library with 34 tests and a README documenting the API's traps — is committed locally at `~/Documents/ring-playground-client` and only needs a GitHub repo and a push.)_
 
 ---
 
@@ -343,7 +330,7 @@ Each entry: the task, the steps, expected vs actual, severity, the workaround we
 ## Before you hit submit
 
 1. **Record and publish the video** (public, English, under 3:00, shows the Ring simulator or a real device) — [shot list above](#4-demo-video-under-3-minutes).
-2. **Create and push `ring-playground-client`** so the contribution URL resolves — [§3](#3-open-source-mini-challenge).
-3. **Check the repo is public and the MIT file is at the root** (it is, as of 2026-10-20). If you ever make it private, add `knmeiss`, `giolaq`, `anishamalde`, `mosesroth`, `emersonsklar` as collaborators **at submission time** — invitations expire after 7 days.
-4. **Rotate `RING_SESSION_SECRET`** and confirm no screenshot, log or diagram in the repo shows a token, an email address or an AWS account id.
-5. **Paste:** description (§1), AWS write-up ([HACKATHON.md](HACKATHON.md#aws-builder-mini-challenge--which-aws-services-and-how)), Open Source fields (§3), product feedback (§5), pre-existing answer (§7), feature requests (§8), friction log (§9).
+2. **Check the repo is public and the MIT file is at the root** (it is, as of 2026-10-20). If you ever make it private, add `knmeiss`, `giolaq`, `anishamalde`, `mosesroth`, `emersonsklar` as collaborators **at submission time** — invitations expire after 7 days.
+3. **Rotate `RING_SESSION_SECRET`** and confirm no screenshot, log or diagram in the repo shows a token, an email address or an AWS account id.
+4. **Enter Ring + AWS Builder only** — leave the Open Source fields blank ([§3](#3-open-source-mini-challenge--not-entered)).
+5. **Paste:** description (§1), AWS write-up ([HACKATHON.md](HACKATHON.md#aws-builder-mini-challenge--which-aws-services-and-how)), product feedback (§5), pre-existing answer (§7), feature requests (§8), friction log (§9).

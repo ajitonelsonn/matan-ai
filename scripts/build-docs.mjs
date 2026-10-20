@@ -22,7 +22,7 @@ const REPO_URL = "https://github.com/ajitonelsonn/matan-ai";
 
 /** Order and grouping of the documentation in the sidebar. Anything not listed is appended. */
 const GROUPS = [
-  { id: "start", label: "Start here", match: (p) => p === "README.md" || p === "docs/HACKATHON.md" || p === "docs/SUBMISSION.md" || p === "docs/SETUP.md" },
+  { id: "start", label: "Start here", match: (p) => p === "README.md" || p === "docs/SETUP.md" },
   { id: "architecture", label: "Architecture", match: (p) => p.startsWith("docs/architecture/") },
   { id: "pages", label: "The product, page by page", match: (p) => p.startsWith("docs/pages/") },
   { id: "implementation", label: "Implementation notes", match: () => true },
@@ -33,9 +33,14 @@ const SUMMARY_OVERRIDES = {
     "Four diagrams of how MATAN AI is put together: the system architecture, the event-to-alert lifecycle, the feature map and the deployment and security view - with the flows written out in full.",
 };
 
+/**
+ * Private working notes: git-ignored, and never published to /docs even when the
+ * files are present locally, so the site is the same here and on deployment.
+ */
+const EXCLUDED = new Set(["docs/HACKATHON.md", "docs/SUBMISSION.md"]);
+
 const TITLE_OVERRIDES = {
   "README.md": "MATAN AI — overview",
-  "docs/SUBMISSION.md": "Devpost submission sheet",
   "docs/pages/README.md": "Real Mode page audit",
   "docs/architecture/README.md": "Architecture diagrams",
 };
@@ -43,8 +48,6 @@ const TITLE_OVERRIDES = {
 const ORDER_HINT = [
   "README.md",
   "docs/SETUP.md",
-  "docs/HACKATHON.md",
-  "docs/SUBMISSION.md",
   "docs/architecture/README.md",
   "docs/pages/README.md",
   "docs/pages/auth.md",
@@ -103,7 +106,8 @@ function summaryFor(markdown) {
 
 const mdFiles = [join(ROOT, "README.md"), ...walk(join(ROOT, "docs"))]
   .filter(existsSync)
-  .map((f) => relative(ROOT, f).split("\\").join("/"));
+  .map((f) => relative(ROOT, f).split("\\").join("/"))
+  .filter((p) => !EXCLUDED.has(p));
 
 const bySlug = new Map(mdFiles.map((p) => [p, slugFor(p)]));
 

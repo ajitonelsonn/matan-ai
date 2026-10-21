@@ -93,4 +93,6 @@ Made in Dili for _Safer Homes, Stronger Communities_. The product is designed fo
 
 ## License
 
-[MIT](LICENSE) — you are free to run, modify and deploy your own instance. Ring, AWS and other marks belong to their respective owners.
+[MIT](LICENSE) — you are free to run, modify and deploy your own instance.
+
+Ring, AWS, Amazon Bedrock, Amazon Nova and other product names are trademarks of their respective owners. This project is not affiliated with or endorsed by them.

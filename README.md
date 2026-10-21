@@ -78,6 +78,7 @@ Everything is in [`docs/`](docs/) and is also browsable inside the app at `/docs
 
 - **[Architecture](docs/architecture/README.md)** — the four diagrams above, with the flows written out
 - **[Real Mode page audit](docs/pages/README.md)** — every page: what is real, what is a future integration, and how it was verified
+- **[Developer feedback](docs/FRICTION_LOG.md)** — friction log and feature requests for the Ring and AWS teams
 - **Implementation notes** — [Bedrock/Nova](docs/BEDROCK_NOVA_IMPLEMENTATION.md) · [Cognito auth](docs/COGNITO_AUTH_IMPLEMENTATION.md) · [DynamoDB](docs/DYNAMODB_IMPLEMENTATION.md) · [S3 media](docs/S3_MEDIA_IMPLEMENTATION.md) · [SES notifications](docs/SES_NOTIFICATIONS_IMPLEMENTATION.md) · [Care Context & Smart Rules](docs/CARE_CONTEXT_SMART_RULES.md) · [Ring device intelligence](docs/RING_ACCOUNT_DEVICE_INTELLIGENCE.md) · [AWS deployment](docs/AWS_DEPLOYMENT.md)
 
 ## Project principles
